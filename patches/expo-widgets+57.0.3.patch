@@ -1,0 +1,847 @@
+diff --git a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+index 972fa4f..b1b1073 100644
+--- a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
++++ b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
+@@ -1,4 +1,7 @@
+ import AppIntents
++import ActivityKit
++import Foundation
++import SQLite3
+ import WidgetKit
+ 
+ struct WidgetReload: AppIntent {
+@@ -76,18 +79,28 @@ struct WidgetUserInteraction: AppIntent {
+       newProps = nil
+     }
+ 
++    guard var newTimeline = timeline as? [[String: Any]] else {
++      return .result()
++    }
++
+     if let newProps {
+       var newEntry = entry
+       if let originalProps = entry["props"] as? [String: Any] {
+         newEntry["props"] = originalProps.merging(newProps) { _, new in new }
+       }
+-      guard var newTimeline = timeline as? [[String: Any]] else {
+-        return .result()
+-      }
+       newTimeline[entryIndex] = newEntry
+-      WidgetsStorage.set(newTimeline, forKey: "__expo_widgets_\(source)_timeline")
+     }
+ 
++    if source == "WorkoutControlWidget" {
++      newTimeline = await LoofitWidgetActions.handleWorkoutControlAction(
++        target: target,
++        timeline: newTimeline,
++        entryIndex: entryIndex
++      )
++    }
++
++    WidgetsStorage.set(newTimeline, forKey: "__expo_widgets_\(source)_timeline")
++
+     WidgetsEvents.shared.sendNotification(type: .userEvent, data: [
+       "source": source as Any,
+       "target": target as Any,
+@@ -100,6 +113,802 @@ struct WidgetUserInteraction: AppIntent {
+   }
+ }
+ 
++private enum LoofitWidgetActions {
++  private static let databaseName = "loofit.db"
++  private static let heatmapWidgetName = "HeatmapCalendarWidget"
++  private static let liveActivityName = "WorkoutLiveActivity"
++  private static let startTarget = "start-recommended"
++  private static let endTarget = "end-active"
++  private static let sqliteTransient = unsafeBitCast(
++    OpaquePointer(bitPattern: -1),
++    to: sqlite3_destructor_type.self
++  )
++
++  static func handleWorkoutControlAction(
++    target: String?,
++    timeline: [[String: Any]],
++    entryIndex: Int
++  ) async -> [[String: Any]] {
++    guard let target else {
++      return timeline
++    }
++
++    switch target {
++    case startTarget:
++      guard let result = startRecommendedWorkout() else {
++        return timeline
++      }
++      await startLiveActivity(title: result.title, startedAt: result.startedAt)
++      return timelineAfterStart(timeline, entryIndex: entryIndex, result: result)
++
++    case endTarget:
++      guard let result = completeActiveWorkout() else {
++        return timeline
++      }
++      syncHeatmapWidget()
++      await endLiveActivities()
++      return timelineAfterCompletion(timeline, entryIndex: entryIndex, result: result)
++
++    default:
++      return timeline
++    }
++  }
++
++  private static func startRecommendedWorkout() -> StartedWorkout? {
++    withDatabase { db in
++      guard execute(db, "PRAGMA busy_timeout = 5000"),
++            execute(db, "BEGIN IMMEDIATE") else {
++        return nil
++      }
++
++      if let active = fetchActiveSession(db) {
++        execute(db, "ROLLBACK")
++        return StartedWorkout(title: active.title, startedAt: active.startedAt)
++      }
++
++      guard let routineId = fetchActiveRoutineId(db),
++            let routineDay = fetchNextRoutineDay(db, activeRoutineId: routineId) else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      let parts = fetchRoutineDayParts(db, routineDayId: routineDay.id)
++      guard !parts.isEmpty else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      let now = Date()
++      let nowString = isoString(now)
++      guard execute(
++        db,
++        """
++        INSERT INTO workout_sessions
++          (routine_id, routine_day_id, started_at, ended_at, duration_seconds, status, note, created_at, updated_at)
++        VALUES (?, ?, ?, NULL, 0, 'active', NULL, ?, ?)
++        """,
++        [.int(routineId), .int(routineDay.id), .text(nowString), .text(nowString), .text(nowString)]
++      ) else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      let sessionId = sqlite3_last_insert_rowid(db)
++      for part in parts {
++        guard execute(
++          db,
++          """
++          INSERT INTO workout_session_parts_snapshot
++            (workout_session_id, body_part_id, body_part_name, body_part_color, sort_order)
++          VALUES (?, ?, ?, ?, ?)
++          """,
++          [.int(sessionId), .int(part.id), .text(part.name), .text(part.color), .int(Int64(part.sortOrder))]
++        ) else {
++          execute(db, "ROLLBACK")
++          return nil
++        }
++      }
++
++      guard execute(db, "COMMIT") else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      return StartedWorkout(title: joinPartNames(parts.map(\.name)), startedAt: nowString)
++    }
++  }
++
++  private static func completeActiveWorkout() -> CompletedWorkout? {
++    withDatabase { db in
++      guard execute(db, "PRAGMA busy_timeout = 5000"),
++            execute(db, "BEGIN IMMEDIATE") else {
++        return nil
++      }
++
++      guard let active = fetchActiveSession(db) else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      let now = Date()
++      let duration = max(0, Int(now.timeIntervalSince(parseISODate(active.startedAt) ?? now)))
++      let nowString = isoString(now)
++
++      guard execute(
++        db,
++        """
++        UPDATE workout_sessions
++        SET status = 'completed', ended_at = ?, duration_seconds = ?, updated_at = ?
++        WHERE id = ? AND status = 'active'
++        """,
++        [.text(nowString), .int(Int64(duration)), .text(nowString), .int(active.id)]
++      ) else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      if let completedRoutineDayId = active.routineDayId {
++        let activeRoutineId = fetchActiveRoutineId(db)
++        let nextRoutineDayId = activeRoutineId.flatMap {
++          fetchRoutineDayAfterCompletion(
++            db,
++            routineId: $0,
++            completedRoutineDayId: completedRoutineDayId
++          )
++        }
++        guard upsertRoutineProgress(
++          db,
++          activeRoutineId: activeRoutineId,
++          nextRoutineDayId: nextRoutineDayId,
++          updatedAt: nowString
++        ) else {
++          execute(db, "ROLLBACK")
++          return nil
++        }
++      }
++
++      guard execute(db, "COMMIT") else {
++        execute(db, "ROLLBACK")
++        return nil
++      }
++
++      return CompletedWorkout(
++        title: active.title,
++        durationSeconds: duration,
++        completedAt: now
++      )
++    }
++  }
++
++  private static func timelineAfterStart(
++    _ timeline: [[String: Any]],
++    entryIndex: Int,
++    result: StartedWorkout
++  ) -> [[String: Any]] {
++    var updatedTimeline = timeline
++    guard updatedTimeline.indices.contains(entryIndex) else {
++      return timeline
++    }
++    updatedTimeline[entryIndex] = [
++      "timestamp": currentTimestamp(),
++      "props": [
++        "state": "active",
++        "title": result.title,
++        "subtitle": "운동 중",
++        "durationLabel": "진행 중",
++        "startedAt": result.startedAt
++      ]
++    ]
++    return [updatedTimeline[entryIndex]]
++  }
++
++  private static func timelineAfterCompletion(
++    _ timeline: [[String: Any]],
++    entryIndex: Int,
++    result: CompletedWorkout
++  ) -> [[String: Any]] {
++    var updatedTimeline = timeline
++    guard updatedTimeline.indices.contains(entryIndex) else {
++      return timeline
++    }
++
++    updatedTimeline[entryIndex] = [
++      "timestamp": currentTimestamp(),
++      "props": [
++        "state": "completed",
++        "title": result.title,
++        "subtitle": "오늘 운동 완료",
++        "durationLabel": formatDuration(result.durationSeconds)
++      ]
++    ]
++
++    let tomorrowEntry: [String: Any] = [
++      "timestamp": timestamp(for: startOfTomorrow(from: result.completedAt)),
++      "props": idleProps()
++    ]
++
++    if updatedTimeline.count > entryIndex + 1 {
++      updatedTimeline[entryIndex + 1] = tomorrowEntry
++    } else {
++      updatedTimeline.append(tomorrowEntry)
++    }
++
++    return updatedTimeline
++  }
++
++  private static func idleProps() -> [String: Any] {
++    withDatabase { db in
++      guard let routineId = fetchActiveRoutineId(db),
++            let routineDay = fetchNextRoutineDay(db, activeRoutineId: routineId) else {
++        return [
++          "state": "idle",
++          "title": "루틴 설정 필요",
++          "subtitle": "앱에서 첫 루틴을 설정하세요",
++          "durationLabel": "바로 시작"
++        ]
++      }
++
++      let parts = fetchRoutineDayParts(db, routineDayId: routineDay.id)
++      return [
++        "state": "idle",
++        "title": routineDay.name,
++        "subtitle": joinPartNames(parts.map(\.name)),
++        "durationLabel": "바로 시작"
++      ]
++    } ?? [
++      "state": "idle",
++      "title": "루틴 설정 필요",
++      "subtitle": "앱에서 첫 루틴을 설정하세요",
++      "durationLabel": "바로 시작"
++    ]
++  }
++
++  private static func syncHeatmapWidget() {
++    guard let days = withDatabase({ db in buildHeatmapDays(db, days: 30, now: Date()) }) else {
++      return
++    }
++
++    WidgetsStorage.set(
++      [
++        [
++          "timestamp": currentTimestamp(),
++          "props": ["days": days]
++        ]
++      ],
++      forKey: "__expo_widgets_\(heatmapWidgetName)_timeline"
++    )
++    WidgetCenter.shared.reloadTimelines(ofKind: heatmapWidgetName)
++  }
++
++  private static func startLiveActivity(title: String, startedAt: String) async {
++    guard #available(iOS 16.2, *),
++          ActivityAuthorizationInfo().areActivitiesEnabled,
++          Activity<LiveActivityAttributes>.activities.isEmpty else {
++      return
++    }
++
++    let props: [String: Any] = [
++      "title": title,
++      "subtitle": "Loofit 운동 중",
++      "startedAt": startedAt
++    ]
++    guard let data = try? JSONSerialization.data(withJSONObject: props),
++          let propsString = String(data: data, encoding: .utf8) else {
++      return
++    }
++
++    do {
++      _ = try Activity.request(
++        attributes: LiveActivityAttributes(),
++        content: ActivityContent(
++          state: LiveActivityAttributes.ContentState(name: liveActivityName, props: propsString),
++          staleDate: nil
++        ),
++        pushType: nil
++      )
++    } catch {
++      print("[Loofit] Failed to start widget Live Activity: \(error.localizedDescription)")
++    }
++  }
++
++  private static func endLiveActivities() async {
++    guard #available(iOS 16.2, *) else {
++      return
++    }
++
++    for activity in Activity<LiveActivityAttributes>.activities {
++      await activity.end(nil, dismissalPolicy: .immediate)
++    }
++  }
++
++  private static func withDatabase<T>(_ body: (OpaquePointer) -> T?) -> T? {
++    guard let groupIdentifier = WidgetsStorage.appGroupIdentifier,
++          let containerUrl = FileManager.default.containerURL(
++            forSecurityApplicationGroupIdentifier: groupIdentifier
++          ) else {
++      return nil
++    }
++
++    let directoryUrl = containerUrl.appendingPathComponent("ExpoWidgets", isDirectory: true)
++    do {
++      try FileManager.default.createDirectory(at: directoryUrl, withIntermediateDirectories: true)
++    } catch {
++      print("[Loofit] Failed to create widget database directory: \(error.localizedDescription)")
++      return nil
++    }
++
++    let databaseUrl = directoryUrl.appendingPathComponent(databaseName, isDirectory: false)
++    var db: OpaquePointer?
++    guard sqlite3_open(databaseUrl.path, &db) == SQLITE_OK, let db else {
++      print("[Loofit] Failed to open widget database")
++      return nil
++    }
++    defer { sqlite3_close(db) }
++
++    return body(db)
++  }
++
++  private static func fetchActiveSession(_ db: OpaquePointer) -> ActiveSession? {
++    guard let statement = prepare(
++      db,
++      """
++      SELECT id, routine_id, routine_day_id, started_at
++      FROM workout_sessions
++      WHERE status = 'active'
++      ORDER BY started_at DESC, id DESC
++      LIMIT 1
++      """
++    ) else {
++      return nil
++    }
++    defer { sqlite3_finalize(statement) }
++
++    guard sqlite3_step(statement) == SQLITE_ROW else {
++      return nil
++    }
++
++    let id = sqlite3_column_int64(statement, 0)
++    let startedAt = columnString(statement, 3) ?? isoString(Date())
++    return ActiveSession(
++      id: id,
++      routineId: columnInt64(statement, 1),
++      routineDayId: columnInt64(statement, 2),
++      startedAt: startedAt,
++      title: fetchSessionTitle(db, sessionId: id)
++    )
++  }
++
++  private static func fetchSessionTitle(_ db: OpaquePointer, sessionId: Int64) -> String {
++    let names = fetchStrings(
++      db,
++      """
++      SELECT body_part_name
++      FROM workout_session_parts_snapshot
++      WHERE workout_session_id = ?
++      ORDER BY sort_order ASC, id ASC
++      """,
++      [.int(sessionId)]
++    )
++    return joinPartNames(names)
++  }
++
++  private static func fetchActiveRoutineId(_ db: OpaquePointer) -> Int64? {
++    fetchInt64(
++      db,
++      "SELECT id FROM routines WHERE is_active = 1 ORDER BY id DESC LIMIT 1"
++    )
++  }
++
++  private static func fetchNextRoutineDay(
++    _ db: OpaquePointer,
++    activeRoutineId: Int64
++  ) -> RoutineDay? {
++    let nextRoutineDayId = fetchInt64(
++      db,
++      "SELECT next_routine_day_id FROM routine_progress WHERE id = 1"
++    )
++    if let nextRoutineDayId,
++       let day = fetchRoutineDay(db, routineDayId: nextRoutineDayId),
++       day.routineId == activeRoutineId {
++      return day
++    }
++
++    guard let firstDayId = fetchInt64(
++      db,
++      "SELECT id FROM routine_days WHERE routine_id = ? ORDER BY sort_order ASC, id ASC LIMIT 1",
++      [.int(activeRoutineId)]
++    ) else {
++      return nil
++    }
++    return fetchRoutineDay(db, routineDayId: firstDayId)
++  }
++
++  private static func fetchRoutineDay(_ db: OpaquePointer, routineDayId: Int64) -> RoutineDay? {
++    guard let statement = prepare(
++      db,
++      """
++      SELECT id, routine_id, name, sort_order
++      FROM routine_days
++      WHERE id = ?
++      LIMIT 1
++      """,
++      [.int(routineDayId)]
++    ) else {
++      return nil
++    }
++    defer { sqlite3_finalize(statement) }
++
++    guard sqlite3_step(statement) == SQLITE_ROW else {
++      return nil
++    }
++
++    return RoutineDay(
++      id: sqlite3_column_int64(statement, 0),
++      routineId: sqlite3_column_int64(statement, 1),
++      name: columnString(statement, 2) ?? "추천 운동",
++      sortOrder: Int(sqlite3_column_int64(statement, 3))
++    )
++  }
++
++  private static func fetchRoutineDayParts(
++    _ db: OpaquePointer,
++    routineDayId: Int64
++  ) -> [RoutinePart] {
++    guard let statement = prepare(
++      db,
++      """
++      SELECT bp.id, bp.name, bp.color, rdp.sort_order
++      FROM routine_day_parts rdp
++      JOIN body_parts bp ON bp.id = rdp.body_part_id
++      WHERE rdp.routine_day_id = ?
++      ORDER BY rdp.sort_order ASC, rdp.id ASC
++      """,
++      [.int(routineDayId)]
++    ) else {
++      return []
++    }
++    defer { sqlite3_finalize(statement) }
++
++    var parts: [RoutinePart] = []
++    while sqlite3_step(statement) == SQLITE_ROW {
++      parts.append(
++        RoutinePart(
++          id: sqlite3_column_int64(statement, 0),
++          name: columnString(statement, 1) ?? "운동",
++          color: columnString(statement, 2) ?? "#6C757D",
++          sortOrder: Int(sqlite3_column_int64(statement, 3))
++        )
++      )
++    }
++    return parts
++  }
++
++  private static func fetchRoutineDayAfterCompletion(
++    _ db: OpaquePointer,
++    routineId: Int64,
++    completedRoutineDayId: Int64
++  ) -> Int64? {
++    let ids = fetchInt64s(
++      db,
++      "SELECT id FROM routine_days WHERE routine_id = ? ORDER BY sort_order ASC, id ASC",
++      [.int(routineId)]
++    )
++    guard !ids.isEmpty else {
++      return nil
++    }
++    guard let completedIndex = ids.firstIndex(of: completedRoutineDayId) else {
++      return ids[0]
++    }
++    return ids[(completedIndex + 1) % ids.count]
++  }
++
++  private static func upsertRoutineProgress(
++    _ db: OpaquePointer,
++    activeRoutineId: Int64?,
++    nextRoutineDayId: Int64?,
++    updatedAt: String
++  ) -> Bool {
++    execute(
++      db,
++      """
++      INSERT INTO routine_progress (id, active_routine_id, next_routine_day_id, updated_at)
++      VALUES (1, ?, ?, ?)
++      ON CONFLICT(id) DO UPDATE SET
++        active_routine_id = excluded.active_routine_id,
++        next_routine_day_id = excluded.next_routine_day_id,
++        updated_at = excluded.updated_at
++      """,
++      [.nullableInt(activeRoutineId), .nullableInt(nextRoutineDayId), .text(updatedAt)]
++    )
++  }
++
++  private static func buildHeatmapDays(
++    _ db: OpaquePointer,
++    days: Int,
++    now: Date
++  ) -> [[String: Any]] {
++    let calendar = Calendar.current
++    let today = calendar.startOfDay(for: now)
++    var totals: [String: Int] = [:]
++    let earliest = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
++
++    guard let statement = prepare(
++      db,
++      """
++      SELECT started_at, duration_seconds
++      FROM workout_sessions
++      WHERE status = 'completed'
++      """
++    ) else {
++      return []
++    }
++    defer { sqlite3_finalize(statement) }
++
++    while sqlite3_step(statement) == SQLITE_ROW {
++      guard let startedAt = columnString(statement, 0),
++            let startedDate = parseISODate(startedAt),
++            startedDate >= earliest,
++            startedDate <= now else {
++        continue
++      }
++      let key = localDateKey(startedDate)
++      totals[key, default: 0] += Int(sqlite3_column_int64(statement, 1))
++    }
++
++    return (0..<days).compactMap { index in
++      guard let date = calendar.date(byAdding: .day, value: index - days + 1, to: today) else {
++        return nil
++      }
++      let key = localDateKey(date)
++      let duration = totals[key, default: 0]
++      return [
++        "dateKey": key,
++        "durationSeconds": duration,
++        "bucket": heatmapBucket(duration)
++      ]
++    }
++  }
++
++  private static func prepare(
++    _ db: OpaquePointer,
++    _ sql: String,
++    _ values: [SQLiteValue] = []
++  ) -> OpaquePointer? {
++    var statement: OpaquePointer?
++    guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK, let statement else {
++      print("[Loofit] Failed to prepare SQL: \(sql)")
++      return nil
++    }
++    for (index, value) in values.enumerated() {
++      bind(value, to: statement, at: Int32(index + 1))
++    }
++    return statement
++  }
++
++  private static func execute(
++    _ db: OpaquePointer,
++    _ sql: String,
++    _ values: [SQLiteValue] = []
++  ) -> Bool {
++    guard let statement = prepare(db, sql, values) else {
++      return false
++    }
++    defer { sqlite3_finalize(statement) }
++
++    let result = sqlite3_step(statement)
++    if result == SQLITE_DONE || result == SQLITE_ROW {
++      return true
++    }
++    print("[Loofit] Failed to execute SQL: \(sql)")
++    return false
++  }
++
++  private static func fetchInt64(
++    _ db: OpaquePointer,
++    _ sql: String,
++    _ values: [SQLiteValue] = []
++  ) -> Int64? {
++    guard let statement = prepare(db, sql, values) else {
++      return nil
++    }
++    defer { sqlite3_finalize(statement) }
++
++    guard sqlite3_step(statement) == SQLITE_ROW else {
++      return nil
++    }
++    return columnInt64(statement, 0)
++  }
++
++  private static func fetchInt64s(
++    _ db: OpaquePointer,
++    _ sql: String,
++    _ values: [SQLiteValue] = []
++  ) -> [Int64] {
++    guard let statement = prepare(db, sql, values) else {
++      return []
++    }
++    defer { sqlite3_finalize(statement) }
++
++    var values: [Int64] = []
++    while sqlite3_step(statement) == SQLITE_ROW {
++      if let value = columnInt64(statement, 0) {
++        values.append(value)
++      }
++    }
++    return values
++  }
++
++  private static func fetchStrings(
++    _ db: OpaquePointer,
++    _ sql: String,
++    _ values: [SQLiteValue] = []
++  ) -> [String] {
++    guard let statement = prepare(db, sql, values) else {
++      return []
++    }
++    defer { sqlite3_finalize(statement) }
++
++    var values: [String] = []
++    while sqlite3_step(statement) == SQLITE_ROW {
++      if let value = columnString(statement, 0) {
++        values.append(value)
++      }
++    }
++    return values
++  }
++
++  private static func bind(_ value: SQLiteValue, to statement: OpaquePointer, at index: Int32) {
++    switch value {
++    case .int(let value):
++      sqlite3_bind_int64(statement, index, value)
++    case .nullableInt(let value):
++      if let value {
++        sqlite3_bind_int64(statement, index, value)
++      } else {
++        sqlite3_bind_null(statement, index)
++      }
++    case .text(let value):
++      sqlite3_bind_text(statement, index, value, -1, sqliteTransient)
++    case .null:
++      sqlite3_bind_null(statement, index)
++    }
++  }
++
++  private static func columnString(_ statement: OpaquePointer, _ index: Int32) -> String? {
++    guard sqlite3_column_type(statement, index) != SQLITE_NULL,
++          let text = sqlite3_column_text(statement, index) else {
++      return nil
++    }
++    return String(cString: text)
++  }
++
++  private static func columnInt64(_ statement: OpaquePointer, _ index: Int32) -> Int64? {
++    guard sqlite3_column_type(statement, index) != SQLITE_NULL else {
++      return nil
++    }
++    return sqlite3_column_int64(statement, index)
++  }
++
++  private static func parseISODate(_ value: String) -> Date? {
++    let formatterWithFractions = ISO8601DateFormatter()
++    formatterWithFractions.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
++    if let date = formatterWithFractions.date(from: value) {
++      return date
++    }
++
++    let formatter = ISO8601DateFormatter()
++    formatter.formatOptions = [.withInternetDateTime]
++    return formatter.date(from: value)
++  }
++
++  private static func isoString(_ date: Date) -> String {
++    let formatter = ISO8601DateFormatter()
++    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
++    return formatter.string(from: date)
++  }
++
++  private static func localDateKey(_ date: Date) -> String {
++    let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
++    let year = components.year ?? 1970
++    let month = String(format: "%02d", components.month ?? 1)
++    let day = String(format: "%02d", components.day ?? 1)
++    return "\(year)-\(month)-\(day)"
++  }
++
++  private static func startOfTomorrow(from date: Date) -> Date {
++    let calendar = Calendar.current
++    let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) ?? date
++    return calendar.startOfDay(for: tomorrow)
++  }
++
++  private static func currentTimestamp() -> Int {
++    timestamp(for: Date())
++  }
++
++  private static func timestamp(for date: Date) -> Int {
++    Int(date.timeIntervalSince1970 * 1000)
++  }
++
++  private static func heatmapBucket(_ durationSeconds: Int) -> Int {
++    if durationSeconds <= 0 {
++      return 0
++    }
++    if durationSeconds < 30 * 60 {
++      return 1
++    }
++    if durationSeconds < 60 * 60 {
++      return 2
++    }
++    if durationSeconds < 90 * 60 {
++      return 3
++    }
++    return 4
++  }
++
++  private static func formatDuration(_ totalSeconds: Int) -> String {
++    let seconds = max(0, totalSeconds)
++    let hours = seconds / 3600
++    let minutes = (seconds % 3600) / 60
++    let remainingSeconds = seconds % 60
++
++    if hours > 0 {
++      return "\(hours)시간 \(minutes)분"
++    }
++    if minutes > 0 {
++      return "\(minutes)분"
++    }
++    return "\(remainingSeconds)초"
++  }
++
++  private static func joinPartNames(_ names: [String]) -> String {
++    if names.isEmpty {
++      return "자유 운동"
++    }
++    return names.joined(separator: " + ")
++  }
++
++  private enum SQLiteValue {
++    case int(Int64)
++    case nullableInt(Int64?)
++    case text(String)
++    case null
++  }
++
++  private struct ActiveSession {
++    let id: Int64
++    let routineId: Int64?
++    let routineDayId: Int64?
++    let startedAt: String
++    let title: String
++  }
++
++  private struct StartedWorkout {
++    let title: String
++    let startedAt: String
++  }
++
++  private struct CompletedWorkout {
++    let title: String
++    let durationSeconds: Int
++    let completedAt: Date
++  }
++
++  private struct RoutineDay {
++    let id: Int64
++    let routineId: Int64
++    let name: String
++    let sortOrder: Int
++  }
++
++  private struct RoutinePart {
++    let id: Int64
++    let name: String
++    let color: String
++    let sortOrder: Int
++  }
++}
++
+ @available(iOS 16.0, *)
+ struct LiveActivityUserInteraction: LiveActivityIntent {
+   // title is not used for non-discoverable intents, but it is required
