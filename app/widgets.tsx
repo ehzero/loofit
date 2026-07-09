@@ -9,11 +9,15 @@ import { formatClock, formatDuration, formatElapsed } from '@/src/domain/date';
 import { joinPartNames, routineDayDisplayName } from '@/src/domain/routine';
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
-import { heatColor, makeColors, type ThemeColors } from '@/src/theme/tokens';
+import { heatColor, makeColors, radius, spacing, type ThemeColors } from '@/src/theme/tokens';
 import type { HeatmapGridCell } from '@/src/types';
 
 // The design renders these widgets on a fixed dark home-screen preview
 // regardless of the in-app theme, so we build a dark palette explicitly.
+// Text sizes/colors here are widget-surface constants that must stay in sync
+// with the real widget views (src/widgets/*), which cannot import tokens due
+// to the 'widget' directive's isolated JS context — they are exempt from the
+// app-wide token rule. Structural spacing/radius still uses tokens.
 const WIDGET_BG = '#0C0D10';
 const CARD_BG = 'rgba(20,20,24,0.72)';
 const CARD_BORDER = 'rgba(255,255,255,0.08)';
@@ -179,7 +183,7 @@ function YearMiniGrid({ cells, colors }: { cells: HeatmapGridCell[]; colors: The
 
 const styles = StyleSheet.create({
   section: {
-    gap: 12,
+    gap: spacing.sm,
   },
   sectionLabel: {
     fontSize: 12,
@@ -199,7 +203,7 @@ const styles = StyleSheet.create({
     // stretch (기본값) would override the children's aspect-ratio height when
     // two cards share a row, squashing the squares.
     alignItems: 'flex-start',
-    gap: 12,
+    gap: spacing.sm,
   },
   smallSquare: {
     width: '47%',
@@ -247,8 +251,8 @@ const styles = StyleSheet.create({
     borderRadius: 1,
   },
   widgetCtaSm: {
-    borderRadius: 10,
-    paddingVertical: 9,
+    borderRadius: radius.md,
+    paddingVertical: spacing.xs,
     alignItems: 'center',
   },
   widgetCtaSmText: {
@@ -259,9 +263,9 @@ const styles = StyleSheet.create({
     backgroundColor: CARD_BG,
     borderColor: CARD_BORDER,
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 24,
-    padding: 18,
-    gap: 11,
+    borderRadius: radius.xl,
+    padding: spacing.md,
+    gap: spacing.sm,
   },
   rowBetween: {
     flexDirection: 'row',
@@ -287,7 +291,7 @@ const styles = StyleSheet.create({
   duringHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.xs,
   },
   smallDur: {
     fontSize: 22,

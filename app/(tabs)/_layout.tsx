@@ -2,6 +2,7 @@ import { Tabs } from 'expo-router';
 
 import { Icon, type IconName } from '@/src/components/Icon';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { typeScale } from '@/src/theme/tokens';
 
 export default function TabLayout() {
   const { colors } = useTheme();
@@ -12,7 +13,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: colors.accent,
         tabBarInactiveTintColor: colors.tx5,
-        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
+        tabBarLabelStyle: { ...typeScale.caption },
         tabBarStyle: {
           backgroundColor: colors.nav,
           borderTopColor: colors.navb,

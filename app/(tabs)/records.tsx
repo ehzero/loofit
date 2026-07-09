@@ -1,12 +1,13 @@
 import { useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { FlatList, StyleSheet, Text, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 
+import { EmptyState } from '@/src/components/EmptyState';
 import { RecordRow } from '@/src/components/RecordRow';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
 import { getSessions } from '@/src/db/repository';
-import { useTheme } from '@/src/theme/ThemeProvider';
+import { spacing } from '@/src/theme/tokens';
 import type { SessionStatus, WorkoutSession } from '@/src/types';
 
 type Filter = 'all' | 'completed' | 'canceled';
@@ -23,7 +24,6 @@ const RECORDS_CAP = 1000;
 
 export default function RecordsScreen() {
   const router = useRouter();
-  const { colors } = useTheme();
   const [sessions, setSessions] = useState<WorkoutSession[] | null>(null);
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -64,12 +64,7 @@ export default function RecordsScreen() {
         )}
         ItemSeparatorComponent={Separator}
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={[styles.emptyTitle, { color: colors.tx4 }]}>아직 기록이 없어요</Text>
-            <Text style={[styles.emptyDesc, { color: colors.tx5 }]}>
-              운동을 시작하면 여기에 쌓여요.
-            </Text>
-          </View>
+          <EmptyState title="아직 기록이 없어요" description="운동을 시작하면 여기에 쌓여요." />
         }
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
@@ -88,21 +83,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: spacing.xl,
   },
   separator: {
-    height: 10,
-  },
-  empty: {
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 70,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  emptyDesc: {
-    fontSize: 13,
+    height: spacing.sm,
   },
 });

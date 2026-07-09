@@ -1,17 +1,21 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { AppText } from '@/src/components/AppText';
 import { BottomSheet } from '@/src/components/BottomSheet';
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
 import { Chip } from '@/src/components/Chip';
 import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
+import { EmptyState } from '@/src/components/EmptyState';
 import { HeatGrid } from '@/src/components/Heat';
 import { Icon } from '@/src/components/Icon';
+import { ListRow } from '@/src/components/ListRow';
 import { PulseDot } from '@/src/components/PulseDot';
 import { RecordRow } from '@/src/components/RecordRow';
 import { Screen } from '@/src/components/Screen';
+import { SectionHeader } from '@/src/components/SectionHeader';
 import { StatTiles } from '@/src/components/StatTiles';
 import {
   formatClock,
@@ -24,6 +28,7 @@ import { hasRoutineDayAlias, joinPartNames, routineDayDisplayName } from '@/src/
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
+import { radius, spacing } from '@/src/theme/tokens';
 import type { RoutineTemplate } from '@/src/types';
 
 const TEMPLATES: Array<{ key: RoutineTemplate; name: string; desc: string }> = [
@@ -82,10 +87,10 @@ export default function HomeScreen() {
           <View style={[styles.onboardIcon, { backgroundColor: colors.card }]}>
             <Icon name="dumbbell" size={26} color={colors.accent} />
           </View>
-          <Text style={[styles.onboardTitle, { color: colors.tx }]}>아직 루틴이 없어요</Text>
-          <Text style={[styles.onboardDesc, { color: colors.tx3 }]}>
+          <AppText variant="display">아직 루틴이 없어요</AppText>
+          <AppText variant="item" weight="500" tone="tertiary" style={styles.onboardDesc}>
             루틴을 만들면 다음에 할 운동을{'\n'}루핏이 자동으로 알려드려요.
-          </Text>
+          </AppText>
         </View>
         <View style={styles.onboardList}>
           {TEMPLATES.map((template) => (
@@ -93,7 +98,11 @@ export default function HomeScreen() {
               key={template.key}
               name={template.name}
               desc={template.desc}
-              onPress={() => createTemplate(template.key).then(() => showToast(`${template.name} 루틴을 만들었어요`))}
+              onPress={() =>
+                createTemplate(template.key).then(() =>
+                  showToast(`${template.name} 루틴을 만들었어요`)
+                )
+              }
             />
           ))}
           <TemplatePick
@@ -125,19 +134,26 @@ export default function HomeScreen() {
           <View style={styles.duringWrap}>
             <View style={styles.duringStatus}>
               <PulseDot color={colors.accent} />
-              <Text style={[styles.duringStatusText, { color: colors.accent }]}>운동 중</Text>
+              <AppText variant="footnote" weight="800" tone="accent" style={styles.duringStatusText}>
+                운동 중
+              </AppText>
             </View>
-            <Text style={[styles.duringPart, { color: colors.tx }]}>{partStr}</Text>
-            <Text style={[styles.duringTimer, { color: colors.tx }]}>
+            <AppText variant="heading">{partStr}</AppText>
+            <AppText variant="timer" style={styles.duringTimer}>
               {formatElapsed(elapsedSeconds)}
-            </Text>
-            <Text style={[styles.duringStart, { color: colors.tx4 }]}>
+            </AppText>
+            <AppText variant="footnote" tone="muted">
               시작 {formatClock(active.startedAt)}
-            </Text>
+            </AppText>
             <Pressable
               onPress={() => setSheet('change')}
-              style={[styles.changeBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-              <Text style={[styles.changeBtnText, { color: colors.tx2 }]}>운동 변경</Text>
+              style={[
+                styles.changeBtn,
+                { backgroundColor: colors.surface2, borderColor: colors.border2 },
+              ]}>
+              <AppText variant="footnote" weight="700" tone="secondary">
+                운동 변경
+              </AppText>
             </Pressable>
           </View>
           <View style={styles.duringActions}>
@@ -204,55 +220,65 @@ export default function HomeScreen() {
     <>
       <Screen>
         <View style={styles.greetBlock}>
-          <Text style={[styles.greetDate, { color: colors.tx4 }]}>{formatDateFull(new Date())}</Text>
-          <Text style={[styles.greet, { color: colors.tx }]}>{greeting}</Text>
+          <AppText variant="footnote" tone="muted">
+            {formatDateFull(new Date())}
+          </AppText>
+          <AppText variant="heading">{greeting}</AppText>
         </View>
 
         {isPost ? (
-          <Card style={styles.heroCard} padding={22} gap={16}>
+          <Card variant="hero">
             <View style={styles.postHead}>
               <View style={[styles.postCheck, { backgroundColor: colors.accent }]}>
                 <Icon name="check" size={18} color={colors.accentText} weight="bold" />
               </View>
-              <Text style={[styles.postTitle, { color: colors.tx }]}>오늘 운동 완료</Text>
+              <AppText variant="title">오늘 운동 완료</AppText>
             </View>
-            <Text style={[styles.postParts, { color: colors.tx }]}>
-              {todayParts.join(' · ')}
-            </Text>
+            <AppText variant="heading">{todayParts.join(' · ')}</AppText>
             <View style={styles.postStats}>
               <View style={styles.postStat}>
-                <Text style={[styles.postStatLabel, { color: colors.tx4 }]}>운동 시간</Text>
-                <Text style={[styles.postStatValue, { color: colors.accent }]}>
+                <AppText variant="label" tone="muted">
+                  운동 시간
+                </AppText>
+                <AppText variant="heading" tone="accent">
                   {formatDuration(todayDuration)}
-                </Text>
+                </AppText>
               </View>
               <View style={styles.postStat}>
-                <Text style={[styles.postStatLabel, { color: colors.tx4 }]}>시간대</Text>
-                <Text style={[styles.postRange, { color: colors.tx2 }]}>{todayRange}</Text>
+                <AppText variant="label" tone="muted">
+                  시간대
+                </AppText>
+                <AppText variant="body" weight="700" tone="secondary" style={styles.postRange}>
+                  {todayRange}
+                </AppText>
               </View>
             </View>
             {nextDay ? (
               <View style={[styles.postNext, { borderTopColor: colors.border }]}>
-                <Text style={[styles.postNextLabel, { color: colors.tx4 }]}>다음 운동</Text>
-                <Text style={[styles.postNextName, { color: colors.tx }]}>
+                <AppText variant="footnote" weight="700" tone="muted">
+                  다음 운동
+                </AppText>
+                <AppText variant="item" weight="800">
                   {routineDayDisplayName(nextDay)}
-                </Text>
+                </AppText>
               </View>
             ) : null}
           </Card>
         ) : (
-          <Card style={styles.heroCard} padding={22} gap={16}>
+          <Card variant="hero">
             <View style={styles.nextHead}>
               <View style={[styles.dot, { backgroundColor: colors.accent }]} />
-              <Text style={[styles.nextLabel, { color: colors.tx3 }]}>다음 운동</Text>
+              <AppText variant="label" tone="tertiary" style={styles.nextLabel}>
+                다음 운동
+              </AppText>
             </View>
-            <Text style={[styles.nextName, { color: colors.tx }]}>
+            <AppText variant="hero">
               {nextDay ? routineDayDisplayName(nextDay) : '루틴을 설정하세요'}
-            </Text>
+            </AppText>
             {nextDay && hasRoutineDayAlias(nextDay) ? (
-              <Text style={[styles.nextParts, { color: colors.tx3 }]}>
+              <AppText variant="body" tone="tertiary">
                 {nextDay.parts.map((part) => part.name).join(' · ')}
-              </Text>
+              </AppText>
             ) : null}
             {nextDay ? (
               nextDay.parts.length > 0 ? (
@@ -264,15 +290,20 @@ export default function HomeScreen() {
               ) : (
                 <Pressable
                   onPress={() => router.push('/routine')}
-                  style={[styles.emptyPartsNotice, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-                  <Text style={[styles.emptyPartsText, { color: colors.tx3 }]}>
+                  style={[
+                    styles.emptyPartsNotice,
+                    { backgroundColor: colors.surface2, borderColor: colors.border2 },
+                  ]}>
+                  <AppText variant="footnote" tone="tertiary">
                     이 분할에 운동 부위가 없어요. 루틴 설정에서 추가해 주세요 →
-                  </Text>
+                  </AppText>
                 </Pressable>
               )
             ) : null}
             <Pressable onPress={() => setSheet('start')} style={styles.selectOther}>
-              <Text style={[styles.selectOtherText, { color: colors.tx3 }]}>다른 운동 선택 →</Text>
+              <AppText variant="body" weight="700" tone="tertiary">
+                다른 운동 선택 →
+              </AppText>
             </Pressable>
           </Card>
         )}
@@ -284,18 +315,27 @@ export default function HomeScreen() {
           ]}
         />
 
-        <Card title="최근 7일" action={<SeeMore label="더보기" onPress={() => router.push('/dashboard')} />}>
+        <Card
+          title="최근 7일"
+          action={
+            <Pressable onPress={() => router.push('/dashboard')} hitSlop={8}>
+              <AppText variant="label" tone="tertiary">
+                더보기
+              </AppText>
+            </Pressable>
+          }>
           <HeatGrid cells={overview.heatmap7} weekdayLabels />
         </Card>
 
         <View style={styles.recentBlock}>
-          <View style={styles.recentHead}>
-            <Text style={[styles.recentTitle, { color: colors.tx }]}>최근 기록</Text>
-            <SeeMore label="전체보기" onPress={() => router.push('/records')} />
-          </View>
+          <SectionHeader
+            title="최근 기록"
+            actionLabel="전체보기"
+            onAction={() => router.push('/records')}
+          />
           {overview.recentSessions.length === 0 ? (
             <Card>
-              <Text style={[styles.empty, { color: colors.tx4 }]}>아직 운동 기록이 없어요.</Text>
+              <EmptyState compact title="아직 운동 기록이 없어요." />
             </Card>
           ) : (
             overview.recentSessions.slice(0, 3).map((session) => (
@@ -334,19 +374,14 @@ function TemplatePick({ name, desc, onPress }: { name: string; desc: string; onP
       onPress={onPress}
       style={[styles.templatePick, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.templateText}>
-        <Text style={[styles.templateName, { color: colors.tx }]}>{name}</Text>
-        <Text style={[styles.templateDesc, { color: colors.tx4 }]}>{desc}</Text>
+        <AppText variant="item" weight="800">
+          {name}
+        </AppText>
+        <AppText variant="footnote" weight="500" tone="muted">
+          {desc}
+        </AppText>
       </View>
       <Icon name="chevronRight" size={18} color={colors.tx5} />
-    </Pressable>
-  );
-}
-
-function SeeMore({ label, onPress }: { label: string; onPress: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable onPress={onPress} hitSlop={8}>
-      <Text style={[styles.seeMore, { color: colors.tx3 }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -364,57 +399,58 @@ function StartSheet({
   onStartRoutine: (routineDayId: number) => void;
   onStartFree: (bodyPartId: number) => void;
 }) {
-  const { colors } = useTheme();
   return (
     <BottomSheet visible={visible} title="운동 선택" onClose={onClose}>
       <View style={styles.sheetSection}>
-        <Text style={[styles.sheetLabel, { color: colors.tx4 }]}>루틴 운동</Text>
+        <AppText variant="label" tone="muted">
+          루틴 운동
+        </AppText>
         {overview.routineDays.map((day) => {
           const startable = day.parts.length > 0;
           const sub = !startable
             ? '부위 없음 — 루틴 설정에서 추가'
             : hasRoutineDayAlias(day)
               ? day.parts.map((part) => part.name).join(' · ')
-              : null;
+              : undefined;
           return (
-            <Pressable
+            <ListRow
               key={day.id}
+              variant="card"
+              title={routineDayDisplayName(day)}
+              subtitle={sub}
               disabled={!startable}
               onPress={() => onStartRoutine(day.id)}
-              style={[
-                styles.sheetRow,
-                {
-                  backgroundColor: colors.surface2,
-                  borderColor: colors.border2,
-                  opacity: startable ? 1 : 0.45,
-                },
-              ]}>
-              <View style={styles.sheetRowText}>
-                <Text style={[styles.sheetRowTitle, { color: colors.tx }]}>
-                  {routineDayDisplayName(day)}
-                </Text>
-                {sub ? (
-                  <Text style={[styles.sheetRowSub, { color: colors.tx4 }]}>{sub}</Text>
-                ) : null}
-              </View>
-              {startable && day.id === overview.nextRoutineDay?.id ? (
-                <View style={[styles.nextBadge, { backgroundColor: colors.accent }]}>
-                  <Text style={[styles.nextBadgeText, { color: colors.accentText }]}>다음</Text>
-                </View>
-              ) : null}
-            </Pressable>
+              right={
+                startable && day.id === overview.nextRoutineDay?.id ? (
+                  <NextBadge />
+                ) : undefined
+              }
+            />
           );
         })}
       </View>
       <View style={styles.sheetSection}>
-        <Text style={[styles.sheetLabel, { color: colors.tx4 }]}>루틴 밖 자유 운동</Text>
-        <View style={styles.tagRow}>
+        <AppText variant="label" tone="muted">
+          루틴 밖 자유 운동
+        </AppText>
+        <View style={styles.chipWrap}>
           {overview.bodyParts.map((part) => (
             <Chip key={part.id} label={part.name} onPress={() => onStartFree(part.id)} />
           ))}
         </View>
       </View>
     </BottomSheet>
+  );
+}
+
+function NextBadge() {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.nextBadge, { backgroundColor: colors.accent }]}>
+      <AppText variant="label" tone="accentContrast">
+        다음
+      </AppText>
+    </View>
   );
 }
 
@@ -433,7 +469,7 @@ function ChangePartSheet({
 }) {
   return (
     <BottomSheet visible={visible} title="운동 부위 변경" onClose={onClose}>
-      <View style={styles.tagRow}>
+      <View style={styles.chipWrap}>
         {bodyParts.map((part) => (
           <Chip
             key={part.id}
@@ -450,49 +486,34 @@ function ChangePartSheet({
 const styles = StyleSheet.create({
   // onboarding
   onboardHero: {
-    gap: 10,
-    paddingTop: 24,
-    paddingBottom: 20,
+    gap: spacing.xs,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
   },
   onboardIcon: {
     width: 52,
     height: 52,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
-  },
-  onboardTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+    marginBottom: spacing.xs,
   },
   onboardDesc: {
-    fontSize: 15,
-    fontWeight: '500',
     lineHeight: 22,
   },
   onboardList: {
-    gap: 10,
+    gap: spacing.xs,
   },
   templatePick: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 16,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 18,
+    padding: spacing.md,
   },
   templateText: {
-    gap: 4,
-  },
-  templateName: {
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  templateDesc: {
-    fontSize: 13,
-    fontWeight: '500',
+    gap: spacing.xxs,
   },
   // during
   duringWrap: {
@@ -503,219 +524,95 @@ const styles = StyleSheet.create({
   duringStatus: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 9,
-    marginBottom: 14,
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
   },
   duringStatusText: {
-    fontSize: 13,
-    fontWeight: '800',
     letterSpacing: 1.4,
   },
-  duringPart: {
-    fontSize: 22,
-    fontWeight: '800',
-  },
   duringTimer: {
-    fontSize: 74,
-    fontWeight: '800',
-    letterSpacing: -2,
-    marginVertical: 6,
-    fontVariant: ['tabular-nums'],
-  },
-  duringStart: {
-    fontSize: 13,
-    fontWeight: '600',
+    marginVertical: spacing.xxs,
   },
   changeBtn: {
-    marginTop: 22,
-    borderRadius: 999,
+    marginTop: spacing.lg,
+    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-  },
-  changeBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs,
   },
   duringActions: {
-    gap: 6,
+    gap: spacing.xxs,
   },
   // feed
   greetBlock: {
-    gap: 3,
-  },
-  greetDate: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  greet: {
-    fontSize: 23,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  heroCard: {
-    borderRadius: 24,
+    gap: spacing.xxs,
   },
   nextHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.xs,
   },
   dot: {
     width: 7,
     height: 7,
-    borderRadius: 4,
+    borderRadius: radius.xs,
   },
   nextLabel: {
-    fontSize: 12,
-    fontWeight: '800',
     letterSpacing: 0.8,
   },
-  nextName: {
-    fontSize: 42,
-    fontWeight: '800',
-    letterSpacing: -1,
-    lineHeight: 44,
-  },
-  nextParts: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  postParts: {
-    fontSize: 22,
-    fontWeight: '800',
-    letterSpacing: -0.3,
-  },
-  tagRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
   emptyPartsNotice: {
-    borderRadius: 14,
+    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 15,
-  },
-  emptyPartsText: {
-    fontSize: 13,
-    fontWeight: '600',
-    lineHeight: 19,
+    padding: spacing.md,
   },
   selectOther: {
     alignSelf: 'flex-start',
     paddingVertical: 2,
   },
-  selectOtherText: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
   postHead: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 11,
+    gap: spacing.sm,
   },
   postCheck: {
     width: 34,
     height: 34,
-    borderRadius: 17,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  postTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-  },
   postStats: {
     flexDirection: 'row',
-    gap: 28,
+    gap: spacing.xl,
   },
   postStat: {
-    gap: 5,
-  },
-  postStatLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  postStatValue: {
-    fontSize: 22,
-    fontWeight: '800',
+    gap: spacing.xxs,
   },
   postRange: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 5,
+    marginTop: spacing.xxs,
   },
   postNext: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    paddingTop: 15,
+    paddingTop: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  postNextLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  postNextName: {
-    fontSize: 15,
-    fontWeight: '800',
   },
   recentBlock: {
-    gap: 12,
-  },
-  recentHead: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  recentTitle: {
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  seeMore: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  empty: {
-    fontSize: 14,
-    fontWeight: '600',
+    gap: spacing.sm,
   },
   // sheets
   sheetSection: {
-    gap: 9,
+    gap: spacing.xs,
   },
-  sheetLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  sheetRow: {
+  chipWrap: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: 14,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 15,
-    paddingHorizontal: 16,
-  },
-  sheetRowText: {
-    gap: 4,
-    flex: 1,
-  },
-  sheetRowTitle: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  sheetRowSub: {
-    fontSize: 12,
-    fontWeight: '600',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
   },
   nextBadge: {
-    borderRadius: 6,
-    paddingHorizontal: 8,
+    borderRadius: radius.xs,
+    paddingHorizontal: spacing.xs,
     paddingVertical: 3,
-  },
-  nextBadgeText: {
-    fontSize: 11,
-    fontWeight: '800',
   },
 });

@@ -1,7 +1,8 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, TextInput, View } from 'react-native';
 
+import { AppText } from '@/src/components/AppText';
 import { Button } from '@/src/components/Button';
 import { Chip } from '@/src/components/Chip';
 import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
@@ -14,6 +15,7 @@ import { routineDayDisplayName } from '@/src/domain/routine';
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
+import { radius, spacing, typeScale } from '@/src/theme/tokens';
 import type { SessionStatus } from '@/src/types';
 
 const STATUS_OPTIONS: Array<{ value: SessionStatus; label: string }> = [
@@ -155,8 +157,12 @@ export default function RecordDetailScreen() {
             />
           </View>
           <View style={styles.durationRow}>
-            <Text style={[styles.durationLabel, { color: colors.tx4 }]}>운동 시간</Text>
-            <Text style={[styles.durationValue, { color: colors.accent }]}>{durationLabel}</Text>
+            <AppText variant="footnote" tone="muted">
+              운동 시간
+            </AppText>
+            <AppText variant="item" weight="800" tone="accent">
+              {durationLabel}
+            </AppText>
           </View>
         </Field>
 
@@ -179,9 +185,9 @@ export default function RecordDetailScreen() {
                       borderColor: selected ? colors.accent : colors.border2,
                     },
                   ]}>
-                  <Text style={[styles.targetText, { color: selected ? colors.tx : colors.tx2 }]}>
+                  <AppText variant="body" weight="700" tone={selected ? 'default' : 'secondary'}>
                     {routineDayDisplayName(day)}
-                  </Text>
+                  </AppText>
                 </Pressable>
               );
             })}
@@ -194,9 +200,9 @@ export default function RecordDetailScreen() {
                   borderColor: isFree ? colors.accent : colors.border2,
                 },
               ]}>
-              <Text style={[styles.targetText, { color: isFree ? colors.tx : colors.tx2 }]}>
+              <AppText variant="body" weight="700" tone={isFree ? 'default' : 'secondary'}>
                 자유 운동
-              </Text>
+              </AppText>
             </Pressable>
           </View>
           {isFree ? (
@@ -237,10 +243,10 @@ export default function RecordDetailScreen() {
         {/* Recalc notice */}
         <View style={[styles.notice, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Icon name="info" size={18} color={colors.tx4} />
-          <Text style={[styles.noticeText, { color: colors.tx3 }]}>
+          <AppText variant="label" weight="500" tone="tertiary" style={styles.noticeText}>
             기록을 수정해도 다음 운동은 자동으로 다시 계산되지 않아요. 다음 운동은 루틴 설정에서
             조정할 수 있어요.
-          </Text>
+          </AppText>
         </View>
 
         <View style={styles.actions}>
@@ -272,10 +278,11 @@ export default function RecordDetailScreen() {
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  const { colors } = useTheme();
   return (
     <View style={styles.field}>
-      <Text style={[styles.fieldLabel, { color: colors.tx4 }]}>{label}</Text>
+      <AppText variant="label" tone="muted">
+        {label}
+      </AppText>
       {children}
     </View>
   );
@@ -294,7 +301,7 @@ function StepperRow({
   return (
     <View style={[styles.stepper, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
       <StepButton icon="chevronLeft" onPress={onDec} />
-      <Text style={[styles.stepperValue, { color: colors.tx }]}>{value}</Text>
+      <AppText variant="item">{value}</AppText>
       <StepButton icon="chevronRight" onPress={onInc} />
     </View>
   );
@@ -316,13 +323,21 @@ function TimeStepper({
   const { colors } = useTheme();
   return (
     <View style={[styles.timeStepper, { opacity: disabled ? 0.4 : 1 }]}>
-      <Text style={[styles.timeCaption, { color: colors.tx4 }]}>{caption}</Text>
-      <View style={[styles.timeValueBox, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
-        <Text style={[styles.timeValue, { color: colors.tx }]}>{value}</Text>
+      <AppText variant="caption" tone="muted">
+        {caption}
+      </AppText>
+      <View
+        style={[styles.timeValueBox, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
+        <AppText variant="item">{value}</AppText>
       </View>
       <View style={styles.timeButtons}>
         <MiniAdjust label="시" onDec={() => onHour(-1)} onInc={() => onHour(1)} disabled={disabled} />
-        <MiniAdjust label="분" onDec={() => onMinute(-5)} onInc={() => onMinute(5)} disabled={disabled} />
+        <MiniAdjust
+          label="분"
+          onDec={() => onMinute(-5)}
+          onInc={() => onMinute(5)}
+          disabled={disabled}
+        />
       </View>
     </View>
   );
@@ -346,20 +361,32 @@ function MiniAdjust({
         disabled={disabled}
         onPress={onDec}
         style={[styles.miniBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-        <Text style={[styles.miniBtnText, { color: colors.tx2 }]}>−</Text>
+        <AppText variant="title" weight="700" tone="secondary" style={styles.miniBtnText}>
+          −
+        </AppText>
       </Pressable>
-      <Text style={[styles.miniLabel, { color: colors.tx4 }]}>{label}</Text>
+      <AppText variant="label" tone="muted">
+        {label}
+      </AppText>
       <Pressable
         disabled={disabled}
         onPress={onInc}
         style={[styles.miniBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-        <Text style={[styles.miniBtnText, { color: colors.tx2 }]}>+</Text>
+        <AppText variant="title" weight="700" tone="secondary" style={styles.miniBtnText}>
+          +
+        </AppText>
       </Pressable>
     </View>
   );
 }
 
-function StepButton({ icon, onPress }: { icon: 'chevronLeft' | 'chevronRight'; onPress: () => void }) {
+function StepButton({
+  icon,
+  onPress,
+}: {
+  icon: 'chevronLeft' | 'chevronRight';
+  onPress: () => void;
+}) {
   const { colors } = useTheme();
   return (
     <Pressable
@@ -372,57 +399,41 @@ function StepButton({ icon, onPress }: { icon: 'chevronLeft' | 'chevronRight'; o
 
 const styles = StyleSheet.create({
   field: {
-    gap: 9,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    gap: spacing.xs,
   },
   stepper: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 8,
-  },
-  stepperValue: {
-    fontSize: 15,
-    fontWeight: '700',
+    padding: spacing.xs,
   },
   stepBtn: {
     width: 34,
     height: 34,
-    borderRadius: 9,
+    borderRadius: radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   timeRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: spacing.sm,
   },
   timeStepper: {
     flex: 1,
-    gap: 6,
-  },
-  timeCaption: {
-    fontSize: 11,
-    fontWeight: '700',
+    gap: spacing.xxs,
   },
   timeValueBox: {
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 13,
+    paddingVertical: spacing.sm,
     alignItems: 'center',
-  },
-  timeValue: {
-    fontSize: 15,
-    fontWeight: '700',
   },
   timeButtons: {
     flexDirection: 'row',
-    gap: 8,
+    gap: spacing.xs,
   },
   miniAdjust: {
     flex: 1,
@@ -433,19 +444,13 @@ const styles = StyleSheet.create({
   miniBtn: {
     width: 30,
     height: 30,
-    borderRadius: 8,
+    borderRadius: radius.sm,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',
     justifyContent: 'center',
   },
   miniBtnText: {
-    fontSize: 18,
-    fontWeight: '700',
     lineHeight: 20,
-  },
-  miniLabel: {
-    fontSize: 12,
-    fontWeight: '700',
   },
   durationRow: {
     flexDirection: 'row',
@@ -454,56 +459,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
     paddingTop: 2,
   },
-  durationLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  durationValue: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
   targetList: {
-    gap: 8,
+    gap: spacing.xs,
   },
   target: {
-    borderRadius: 12,
+    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-  },
-  targetText: {
-    fontSize: 14,
-    fontWeight: '700',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   freeChips: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 7,
-    marginTop: 4,
+    gap: spacing.xs,
+    marginTop: spacing.xxs,
   },
   memo: {
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 14,
-    fontSize: 15,
+    ...typeScale.item,
     fontWeight: '500',
+    borderRadius: radius.md,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: spacing.sm,
     minHeight: 80,
     textAlignVertical: 'top',
   },
   notice: {
     flexDirection: 'row',
-    gap: 9,
-    borderRadius: 14,
+    gap: spacing.xs,
+    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 14,
+    padding: spacing.sm,
   },
   noticeText: {
     flex: 1,
-    fontSize: 12,
-    fontWeight: '500',
     lineHeight: 20,
   },
   actions: {
-    gap: 9,
+    gap: spacing.xs,
   },
 });
