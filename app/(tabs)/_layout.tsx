@@ -1,60 +1,43 @@
-import { SymbolView } from 'expo-symbols';
 import { Tabs } from 'expo-router';
 
-import { theme } from '@/src/styles/theme';
-
-type SymbolName = Parameters<typeof SymbolView>[0]['name'];
+import { Icon, type IconName } from '@/src/components/Icon';
+import { useTheme } from '@/src/theme/ThemeProvider';
 
 export default function TabLayout() {
+  const { colors } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: theme.colors.primary,
-        tabBarInactiveTintColor: theme.colors.muted,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.tx5,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '700' },
         tabBarStyle: {
-          borderTopColor: theme.colors.border,
+          backgroundColor: colors.nav,
+          borderTopColor: colors.navb,
         },
       }}>
       <Tabs.Screen
         name="index"
-        options={{
-          title: '홈',
-          tabBarIcon: ({ color }) => icon('house.fill', color),
-        }}
-      />
-      <Tabs.Screen
-        name="dashboard"
-        options={{
-          title: '대시보드',
-          tabBarIcon: ({ color }) => icon('chart.bar.fill', color),
-        }}
-      />
-      <Tabs.Screen
-        name="routine"
-        options={{
-          title: '루틴',
-          tabBarIcon: ({ color }) => icon('calendar.badge.clock', color),
-        }}
+        options={{ title: '홈', tabBarIcon: ({ color }) => icon('home', color) }}
       />
       <Tabs.Screen
         name="records"
-        options={{
-          title: '기록',
-          tabBarIcon: ({ color }) => icon('list.bullet.rectangle.fill', color),
-        }}
+        options={{ title: '기록', tabBarIcon: ({ color }) => icon('records', color) }}
+      />
+      <Tabs.Screen
+        name="dashboard"
+        options={{ title: '대시보드', tabBarIcon: ({ color }) => icon('dashboard', color) }}
       />
       <Tabs.Screen
         name="settings"
-        options={{
-          title: '설정',
-          tabBarIcon: ({ color }) => icon('gearshape.fill', color),
-        }}
+        options={{ title: '설정', tabBarIcon: ({ color }) => icon('settings', color) }}
       />
     </Tabs>
   );
 }
 
-function icon(name: SymbolName, color: unknown) {
-  return <SymbolView name={name} tintColor={String(color)} size={24} />;
+function icon(name: IconName, color: unknown) {
+  return <Icon name={name} size={23} color={String(color)} weight="regular" />;
 }

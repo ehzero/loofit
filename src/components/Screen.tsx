@@ -1,31 +1,73 @@
-import type { PropsWithChildren } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import type { PropsWithChildren, ReactNode } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { theme } from '@/src/styles/theme';
+import { useTheme } from '@/src/theme/ThemeProvider';
+
+import { Icon } from './Icon';
 
 type ScreenProps = PropsWithChildren<{
-  title: string;
-  subtitle?: string;
+  title?: string;
+  onBack?: () => void;
+  headerRight?: ReactNode;
   isLoading?: boolean;
+  scroll?: boolean;
+  /** Optional background override (e.g. widget preview uses a dark gradient-like fill). */
+  background?: string;
 }>;
 
-export function Screen({ title, subtitle, isLoading, children }: ScreenProps) {
-  return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <View style={styles.header}>
-          <Text style={styles.title}>{title}</Text>
-          {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-        </View>
-        {isLoading ? (
-          <View style={styles.loading}>
-            <ActivityIndicator color={theme.colors.primary} />
-          </View>
+export function Screen({
+  title,
+  onBack,
+  headerRight,
+  isLoading,
+  scroll = true,
+  background,
+  children,
+}: ScreenProps) {
+  const { colors } = useTheme();
+  const bg = background ?? colors.bg;
+
+  const header =
+    title || onBack || headerRight ? (
+      <View style={styles.header}>
+        {onBack ? (
+          <Pressable onPress={onBack} hitSlop={10} style={styles.back}>
+            <Icon name="chevronLeft" size={24} color={colors.tx2} weight="semibold" />
+          </Pressable>
+        ) : null}
+        {title ? (
+          <Text style={[styles.title, { color: colors.tx, marginLeft: onBack ? 4 : 0 }]}>{title}</Text>
         ) : (
-          children
+          <View style={{ flex: 1 }} />
         )}
-      </ScrollView>
+        {headerRight ?? null}
+      </View>
+    ) : null;
+
+  const body = isLoading ? (
+    <View style={styles.loading}>
+      <ActivityIndicator color={colors.accent} />
+    </View>
+  ) : (
+    children
+  );
+
+  return (
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]} edges={['top']}>
+      {scroll ? (
+        <ScrollView
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}>
+          {header}
+          {body}
+        </ScrollView>
+      ) : (
+        <View style={[styles.content, styles.flexContent]}>
+          {header}
+          {body}
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -33,28 +75,33 @@ export function Screen({ title, subtitle, isLoading, children }: ScreenProps) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: theme.colors.background,
   },
   content: {
-    padding: theme.spacing.lg,
-    paddingBottom: 120,
-    gap: theme.spacing.lg,
+    padding: 20,
+    paddingBottom: 32,
+    gap: 20,
+  },
+  flexContent: {
+    flex: 1,
   },
   header: {
-    gap: theme.spacing.xs,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 2,
+  },
+  back: {
+    padding: 4,
+    marginLeft: -4,
   },
   title: {
-    color: theme.colors.text,
-    fontSize: 28,
+    flex: 1,
+    fontSize: 26,
     fontWeight: '800',
-  },
-  subtitle: {
-    color: theme.colors.muted,
-    fontSize: 15,
-    lineHeight: 21,
+    letterSpacing: -0.5,
   },
   loading: {
-    minHeight: 240,
+    minHeight: 260,
     alignItems: 'center',
     justifyContent: 'center',
   },

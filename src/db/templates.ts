@@ -10,6 +10,9 @@ export const ROUTINE_TEMPLATES: Record<
     }>;
   }
 > = {
+  // A day's name is an optional alias. Only PPL ships with aliases (its day
+  // names are the vocabulary users think in); every other template starts
+  // without aliases so days display their part lists.
   ppl: {
     name: 'PPL',
     days: [
@@ -21,16 +24,25 @@ export const ROUTINE_TEMPLATES: Record<
   threeSplit: {
     name: '3분할',
     days: [
-      { name: '가슴 + 삼두', parts: ['가슴', '삼두'] },
-      { name: '등 + 이두', parts: ['등', '이두'] },
-      { name: '하체 + 어깨', parts: ['하체', '어깨'] },
+      { name: '', parts: ['가슴', '삼두'] },
+      { name: '', parts: ['등', '이두'] },
+      { name: '', parts: ['하체', '어깨'] },
+    ],
+  },
+  fourSplit: {
+    name: '4분할',
+    days: [
+      { name: '', parts: ['가슴', '삼두'] },
+      { name: '', parts: ['등', '이두'] },
+      { name: '', parts: ['어깨'] },
+      { name: '', parts: ['하체'] },
     ],
   },
   upperLower: {
-    name: '상하체',
+    name: '2분할',
     days: [
-      { name: '상체', parts: ['가슴', '등', '어깨', '팔'] },
-      { name: '하체 + 코어', parts: ['하체', '코어'] },
+      { name: '', parts: ['가슴', '등', '어깨', '팔'] },
+      { name: '', parts: ['하체', '코어'] },
     ],
   },
 };

@@ -2,11 +2,17 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { after, type LiveActivity } from 'expo-widgets';
 
-import { formatDuration, getEndOfLocalDay } from '@/src/domain/date';
-import { joinPartNames } from '@/src/domain/routine';
-import type { AppOverview } from '@/src/types';
+import { getAppSetting } from '@/src/db/repository';
+import { formatClock, formatDuration, getEndOfLocalDay } from '@/src/domain/date';
+import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
+import { DEFAULT_ACCENT, heatColor, makeColors } from '@/src/theme/tokens';
+import type { AppOverview, WorkoutSession } from '@/src/types';
 
 import type { WorkoutControlWidgetProps, WorkoutLiveActivityProps } from './types';
+
+// Must match the widget views' dark card background so out-of-range heatmap
+// cells disappear into it.
+const WIDGET_BG = '#141418';
 
 let liveActivity: LiveActivity<WorkoutLiveActivityProps> | null = null;
 
@@ -15,71 +21,113 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
     return;
   }
 
-  const [{ WorkoutControlWidget }, { HeatmapCalendarWidget }, { WorkoutLiveActivity }] =
-    await Promise.all([
-      import('./WorkoutControlWidget'),
-      import('./HeatmapCalendarWidget'),
-      import('./WorkoutLiveActivity'),
-    ]);
+  const [
+    { WorkoutControlWidget },
+    { HeatmapWeekWidget, HeatmapMonthWidget, HeatmapYearWidget },
+    { WorkoutLiveActivity },
+  ] = await Promise.all([
+    import('./WorkoutControlWidget'),
+    import('./HeatmapCalendarWidget'),
+    import('./WorkoutLiveActivity'),
+  ]);
 
-  const controlProps = buildWorkoutControlProps(overview);
+  const accent = (await getAppSetting('theme_accent').catch(() => null)) ?? DEFAULT_ACCENT;
+
   WorkoutControlWidget.updateTimeline([
     {
       date: new Date(),
-      props: controlProps,
+      props: buildWorkoutControlProps(overview, accent),
     },
     {
       date: getTomorrowStart(),
-      props: buildIdleControlProps(overview),
+      props: buildIdleControlProps(overview, accent),
     },
   ]);
-  HeatmapCalendarWidget.updateSnapshot({ days: overview.heatmap30 });
-  await syncLiveActivity(overview, WorkoutLiveActivity);
+
+  const darkColors = makeColors('dark', accent);
+  const gridColors = (cells: Array<{ bucket: number; inRange: boolean }>) =>
+    cells
+      .map((cell) => (cell.inRange ? heatColor(darkColors, cell.bucket) : WIDGET_BG))
+      .join(',');
+
+  HeatmapWeekWidget.updateSnapshot({
+    colors: overview.heatmap7.map((day) => heatColor(darkColors, day.bucket)).join(','),
+  });
+  HeatmapMonthWidget.updateSnapshot({ colors: gridColors(overview.heatmapGrid) });
+  HeatmapYearWidget.updateSnapshot({ colors: gridColors(overview.heatmapYear) });
+
+  await syncLiveActivity(overview, WorkoutLiveActivity, accent);
 }
 
 function areWidgetsEnabled(): boolean {
   return Platform.OS === 'ios' && Constants.expoConfig?.extra?.widgetsEnabled === true;
 }
 
-function buildWorkoutControlProps(overview: AppOverview): WorkoutControlWidgetProps {
-  if (overview.activeSession) {
-    return {
-      state: 'active',
-      title: joinPartNames(
-        overview.activeSession.parts.map((part) => ({
-          name: part.bodyPartName,
-        }))
-      ),
-      subtitle: '운동 중',
-      durationLabel: '진행 중',
-      startedAt: overview.activeSession.startedAt,
-    };
-  }
-
-  if (overview.latestCompletedToday) {
-    return {
-      state: 'completed',
-      title: joinPartNames(
-        overview.latestCompletedToday.parts.map((part) => ({
-          name: part.bodyPartName,
-        }))
-      ),
-      subtitle: '오늘 운동 완료',
-      durationLabel: formatDuration(overview.latestCompletedToday.durationSeconds),
-    };
-  }
-
-  return buildIdleControlProps(overview);
+function joinParts(session: WorkoutSession): string {
+  return session.parts.map((part) => part.bodyPartName).join(' · ');
 }
 
-function buildIdleControlProps(overview: AppOverview): WorkoutControlWidgetProps {
+function buildWorkoutControlProps(
+  overview: AppOverview,
+  accent: string
+): WorkoutControlWidgetProps {
+  if (overview.activeSession) {
+    const parts = joinParts(overview.activeSession);
+    return {
+      state: 'active',
+      title: parts,
+      subtitle: parts,
+      durationLabel: '',
+      startedAt: overview.activeSession.startedAt,
+      accent,
+    };
+  }
+
+  if (overview.todaySessions.length > 0) {
+    const parts = [
+      ...new Set(
+        overview.todaySessions.flatMap((session) =>
+          session.parts.map((part) => part.bodyPartName)
+        )
+      ),
+    ].join(' · ');
+    const totalSeconds = overview.todaySessions.reduce(
+      (sum, session) => sum + session.durationSeconds,
+      0
+    );
+    const ordered = [...overview.todaySessions].sort(
+      (a, b) => new Date(a.startedAt).getTime() - new Date(b.startedAt).getTime()
+    );
+    const first = ordered[0];
+    const last = ordered[ordered.length - 1];
+    return {
+      state: 'completed',
+      title: parts,
+      subtitle: `${formatClock(first.startedAt)} – ${formatClock(last.endedAt ?? last.startedAt)}`,
+      durationLabel: formatDuration(totalSeconds),
+      accent,
+    };
+  }
+
+  return buildIdleControlProps(overview, accent);
+}
+
+function buildIdleControlProps(
+  overview: AppOverview,
+  accent: string
+): WorkoutControlWidgetProps {
+  const nextDay = overview.nextRoutineDay;
   return {
     state: 'idle',
-    title: overview.nextRoutineDay?.name ?? '루틴 설정 필요',
-    subtitle: overview.nextRoutineDay
-      ? joinPartNames(overview.nextRoutineDay.parts)
+    title: nextDay ? routineDayDisplayName(nextDay) : '루틴 설정 필요',
+    // Without an alias the title already lists the parts — don't repeat them.
+    subtitle: nextDay
+      ? hasRoutineDayAlias(nextDay)
+        ? nextDay.parts.map((part) => part.name).join(' · ')
+        : ''
       : '앱에서 첫 루틴을 설정하세요',
-    durationLabel: '바로 시작',
+    durationLabel: '',
+    accent,
   };
 }
 
@@ -91,17 +139,15 @@ function getTomorrowStart(): Date {
 
 async function syncLiveActivity(
   overview: AppOverview,
-  WorkoutLiveActivity: typeof import('./WorkoutLiveActivity').WorkoutLiveActivity
+  WorkoutLiveActivity: typeof import('./WorkoutLiveActivity').WorkoutLiveActivity,
+  accent: string
 ): Promise<void> {
   if (overview.activeSession) {
     const props: WorkoutLiveActivityProps = {
-      title: joinPartNames(
-        overview.activeSession.parts.map((part) => ({
-          name: part.bodyPartName,
-        }))
-      ),
-      subtitle: 'Loofit 운동 중',
+      title: joinParts(overview.activeSession),
+      subtitle: '루핏 운동 중',
       startedAt: overview.activeSession.startedAt,
+      accent,
     };
     const instances = WorkoutLiveActivity.getInstances();
     const activeInstance = instances[0] ?? liveActivity;
@@ -110,7 +156,9 @@ async function syncLiveActivity(
       await activeInstance.update(props);
       return;
     }
-    liveActivity = WorkoutLiveActivity.start(props, 'loofit://session');
+    // The workout-in-progress UI lives on the home screen (there is no
+    // dedicated /session route), so the Live Activity links to the app root.
+    liveActivity = WorkoutLiveActivity.start(props, 'loofit://');
     return;
   }
 

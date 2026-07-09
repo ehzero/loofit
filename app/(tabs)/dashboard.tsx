@@ -1,91 +1,80 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
 
-import { Heatmap } from '@/src/components/Heatmap';
-import { Panel } from '@/src/components/Panel';
+import { Card } from '@/src/components/Card';
+import { HeatGrid, HeatLegend, HeatYearGrid } from '@/src/components/Heat';
+import { PartBars } from '@/src/components/PartBars';
 import { Screen } from '@/src/components/Screen';
+import { Segmented } from '@/src/components/Segmented';
+import { StatTiles } from '@/src/components/StatTiles';
 import { formatDuration } from '@/src/domain/date';
 import { useAppStore } from '@/src/store/app-store';
-import { theme } from '@/src/styles/theme';
+import { useTheme } from '@/src/theme/ThemeProvider';
+
+type HeatRange = '7' | '30' | '365';
+
+const RANGE_OPTIONS: Array<{ value: HeatRange; label: string }> = [
+  { value: '7', label: '7일' },
+  { value: '30', label: '30일' },
+  { value: '365', label: '1년' },
+];
 
 export default function DashboardScreen() {
+  const { colors } = useTheme();
   const overview = useAppStore((state) => state.overview);
+  const [range, setRange] = useState<HeatRange>('7');
 
   if (!overview) {
     return <Screen title="대시보드" isLoading />;
   }
 
+  const stats =
+    range === '7'
+      ? overview.rangeStats.last7
+      : range === '30'
+        ? overview.rangeStats.last30
+        : overview.rangeStats.last365;
+
   return (
-    <Screen title="대시보드" subtitle="최근 운동 패턴을 빠르게 확인합니다.">
-      <View style={styles.stats}>
-        <Panel>
-          <Text style={styles.metric}>{overview.dashboard.weekWorkoutCount}</Text>
-          <Text style={styles.label}>이번 주 운동</Text>
-        </Panel>
-        <Panel>
-          <Text style={styles.metric}>{formatDuration(overview.dashboard.totalDurationSeconds)}</Text>
-          <Text style={styles.label}>총 운동 시간</Text>
-        </Panel>
-      </View>
+    <Screen title="대시보드">
+      <Segmented options={RANGE_OPTIONS} value={range} onChange={setRange} />
 
-      <Panel title="최근 7일">
-        <Heatmap days={overview.heatmap7} />
-      </Panel>
+      <StatTiles
+        tiles={[
+          { label: '운동 횟수', value: `${stats.workoutCount}회` },
+          { label: '운동 시간', value: formatDuration(stats.durationSeconds) },
+        ]}
+      />
 
-      <Panel title="최근 30일">
-        <Heatmap days={overview.heatmap30} />
-      </Panel>
-
-      <Panel title="부위별 운동 시간">
-        {overview.dashboard.byBodyPart.length === 0 ? (
-          <Text style={styles.label}>완료된 운동 기록이 아직 없습니다.</Text>
+      <Card title="히트맵" action={<HeatLegend />}>
+        {range === '365' ? (
+          <HeatYearGrid cells={overview.heatmapYear} />
         ) : (
-          overview.dashboard.byBodyPart.map((part) => (
-            <View key={part.name} style={styles.partRow}>
-              <View style={[styles.partDot, { backgroundColor: part.color }]} />
-              <Text style={styles.partName}>{part.name}</Text>
-              <Text style={styles.partDuration}>{formatDuration(part.durationSeconds)}</Text>
-            </View>
-          ))
+          <HeatGrid
+            cells={range === '7' ? overview.heatmap7 : overview.heatmapGrid}
+            weekdayLabels
+          />
         )}
-      </Panel>
+      </Card>
+
+      <Card title="부위별 운동 시간">
+        {overview.dashboard.byBodyPart.length === 0 ? (
+          <Text style={[styles.empty, { color: colors.tx5 }]}>아직 데이터가 없어요.</Text>
+        ) : (
+          <PartBars
+            stats={overview.dashboard.byBodyPart.slice(0, 6).map((part) => ({
+              name: part.name,
+              durationSeconds: part.durationSeconds,
+            }))}
+          />
+        )}
+      </Card>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  stats: {
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-  },
-  metric: {
-    color: theme.colors.text,
-    fontSize: 24,
-    fontWeight: '900',
-  },
-  label: {
-    color: theme.colors.muted,
-    fontSize: 14,
-  },
-  partRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    paddingVertical: theme.spacing.sm,
-  },
-  partDot: {
-    borderRadius: 999,
-    height: 12,
-    width: 12,
-  },
-  partName: {
-    color: theme.colors.text,
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  partDuration: {
-    color: theme.colors.muted,
-    fontSize: 14,
-    fontWeight: '700',
+  empty: {
+    fontSize: 13,
   },
 });

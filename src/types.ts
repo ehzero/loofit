@@ -87,6 +87,16 @@ export type HeatmapDay = {
   bucket: HeatmapBucket;
 };
 
+export type HeatmapGridCell = HeatmapDay & {
+  /** false for leading placeholder cells used to align the grid to weekday columns. */
+  inRange: boolean;
+};
+
+export type RangeStats = {
+  workoutCount: number;
+  durationSeconds: number;
+};
+
 export type DashboardStats = {
   weekWorkoutCount: number;
   totalDurationSeconds: number;
@@ -105,10 +115,18 @@ export type AppOverview = {
   nextRoutineDay: RoutineDay | null;
   activeSession: WorkoutSession | null;
   latestCompletedToday: WorkoutSession | null;
+  todaySessions: WorkoutSession[];
   recentSessions: WorkoutSession[];
   heatmap7: HeatmapDay[];
   heatmap30: HeatmapDay[];
+  heatmapGrid: HeatmapGridCell[];
+  heatmapYear: HeatmapGridCell[];
   dashboard: DashboardStats;
+  rangeStats: {
+    last7: RangeStats;
+    last30: RangeStats;
+    last365: RangeStats;
+  };
 };
 
-export type RoutineTemplate = 'ppl' | 'threeSplit' | 'upperLower';
+export type RoutineTemplate = 'ppl' | 'threeSplit' | 'fourSplit' | 'upperLower';

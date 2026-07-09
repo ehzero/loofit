@@ -1,12 +1,20 @@
 import { useFonts } from 'expo-font';
-import { DarkTheme, DefaultTheme, Stack, ThemeProvider } from 'expo-router';
+import {
+  Stack,
+  ThemeProvider as NavigationThemeProvider,
+  DarkTheme,
+  DefaultTheme,
+} from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { AppState, useColorScheme } from 'react-native';
+import { AppState } from 'react-native';
 import 'react-native-gesture-handler';
 import 'react-native-reanimated';
 
 import { useAppStore } from '@/src/store/app-store';
+import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
+import { ToastProvider } from '@/src/theme/ToastProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -23,6 +31,7 @@ SplashScreen.preventAutoHideAsync();
 export default function RootLayout() {
   const initialize = useAppStore((state) => state.initialize);
   const refresh = useAppStore((state) => state.refresh);
+  const isReady = useAppStore((state) => state.isReady);
   const didInitialize = useRef(false);
   const [loaded, error] = useFonts({
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
@@ -37,9 +46,16 @@ export default function RootLayout() {
     if (loaded && !didInitialize.current) {
       didInitialize.current = true;
       initialize();
-      SplashScreen.hideAsync();
     }
   }, [initialize, loaded]);
+
+  // Keep the native splash up until the store has loaded the first overview,
+  // so the home screen's loading placeholder never flashes before onboarding.
+  useEffect(() => {
+    if (loaded && isReady) {
+      SplashScreen.hideAsync();
+    }
+  }, [loaded, isReady]);
 
   useEffect(() => {
     if (!loaded) {
@@ -57,19 +73,43 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
+  return (
+    <ThemeProvider>
+      <ToastProvider>
+        <RootLayoutNav />
+      </ToastProvider>
+    </ThemeProvider>
+  );
 }
 
 function RootLayoutNav() {
-  const colorScheme = useColorScheme();
+  const { scheme, colors } = useTheme();
+
+  const navigationTheme = {
+    ...(scheme === 'dark' ? DarkTheme : DefaultTheme),
+    colors: {
+      ...(scheme === 'dark' ? DarkTheme : DefaultTheme).colors,
+      background: colors.bg,
+      card: colors.nav,
+      text: colors.tx,
+      border: colors.navb,
+      primary: colors.accent,
+    },
+  };
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="session" options={{ title: '운동 중', presentation: 'modal' }} />
-        <Stack.Screen name="record/[id]" options={{ title: '기록 상세' }} />
+    <NavigationThemeProvider value={navigationTheme}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+        }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="routine" />
+        <Stack.Screen name="widgets" />
+        <Stack.Screen name="record/[id]" />
       </Stack>
-    </ThemeProvider>
+    </NavigationThemeProvider>
   );
 }

@@ -38,5 +38,28 @@ export function joinPartNames(parts: Array<{ name: string }>): string {
   if (parts.length === 0) {
     return '자유 운동';
   }
-  return parts.map((part) => part.name).join(' + ');
+  return parts.map((part) => part.name).join(' · ');
+}
+
+type RoutineDayLike = { name: string; parts: Array<{ name: string }> };
+
+/**
+ * A routine day's name is an optional alias (e.g. "Push"). When absent, the
+ * display name is derived from its parts so the UI never shows the same
+ * information twice (alias + part chips only render together when the alias
+ * adds meaning beyond the part list).
+ */
+export function hasRoutineDayAlias(day: RoutineDayLike): boolean {
+  return day.name.trim().length > 0;
+}
+
+export function routineDayDisplayName(day: RoutineDayLike): string {
+  const alias = day.name.trim();
+  if (alias) {
+    return alias;
+  }
+  if (day.parts.length > 0) {
+    return day.parts.map((part) => part.name).join(' · ');
+  }
+  return '새 분할';
 }

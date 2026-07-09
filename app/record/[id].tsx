@@ -2,246 +2,508 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import { AppButton } from '@/src/components/AppButton';
-import { Panel } from '@/src/components/Panel';
-import { RoutineDayRow } from '@/src/components/Rows';
+import { Button } from '@/src/components/Button';
+import { Chip } from '@/src/components/Chip';
+import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
+import { Icon } from '@/src/components/Icon';
 import { Screen } from '@/src/components/Screen';
+import { Segmented } from '@/src/components/Segmented';
 import { getSessionById } from '@/src/db/repository';
-import { formatDuration } from '@/src/domain/date';
-import { joinPartNames } from '@/src/domain/routine';
+import { formatClock, formatDateK, formatDuration } from '@/src/domain/date';
+import { routineDayDisplayName } from '@/src/domain/routine';
 import { useAppStore } from '@/src/store/app-store';
-import { theme } from '@/src/styles/theme';
-import type { BodyPart, SessionStatus, WorkoutSession } from '@/src/types';
+import { useTheme } from '@/src/theme/ThemeProvider';
+import { useToast } from '@/src/theme/ToastProvider';
+import type { SessionStatus } from '@/src/types';
+
+const STATUS_OPTIONS: Array<{ value: SessionStatus; label: string }> = [
+  { value: 'completed', label: '완료' },
+  { value: 'active', label: '진행 중' },
+  { value: 'canceled', label: '취소' },
+];
+
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 export default function RecordDetailScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ id: string }>();
+  const id = Number(params.id);
+  const { colors } = useTheme();
+  const { showToast } = useToast();
+
   const overview = useAppStore((state) => state.overview);
   const updateRecord = useAppStore((state) => state.updateRecord);
   const deleteRecord = useAppStore((state) => state.deleteRecord);
-  const id = Number(params.id);
-  const [session, setSession] = useState<WorkoutSession | null>(null);
+
+  const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<SessionStatus>('completed');
-  const [startedAt, setStartedAt] = useState('');
-  const [endedAt, setEndedAt] = useState('');
+  const [startAt, setStartAt] = useState<Date>(new Date());
+  const [endAt, setEndAt] = useState<Date>(new Date());
   const [note, setNote] = useState('');
-  const [routineDayId, setRoutineDayId] = useState<number | null | undefined>(undefined);
+  const [isFree, setIsFree] = useState(false);
+  const [routineDayId, setRoutineDayId] = useState<number | null>(null);
   const [freePartIds, setFreePartIds] = useState<number[]>([]);
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
 
   useEffect(() => {
     getSessionById(id).then((record) => {
       if (!record) {
         return;
       }
-      setSession(record);
       setStatus(record.status);
-      setStartedAt(record.startedAt);
-      setEndedAt(record.endedAt ?? '');
+      setStartAt(new Date(record.startedAt));
+      setEndAt(record.endedAt ? new Date(record.endedAt) : new Date());
       setNote(record.note ?? '');
+      setIsFree(record.routineDayId === null);
       setRoutineDayId(record.routineDayId);
-      setFreePartIds(record.parts.map((part) => part.bodyPartId).filter((partId): partId is number => !!partId));
+      setFreePartIds(
+        record.parts.map((part) => part.bodyPartId).filter((partId): partId is number => !!partId)
+      );
+      setLoaded(true);
     });
-  }, [id, overview]);
+  }, [id]);
 
-  const durationPreview = useMemo(() => {
-    if (!endedAt || status === 'active') {
-      return 0;
-    }
-    return Math.max(0, Math.floor((new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000));
-  }, [endedAt, startedAt, status]);
+  // An end time at or before the start means the workout crossed midnight;
+  // roll the end forward a day so the preview and the saved record agree.
+  const effectiveEndAt = useMemo(
+    () => (endAt.getTime() <= startAt.getTime() ? new Date(endAt.getTime() + DAY_MS) : endAt),
+    [startAt, endAt]
+  );
 
-  if (!session || !overview) {
-    return <Screen title="기록 상세" isLoading />;
+  const durationSeconds = useMemo(
+    () => Math.max(0, Math.floor((effectiveEndAt.getTime() - startAt.getTime()) / 1000)),
+    [startAt, effectiveEndAt]
+  );
+
+  if (!loaded || !overview) {
+    return <Screen title="기록 수정" onBack={() => router.back()} isLoading />;
+  }
+
+  function shiftDate(days: number) {
+    setStartAt((prev) => new Date(prev.getTime() + days * DAY_MS));
+    setEndAt((prev) => new Date(prev.getTime() + days * DAY_MS));
+  }
+
+  function adjustTime(which: 'start' | 'end', unit: 'hour' | 'minute', delta: number) {
+    const setter = which === 'start' ? setStartAt : setEndAt;
+    setter((prev) => {
+      const next = new Date(prev);
+      if (unit === 'hour') {
+        next.setHours(next.getHours() + delta);
+      } else {
+        next.setMinutes(next.getMinutes() + delta);
+      }
+      return next;
+    });
   }
 
   async function save() {
     await updateRecord(id, {
       status,
-      startedAt,
-      endedAt: status === 'active' ? null : endedAt || new Date().toISOString(),
+      startedAt: startAt.toISOString(),
+      endedAt: status === 'active' ? null : effectiveEndAt.toISOString(),
       note,
-      routineDayId: routineDayId ?? null,
-      bodyPartIds: routineDayId ? undefined : freePartIds,
+      routineDayId: isFree ? null : routineDayId,
+      bodyPartIds: isFree ? freePartIds : undefined,
     });
+    showToast('기록이 수정되었어요');
     router.back();
   }
 
-  async function remove() {
-    await deleteRecord(id);
-    router.replace('/records');
-  }
+  const durationLabel = status === 'canceled' ? '취소됨' : formatDuration(durationSeconds);
 
   return (
-    <Screen title="기록 상세" subtitle={joinPartNames(session.parts.map((part) => ({ name: part.bodyPartName })))}>
-      <Panel title="상태">
-        <View style={styles.segment}>
-          {(['completed', 'canceled', 'active'] as SessionStatus[]).map((value) => (
+    <>
+      <Screen title="기록 수정" onBack={() => router.back()}>
+        {/* Status */}
+        <Field label="상태">
+          <Segmented
+            options={STATUS_OPTIONS}
+            value={status}
+            onChange={(next) => {
+              const otherActive =
+                overview.activeSession && overview.activeSession.id !== id;
+              if (next === 'active' && otherActive) {
+                showToast('이미 진행 중인 운동이 있어요');
+                return;
+              }
+              setStatus(next);
+            }}
+          />
+        </Field>
+
+        {/* Date & time */}
+        <Field label="날짜 · 시간">
+          <StepperRow
+            value={formatDateK(startAt)}
+            onDec={() => shiftDate(-1)}
+            onInc={() => shiftDate(1)}
+          />
+          <View style={styles.timeRow}>
+            <TimeStepper
+              caption="시작"
+              value={formatClock(startAt)}
+              onHour={(d) => adjustTime('start', 'hour', d)}
+              onMinute={(d) => adjustTime('start', 'minute', d)}
+            />
+            <TimeStepper
+              caption="종료"
+              value={formatClock(endAt)}
+              disabled={status === 'active'}
+              onHour={(d) => adjustTime('end', 'hour', d)}
+              onMinute={(d) => adjustTime('end', 'minute', d)}
+            />
+          </View>
+          <View style={styles.durationRow}>
+            <Text style={[styles.durationLabel, { color: colors.tx4 }]}>운동 시간</Text>
+            <Text style={[styles.durationValue, { color: colors.accent }]}>{durationLabel}</Text>
+          </View>
+        </Field>
+
+        {/* Target */}
+        <Field label="운동 대상">
+          <View style={styles.targetList}>
+            {overview.routineDays.map((day) => {
+              const selected = !isFree && routineDayId === day.id;
+              return (
+                <Pressable
+                  key={day.id}
+                  onPress={() => {
+                    setIsFree(false);
+                    setRoutineDayId(day.id);
+                  }}
+                  style={[
+                    styles.target,
+                    {
+                      backgroundColor: selected ? colors.chip : colors.card,
+                      borderColor: selected ? colors.accent : colors.border2,
+                    },
+                  ]}>
+                  <Text style={[styles.targetText, { color: selected ? colors.tx : colors.tx2 }]}>
+                    {routineDayDisplayName(day)}
+                  </Text>
+                </Pressable>
+              );
+            })}
             <Pressable
-              key={value}
-              onPress={() => setStatus(value)}
-              style={[styles.segmentItem, status === value ? styles.segmentActive : null]}>
-              <Text style={[styles.segmentText, status === value ? styles.segmentTextActive : null]}>
-                {value === 'completed' ? '완료' : value === 'canceled' ? '취소' : '진행 중'}
+              onPress={() => setIsFree(true)}
+              style={[
+                styles.target,
+                {
+                  backgroundColor: isFree ? colors.chip : colors.card,
+                  borderColor: isFree ? colors.accent : colors.border2,
+                },
+              ]}>
+              <Text style={[styles.targetText, { color: isFree ? colors.tx : colors.tx2 }]}>
+                자유 운동
               </Text>
             </Pressable>
-          ))}
-        </View>
-        <Text style={styles.muted}>예상 운동 시간: {formatDuration(durationPreview)}</Text>
-      </Panel>
+          </View>
+          {isFree ? (
+            <View style={styles.freeChips}>
+              {overview.bodyParts.map((part) => (
+                <Chip
+                  key={part.id}
+                  label={part.name}
+                  selected={freePartIds.includes(part.id)}
+                  onPress={() =>
+                    setFreePartIds((current) =>
+                      current.includes(part.id)
+                        ? current.filter((partId) => partId !== part.id)
+                        : [...current, part.id]
+                    )
+                  }
+                />
+              ))}
+            </View>
+          ) : null}
+        </Field>
 
-      <Panel title="시간">
-        <Text style={styles.label}>시작 시간 ISO</Text>
-        <TextInput value={startedAt} onChangeText={setStartedAt} style={styles.input} />
-        <Text style={styles.label}>종료 시간 ISO</Text>
-        <TextInput
-          value={endedAt}
-          onChangeText={setEndedAt}
-          editable={status !== 'active'}
-          placeholder="진행 중이면 비워둡니다"
-          style={styles.input}
-        />
-      </Panel>
-
-      <Panel title="루틴 운동으로 변경">
-        {overview.routineDays.map((day) => (
-          <RoutineDayRow
-            key={day.id}
-            day={day}
-            isNext={routineDayId === day.id}
-            onPress={() => setRoutineDayId(day.id)}
+        {/* Memo */}
+        <Field label="메모">
+          <TextInput
+            value={note}
+            onChangeText={setNote}
+            multiline
+            placeholder="메모를 남겨보세요 (선택)"
+            placeholderTextColor={colors.tx5}
+            style={[
+              styles.memo,
+              { backgroundColor: colors.card, borderColor: colors.border2, color: colors.tx },
+            ]}
           />
-        ))}
-      </Panel>
+        </Field>
 
-      <Panel title="자유 운동으로 변경">
-        <View style={styles.chipWrap}>
-          {overview.bodyParts.map((part) => (
-            <BodyPartChip
-              key={part.id}
-              part={part}
-              selected={routineDayId === null && freePartIds.includes(part.id)}
-              onPress={() => {
-                setRoutineDayId(null);
-                setFreePartIds((current) =>
-                  current.includes(part.id)
-                    ? current.filter((partId) => partId !== part.id)
-                    : [...current, part.id]
-                );
-              }}
-            />
-          ))}
+        {/* Recalc notice */}
+        <View style={[styles.notice, { backgroundColor: colors.card, borderColor: colors.border }]}>
+          <Icon name="info" size={18} color={colors.tx4} />
+          <Text style={[styles.noticeText, { color: colors.tx3 }]}>
+            기록을 수정해도 다음 운동은 자동으로 다시 계산되지 않아요. 다음 운동은 루틴 설정에서
+            조정할 수 있어요.
+          </Text>
         </View>
-      </Panel>
 
-      <Panel title="메모">
-        <TextInput
-          multiline
-          value={note}
-          onChangeText={setNote}
-          placeholder="선택 사항"
-          style={[styles.input, styles.note]}
-        />
-      </Panel>
+        <View style={styles.actions}>
+          <Button onPress={save}>저장</Button>
+          <Button
+            variant="danger"
+            size="md"
+            onPress={() =>
+              setConfirm({
+                title: '이 기록을 삭제할까요?',
+                description: '삭제한 기록은 되돌릴 수 없어요.',
+                confirmLabel: '삭제',
+                danger: true,
+                onConfirm: async () => {
+                  await deleteRecord(id);
+                  showToast('기록이 삭제되었어요');
+                  router.replace('/records');
+                },
+              })
+            }>
+            기록 삭제
+          </Button>
+        </View>
+      </Screen>
 
-      <View style={styles.actions}>
-        <AppButton onPress={save}>저장</AppButton>
-        <AppButton variant="danger" onPress={remove}>
-          기록 삭제
-        </AppButton>
-      </View>
-    </Screen>
+      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+    </>
   );
 }
 
-function BodyPartChip({
-  part,
-  selected,
-  onPress,
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.field}>
+      <Text style={[styles.fieldLabel, { color: colors.tx4 }]}>{label}</Text>
+      {children}
+    </View>
+  );
+}
+
+function StepperRow({
+  value,
+  onDec,
+  onInc,
 }: {
-  part: BodyPart;
-  selected: boolean;
-  onPress: () => void;
+  value: string;
+  onDec: () => void;
+  onInc: () => void;
 }) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.stepper, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
+      <StepButton icon="chevronLeft" onPress={onDec} />
+      <Text style={[styles.stepperValue, { color: colors.tx }]}>{value}</Text>
+      <StepButton icon="chevronRight" onPress={onInc} />
+    </View>
+  );
+}
+
+function TimeStepper({
+  caption,
+  value,
+  disabled,
+  onHour,
+  onMinute,
+}: {
+  caption: string;
+  value: string;
+  disabled?: boolean;
+  onHour: (delta: number) => void;
+  onMinute: (delta: number) => void;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={[styles.timeStepper, { opacity: disabled ? 0.4 : 1 }]}>
+      <Text style={[styles.timeCaption, { color: colors.tx4 }]}>{caption}</Text>
+      <View style={[styles.timeValueBox, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
+        <Text style={[styles.timeValue, { color: colors.tx }]}>{value}</Text>
+      </View>
+      <View style={styles.timeButtons}>
+        <MiniAdjust label="시" onDec={() => onHour(-1)} onInc={() => onHour(1)} disabled={disabled} />
+        <MiniAdjust label="분" onDec={() => onMinute(-5)} onInc={() => onMinute(5)} disabled={disabled} />
+      </View>
+    </View>
+  );
+}
+
+function MiniAdjust({
+  label,
+  onDec,
+  onInc,
+  disabled,
+}: {
+  label: string;
+  onDec: () => void;
+  onInc: () => void;
+  disabled?: boolean;
+}) {
+  const { colors } = useTheme();
+  return (
+    <View style={styles.miniAdjust}>
+      <Pressable
+        disabled={disabled}
+        onPress={onDec}
+        style={[styles.miniBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
+        <Text style={[styles.miniBtnText, { color: colors.tx2 }]}>−</Text>
+      </Pressable>
+      <Text style={[styles.miniLabel, { color: colors.tx4 }]}>{label}</Text>
+      <Pressable
+        disabled={disabled}
+        onPress={onInc}
+        style={[styles.miniBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
+        <Text style={[styles.miniBtnText, { color: colors.tx2 }]}>+</Text>
+      </Pressable>
+    </View>
+  );
+}
+
+function StepButton({ icon, onPress }: { icon: 'chevronLeft' | 'chevronRight'; onPress: () => void }) {
+  const { colors } = useTheme();
   return (
     <Pressable
       onPress={onPress}
-      style={[
-        styles.chip,
-        selected ? { backgroundColor: part.color, borderColor: part.color } : null,
-      ]}>
-      <Text style={[styles.chipText, selected ? styles.chipTextSelected : null]}>{part.name}</Text>
+      style={[styles.stepBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
+      <Icon name={icon} size={16} color={colors.tx2} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  segment: {
-    backgroundColor: theme.colors.surfaceAlt,
-    borderRadius: theme.radius.sm,
-    flexDirection: 'row',
-    padding: 3,
+  field: {
+    gap: 9,
   },
-  segmentItem: {
-    alignItems: 'center',
-    borderRadius: theme.radius.sm,
-    flex: 1,
-    minHeight: 38,
-    justifyContent: 'center',
-  },
-  segmentActive: {
-    backgroundColor: theme.colors.surface,
-  },
-  segmentText: {
-    color: theme.colors.muted,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  segmentTextActive: {
-    color: theme.colors.text,
-  },
-  label: {
-    color: theme.colors.muted,
+  fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
   },
-  input: {
-    backgroundColor: theme.colors.surfaceAlt,
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    color: theme.colors.text,
-    minHeight: 44,
-    paddingHorizontal: theme.spacing.md,
-  },
-  note: {
-    minHeight: 88,
-    paddingTop: theme.spacing.md,
-  },
-  muted: {
-    color: theme.colors.muted,
-    fontSize: 13,
-  },
-  chipWrap: {
+  stepper: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.spacing.sm,
-  },
-  chip: {
-    borderColor: theme.colors.border,
-    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderRadius: 12,
     borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
+    padding: 8,
   },
-  chipText: {
-    color: theme.colors.text,
-    fontSize: 13,
+  stepperValue: {
+    fontSize: 15,
     fontWeight: '700',
   },
-  chipTextSelected: {
-    color: '#FFFFFF',
+  stepBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 9,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  timeRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  timeStepper: {
+    flex: 1,
+    gap: 6,
+  },
+  timeCaption: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timeValueBox: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  timeValue: {
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  timeButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  miniAdjust: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  miniBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    borderWidth: StyleSheet.hairlineWidth,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  miniBtnText: {
+    fontSize: 18,
+    fontWeight: '700',
+    lineHeight: 20,
+  },
+  miniLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  durationRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+    paddingTop: 2,
+  },
+  durationLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  durationValue: {
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  targetList: {
+    gap: 8,
+  },
+  target: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+  },
+  targetText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  freeChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+    marginTop: 4,
+  },
+  memo: {
+    borderRadius: 12,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    fontSize: 15,
+    fontWeight: '500',
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  notice: {
+    flexDirection: 'row',
+    gap: 9,
+    borderRadius: 14,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+  },
+  noticeText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 20,
   },
   actions: {
-    gap: theme.spacing.md,
+    gap: 9,
   },
 });

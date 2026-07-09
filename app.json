@@ -46,13 +46,25 @@
               "name": "WorkoutControlWidget",
               "displayName": "Loofit Workout",
               "description": "Start, finish, and review today's workout.",
-              "supportedFamilies": ["systemSmall", "systemMedium"]
+              "supportedFamilies": ["systemSmall"]
             },
             {
-              "name": "HeatmapCalendarWidget",
-              "displayName": "Loofit Heatmap",
-              "description": "Review your recent workout heatmap.",
-              "supportedFamilies": ["systemSmall", "systemMedium", "systemLarge"]
+              "name": "HeatmapWeekWidget",
+              "displayName": "Loofit Heatmap · 7일",
+              "description": "Review your last 7 days of workouts.",
+              "supportedFamilies": ["systemSmall"]
+            },
+            {
+              "name": "HeatmapMonthWidget",
+              "displayName": "Loofit Heatmap · 30일",
+              "description": "Review your last 30 days of workouts.",
+              "supportedFamilies": ["systemSmall"]
+            },
+            {
+              "name": "HeatmapYearWidget",
+              "displayName": "Loofit Heatmap · 1년",
+              "description": "Review your last year of workouts.",
+              "supportedFamilies": ["systemMedium"]
             },
             {
               "name": "WorkoutLiveActivity",

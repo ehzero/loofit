@@ -46,6 +46,44 @@ export function formatDuration(totalSeconds: number): string {
   return `${remainingSeconds}초`;
 }
 
+const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+
+export function weekdayLabel(date: Date | string): string {
+  const value = typeof date === 'string' ? new Date(date) : date;
+  return WEEKDAYS[value.getDay()];
+}
+
+/** MM:SS, or H:MM:SS once an hour has elapsed. Used by the running timer. */
+export function formatElapsed(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+  const pad = (n: number) => `${n}`.padStart(2, '0');
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${pad(minutes)}:${pad(secs)}`;
+}
+
+/** e.g. "오후 7:24" */
+export function formatClock(date: Date | string): string {
+  const value = typeof date === 'string' ? new Date(date) : date;
+  const hours = value.getHours();
+  const meridiem = hours < 12 ? '오전' : '오후';
+  const displayHour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${meridiem} ${displayHour}:${`${value.getMinutes()}`.padStart(2, '0')}`;
+}
+
+/** e.g. "7월 9일 (수)" */
+export function formatDateK(date: Date | string): string {
+  const value = typeof date === 'string' ? new Date(date) : date;
+  return `${value.getMonth() + 1}월 ${value.getDate()}일 (${weekdayLabel(value)})`;
+}
+
+/** e.g. "7월 9일 수요일" */
+export function formatDateFull(date: Date | string): string {
+  const value = typeof date === 'string' ? new Date(date) : date;
+  return `${value.getMonth() + 1}월 ${value.getDate()}일 ${weekdayLabel(value)}요일`;
+}
+
 export function getEndOfLocalDay(date: Date): Date {
   const end = startOfLocalDay(date);
   end.setDate(end.getDate() + 1);

@@ -1,11 +1,13 @@
 import type * as SQLite from 'expo-sqlite';
 
-import { buildDashboardStats } from '@/src/domain/dashboard';
-import { buildHeatmap } from '@/src/domain/heatmap';
+import { buildHeatmap, buildHeatmapGrid } from '@/src/domain/heatmap';
+import { addLocalDays, getWeekStart, startOfLocalDay, toLocalDateKey } from '@/src/domain/date';
 import { getNextRoutineDay, getRoutineDayAfterCompletion } from '@/src/domain/routine';
 import type {
   AppOverview,
   BodyPart,
+  DashboardStats,
+  RangeStats,
   Routine,
   RoutineDay,
   RoutineProgress,
@@ -171,6 +173,7 @@ export async function getRoutineDays(routineId: number | null | undefined): Prom
      FROM routine_day_parts rdp
      JOIN body_parts bp ON bp.id = rdp.body_part_id
      WHERE rdp.routine_day_id IN (${rows.map(() => '?').join(',') || 'NULL'})
+       AND bp.is_archived = 0
      ORDER BY rdp.routine_day_id ASC, rdp.sort_order ASC`,
     rows.map((row) => row.id)
   );
@@ -221,6 +224,62 @@ export async function setNextRoutineDay(routineDayId: number | null): Promise<vo
   const db = await getDatabase();
   const routine = await getActiveRoutine();
   await upsertRoutineProgress(db, routine?.id ?? null, routineDayId);
+}
+
+export async function getAppSetting(key: string): Promise<string | null> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ value: string }>(
+    `SELECT value FROM app_settings WHERE key = ? LIMIT 1`,
+    key
+  );
+  return row?.value ?? null;
+}
+
+export async function setAppSetting(key: string, value: string): Promise<void> {
+  const db = await getDatabase();
+  await db.runAsync(
+    `INSERT INTO app_settings (key, value, updated_at)
+     VALUES (?, ?, ?)
+     ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    key,
+    value,
+    new Date().toISOString()
+  );
+}
+
+export async function createEmptyRoutine(): Promise<void> {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync(`UPDATE routines SET is_active = 0, updated_at = ?`, now);
+    const routineResult = await tx.runAsync(
+      `INSERT INTO routines (name, is_active, created_at, updated_at) VALUES (?, 1, ?, ?)`,
+      '내 루틴',
+      now,
+      now
+    );
+    const routineId = routineResult.lastInsertRowId;
+    const dayResult = await tx.runAsync(
+      `INSERT INTO routine_days (routine_id, name, sort_order, created_at, updated_at)
+       VALUES (?, ?, 0, ?, ?)`,
+      routineId,
+      '',
+      now,
+      now
+    );
+    await tx.runAsync(
+      `INSERT INTO routine_progress (id, active_routine_id, next_routine_day_id, updated_at)
+       VALUES (1, ?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         active_routine_id = excluded.active_routine_id,
+         next_routine_day_id = excluded.next_routine_day_id,
+         updated_at = excluded.updated_at`,
+      routineId,
+      dayResult.lastInsertRowId,
+      now
+    );
+  });
 }
 
 export async function createRoutineFromTemplate(template: RoutineTemplate): Promise<void> {
@@ -310,11 +369,16 @@ export async function addBodyPart(name: string): Promise<void> {
 
 export async function archiveBodyPart(id: number): Promise<void> {
   const db = await getDatabase();
-  await db.runAsync(
-    `UPDATE body_parts SET is_archived = 1, updated_at = ? WHERE id = ?`,
-    new Date().toISOString(),
-    id
-  );
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync(
+      `UPDATE body_parts SET is_archived = 1, updated_at = ? WHERE id = ?`,
+      new Date().toISOString(),
+      id
+    );
+    // Archiving means "stop offering this part", so drop it from routine days
+    // too. Past session snapshots keep their own copies and are unaffected.
+    await tx.runAsync(`DELETE FROM routine_day_parts WHERE body_part_id = ?`, id);
+  });
 }
 
 export async function addRoutineDay(name: string, bodyPartIds: number[]): Promise<void> {
@@ -349,6 +413,112 @@ export async function addRoutineDay(name: string, bodyPartIds: number[]): Promis
         result.lastInsertRowId,
         bodyPartId,
         index
+      );
+    }
+  });
+}
+
+export async function addEmptyRoutineDay(name: string): Promise<void> {
+  const routine = await getActiveRoutine();
+  if (!routine) {
+    return;
+  }
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  const nextOrder = await db.getFirstAsync<{ next_order: number }>(
+    `SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM routine_days WHERE routine_id = ?`,
+    routine.id
+  );
+  await db.runAsync(
+    `INSERT INTO routine_days (routine_id, name, sort_order, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    routine.id,
+    name.trim(),
+    nextOrder?.next_order ?? 0,
+    now,
+    now
+  );
+}
+
+export async function renameRoutineDay(dayId: number, name: string): Promise<void> {
+  // The name is an optional alias; an empty string clears it and the UI
+  // falls back to displaying the day's part list.
+  const db = await getDatabase();
+  await db.runAsync(
+    `UPDATE routine_days SET name = ?, updated_at = ? WHERE id = ?`,
+    name.trim(),
+    new Date().toISOString(),
+    dayId
+  );
+}
+
+export async function setRoutineDayParts(dayId: number, bodyPartIds: number[]): Promise<void> {
+  const db = await getDatabase();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync(`DELETE FROM routine_day_parts WHERE routine_day_id = ?`, dayId);
+    for (const [index, bodyPartId] of bodyPartIds.entries()) {
+      await tx.runAsync(
+        `INSERT INTO routine_day_parts (routine_day_id, body_part_id, sort_order)
+         VALUES (?, ?, ?)`,
+        dayId,
+        bodyPartId,
+        index
+      );
+    }
+    await tx.runAsync(
+      `UPDATE routine_days SET updated_at = ? WHERE id = ?`,
+      new Date().toISOString(),
+      dayId
+    );
+  });
+}
+
+/** Swaps a routine day with its neighbor in the given direction (-1 up, +1 down). */
+export async function moveRoutineDay(dayId: number, direction: -1 | 1): Promise<void> {
+  const routine = await getActiveRoutine();
+  const days = await getRoutineDays(routine?.id);
+  const index = days.findIndex((day) => day.id === dayId);
+  const targetIndex = index + direction;
+  if (index < 0 || targetIndex < 0 || targetIndex >= days.length) {
+    return;
+  }
+
+  const current = days[index];
+  const neighbor = days[targetIndex];
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync(
+      `UPDATE routine_days SET sort_order = ?, updated_at = ? WHERE id = ?`,
+      neighbor.sortOrder,
+      now,
+      current.id
+    );
+    await tx.runAsync(
+      `UPDATE routine_days SET sort_order = ?, updated_at = ? WHERE id = ?`,
+      current.sortOrder,
+      now,
+      neighbor.id
+    );
+  });
+}
+
+export async function deleteRoutineDay(dayId: number): Promise<void> {
+  const db = await getDatabase();
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    await tx.runAsync(`DELETE FROM routine_day_parts WHERE routine_day_id = ?`, dayId);
+    await tx.runAsync(`DELETE FROM routine_days WHERE id = ?`, dayId);
+    const progress = await tx.getFirstAsync<{ next_routine_day_id: number | null }>(
+      `SELECT next_routine_day_id FROM routine_progress WHERE id = 1`
+    );
+    if (progress?.next_routine_day_id === dayId) {
+      const fallback = await tx.getFirstAsync<{ id: number }>(
+        `SELECT id FROM routine_days ORDER BY sort_order ASC, id ASC LIMIT 1`
+      );
+      await tx.runAsync(
+        `UPDATE routine_progress SET next_routine_day_id = ?, updated_at = ? WHERE id = 1`,
+        fallback?.id ?? null,
+        new Date().toISOString()
       );
     }
   });
@@ -569,6 +739,15 @@ export async function updateSession(
     return;
   }
 
+  // Only one active session may exist at a time — the home screen and widgets
+  // assume a single source of truth for the workout-in-progress state.
+  if (updates.status === 'active' && current.status !== 'active') {
+    const existingActive = await getActiveSession();
+    if (existingActive && existingActive.id !== id) {
+      throw new Error('이미 진행 중인 운동이 있어 진행 중으로 바꿀 수 없어요.');
+    }
+  }
+
   const db = await getDatabase();
   const startedAt = updates.startedAt ?? current.startedAt;
   const endedAt = updates.endedAt === undefined ? current.endedAt : updates.endedAt;
@@ -645,6 +824,8 @@ export async function getSessions(options?: {
   statuses?: SessionStatus[];
   sessionId?: number;
   limit?: number;
+  /** ISO timestamp; only sessions started at or after this instant. */
+  sinceStartedAt?: string;
 }): Promise<WorkoutSession[]> {
   const db = await getDatabase();
   const clauses: string[] = [];
@@ -658,6 +839,11 @@ export async function getSessions(options?: {
   if (options?.statuses?.length) {
     clauses.push(`status IN (${options.statuses.map(() => '?').join(',')})`);
     params.push(...options.statuses);
+  }
+
+  if (options?.sinceStartedAt) {
+    clauses.push('started_at >= ?');
+    params.push(options.sinceStartedAt);
   }
 
   const rows = await db.getAllAsync<SessionRow>(
@@ -687,6 +873,71 @@ export async function getSessions(options?: {
   );
 }
 
+/** Completed-session count and total duration since the given instant. */
+async function getCompletedRangeStats(sinceIso: string): Promise<RangeStats> {
+  const db = await getDatabase();
+  const row = await db.getFirstAsync<{ count: number; total: number | null }>(
+    `SELECT COUNT(*) AS count, SUM(duration_seconds) AS total
+     FROM workout_sessions
+     WHERE status = 'completed' AND started_at >= ?`,
+    sinceIso
+  );
+  return {
+    workoutCount: row?.count ?? 0,
+    durationSeconds: Math.round(row?.total ?? 0),
+  };
+}
+
+/**
+ * All-time dashboard stats computed with SQL aggregates so they stay exact
+ * regardless of how many sessions exist (the overview's session list is
+ * capped for recency, which must not cap the totals).
+ */
+async function getDashboardStats(bodyParts: BodyPart[], now: Date): Promise<DashboardStats> {
+  const db = await getDatabase();
+  const weekStart = getWeekStart(now);
+  const weekEnd = addLocalDays(weekStart, 7);
+
+  const weekRow = await db.getFirstAsync<{ count: number }>(
+    `SELECT COUNT(*) AS count FROM workout_sessions
+     WHERE status = 'completed' AND started_at >= ? AND started_at < ?`,
+    weekStart.toISOString(),
+    weekEnd.toISOString()
+  );
+  const totalRow = await db.getFirstAsync<{ total: number | null }>(
+    `SELECT SUM(duration_seconds) AS total FROM workout_sessions WHERE status = 'completed'`
+  );
+  // Each session's duration is split evenly across its snapshot parts,
+  // mirroring the previous in-memory aggregation.
+  const partRows = await db.getAllAsync<{ name: string; color: string; duration: number }>(
+    `SELECT snap.body_part_name AS name,
+            MAX(snap.body_part_color) AS color,
+            SUM(ws.duration_seconds * 1.0 / cnt.part_count) AS duration
+     FROM workout_session_parts_snapshot snap
+     JOIN workout_sessions ws ON ws.id = snap.workout_session_id
+     JOIN (
+       SELECT workout_session_id, COUNT(*) AS part_count
+       FROM workout_session_parts_snapshot
+       GROUP BY workout_session_id
+     ) cnt ON cnt.workout_session_id = snap.workout_session_id
+     WHERE ws.status = 'completed'
+     GROUP BY snap.body_part_name
+     HAVING duration > 0
+     ORDER BY duration DESC`
+  );
+
+  const colorByName = new Map(bodyParts.map((part) => [part.name, part.color]));
+  return {
+    weekWorkoutCount: weekRow?.count ?? 0,
+    totalDurationSeconds: Math.round(totalRow?.total ?? 0),
+    byBodyPart: partRows.map((row) => ({
+      name: row.name,
+      color: colorByName.get(row.name) ?? row.color,
+      durationSeconds: Math.round(row.duration),
+    })),
+  };
+}
+
 export async function getOverview(now = new Date()): Promise<AppOverview> {
   const bodyParts = await getBodyParts(false);
   const activeRoutine = await getActiveRoutine();
@@ -700,15 +951,24 @@ export async function getOverview(now = new Date()): Promise<AppOverview> {
     progress = await getRoutineProgress();
   }
 
-  const sessions = await getSessions({ limit: 200 });
-  const activeSession = sessions.find((session) => session.status === 'active') ?? null;
-  const todayKey = now.toLocaleDateString('sv-SE');
-  const latestCompletedToday =
-    sessions.find(
-      (session) =>
-        session.status === 'completed' &&
-        new Date(session.startedAt).toLocaleDateString('sv-SE') === todayKey
-    ) ?? null;
+  const sessions = await getSessions({ limit: 50 });
+  // Query the active session directly: it may have started long ago (sessions
+  // are never auto-closed) and must be found regardless of the recency cap.
+  const activeSession = (await getSessions({ statuses: ['active'], limit: 1 }))[0] ?? null;
+  const todayKey = toLocalDateKey(now);
+  const todaySessions = sessions.filter(
+    (session) =>
+      session.status === 'completed' && toLocalDateKey(session.startedAt) === todayKey
+  );
+  const latestCompletedToday = todaySessions[0] ?? null;
+
+  // One date-bounded query covers every heatmap range (the year view is the
+  // superset); a count cap would silently truncate long histories.
+  const today = startOfLocalDay(now);
+  const heatmapSessions = await getSessions({
+    statuses: ['completed'],
+    sinceStartedAt: addLocalDays(today, -364).toISOString(),
+  });
 
   return {
     bodyParts,
@@ -718,10 +978,18 @@ export async function getOverview(now = new Date()): Promise<AppOverview> {
     nextRoutineDay: getNextRoutineDay(routineDays, progress),
     activeSession,
     latestCompletedToday,
+    todaySessions,
     recentSessions: sessions.slice(0, 12),
-    heatmap7: buildHeatmap(sessions, 7, now),
-    heatmap30: buildHeatmap(sessions, 30, now),
-    dashboard: buildDashboardStats(sessions, bodyParts, now),
+    heatmap7: buildHeatmap(heatmapSessions, 7, now),
+    heatmap30: buildHeatmap(heatmapSessions, 30, now),
+    heatmapGrid: buildHeatmapGrid(heatmapSessions, 30, now),
+    heatmapYear: buildHeatmapGrid(heatmapSessions, 365, now),
+    dashboard: await getDashboardStats(bodyParts, now),
+    rangeStats: {
+      last7: await getCompletedRangeStats(addLocalDays(today, -6).toISOString()),
+      last30: await getCompletedRangeStats(addLocalDays(today, -29).toISOString()),
+      last365: await getCompletedRangeStats(addLocalDays(today, -364).toISOString()),
+    },
   };
 }
 
