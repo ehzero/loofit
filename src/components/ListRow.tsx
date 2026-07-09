@@ -20,6 +20,11 @@ type ListRowProps = {
    * `card`: self-contained surface row (sheets, pickers).
    */
   variant?: 'grouped' | 'card';
+  /**
+   * card rows only — which surface the row sits on (see tokens.ts surface
+   * hierarchy): `surface2` inside a card container, `card` directly on bg.
+   */
+  surface?: 'surface2' | 'card';
   /** grouped rows only: draw a hairline under the row. */
   divider?: boolean;
 };
@@ -32,6 +37,7 @@ export function ListRow({
   onPress,
   disabled,
   variant = 'grouped',
+  surface = 'surface2',
   divider,
 }: ListRowProps) {
   const { colors } = useTheme();
@@ -44,10 +50,10 @@ export function ListRow({
         styles.row,
         variant === 'card'
           ? {
-              backgroundColor: colors.surface2,
-              borderColor: colors.border2,
+              backgroundColor: surface === 'card' ? colors.card : colors.surface2,
+              borderColor: surface === 'card' ? colors.border : colors.border2,
               borderWidth: StyleSheet.hairlineWidth,
-              borderRadius: radius.md,
+              borderRadius: surface === 'card' ? radius.lg : radius.md,
             }
           : null,
         divider && variant === 'grouped'

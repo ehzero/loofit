@@ -7,47 +7,29 @@ import { radius, spacing } from '@/src/theme/tokens';
 import type { WorkoutSession } from '@/src/types';
 
 import { AppText } from './AppText';
+import { Badge } from './Badge';
 
+/** The one session row used everywhere a record is listed (home, records). */
 export function RecordRow({
   session,
   onPress,
-  compact,
 }: {
   session: WorkoutSession;
   onPress?: () => void;
-  compact?: boolean;
 }) {
   const { colors } = useTheme();
   const title = joinPartNames(session.parts.map((part) => ({ name: part.bodyPartName })));
-  const tag = session.routineDayId ? '루틴' : '자유';
 
   return (
     <Pressable
       onPress={onPress}
-      style={[
-        styles.row,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          paddingVertical: compact ? spacing.sm : spacing.md,
-        },
-      ]}>
+      style={[styles.row, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <View style={styles.main}>
         <View style={styles.titleRow}>
           <AppText variant="item" weight="800" numberOfLines={1} style={styles.title}>
             {title}
           </AppText>
-          {compact ? (
-            <AppText variant="label" tone="faint">
-              {tag}
-            </AppText>
-          ) : (
-            <View style={[styles.tagBox, { borderColor: colors.border2 }]}>
-              <AppText variant="label" tone="faint">
-                {tag}
-              </AppText>
-            </View>
-          )}
+          <Badge label={session.routineDayId ? '루틴' : '자유'} />
         </View>
         <AppText variant="label" weight="600" tone="muted">
           {formatDateK(session.startedAt)}
@@ -60,15 +42,13 @@ export function RecordRow({
             <AppText variant="item" weight="800" tone="accent">
               {formatDuration(session.durationSeconds)}
             </AppText>
-            {!compact ? (
-              <AppText variant="label" tone="muted">
-                완료
-              </AppText>
-            ) : null}
+            <AppText variant="label" tone="muted">
+              완료
+            </AppText>
           </>
         ) : session.status === 'canceled' ? (
           <AppText variant="footnote" weight="700" tone="faint">
-            {compact ? '취소' : '취소됨'}
+            취소됨
           </AppText>
         ) : (
           <AppText variant="footnote" weight="700" tone="warning">
@@ -87,6 +67,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
+    paddingVertical: spacing.md,
     paddingHorizontal: spacing.md,
   },
   main: {
@@ -101,12 +82,6 @@ const styles = StyleSheet.create({
   },
   title: {
     flexShrink: 1,
-  },
-  tagBox: {
-    borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: radius.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
   },
   trailing: {
     alignItems: 'flex-end',

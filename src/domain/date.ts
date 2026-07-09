@@ -43,7 +43,8 @@ export function formatDuration(totalSeconds: number): string {
   if (minutes > 0) {
     return `${minutes}분`;
   }
-  return `${remainingSeconds}초`;
+  // Zero reads more naturally in minutes ("0분") than "0초".
+  return seconds === 0 ? '0분' : `${remainingSeconds}초`;
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'] as const;

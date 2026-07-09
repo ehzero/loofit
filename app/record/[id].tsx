@@ -1,12 +1,14 @@
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
 import { Button } from '@/src/components/Button';
+import { Callout } from '@/src/components/Callout';
 import { Chip } from '@/src/components/Chip';
 import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
-import { Icon } from '@/src/components/Icon';
+import { IconButton } from '@/src/components/IconButton';
+import { Input } from '@/src/components/Input';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
 import { getSessionById } from '@/src/db/repository';
@@ -15,7 +17,7 @@ import { routineDayDisplayName } from '@/src/domain/routine';
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
-import { radius, spacing, typeScale } from '@/src/theme/tokens';
+import { radius, spacing } from '@/src/theme/tokens';
 import type { SessionStatus } from '@/src/types';
 
 const STATUS_OPTIONS: Array<{ value: SessionStatus; label: string }> = [
@@ -227,27 +229,19 @@ export default function RecordDetailScreen() {
 
         {/* Memo */}
         <Field label="메모">
-          <TextInput
+          <Input
             value={note}
             onChangeText={setNote}
             multiline
             placeholder="메모를 남겨보세요 (선택)"
-            placeholderTextColor={colors.tx5}
-            style={[
-              styles.memo,
-              { backgroundColor: colors.card, borderColor: colors.border2, color: colors.tx },
-            ]}
           />
         </Field>
 
         {/* Recalc notice */}
-        <View style={[styles.notice, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Icon name="info" size={18} color={colors.tx4} />
-          <AppText variant="label" weight="500" tone="tertiary" style={styles.noticeText}>
-            기록을 수정해도 다음 운동은 자동으로 다시 계산되지 않아요. 다음 운동은 루틴 설정에서
-            조정할 수 있어요.
-          </AppText>
-        </View>
+        <Callout icon="info">
+          기록을 수정해도 다음 운동은 자동으로 다시 계산되지 않아요. 다음 운동은 루틴 설정에서
+          조정할 수 있어요.
+        </Callout>
 
         <View style={styles.actions}>
           <Button onPress={save}>저장</Button>
@@ -300,9 +294,9 @@ function StepperRow({
   const { colors } = useTheme();
   return (
     <View style={[styles.stepper, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
-      <StepButton icon="chevronLeft" onPress={onDec} />
+      <IconButton icon="chevronLeft" onPress={onDec} />
       <AppText variant="item">{value}</AppText>
-      <StepButton icon="chevronRight" onPress={onInc} />
+      <IconButton icon="chevronRight" onPress={onInc} />
     </View>
   );
 }
@@ -354,46 +348,14 @@ function MiniAdjust({
   onInc: () => void;
   disabled?: boolean;
 }) {
-  const { colors } = useTheme();
   return (
     <View style={styles.miniAdjust}>
-      <Pressable
-        disabled={disabled}
-        onPress={onDec}
-        style={[styles.miniBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-        <AppText variant="title" weight="700" tone="secondary" style={styles.miniBtnText}>
-          −
-        </AppText>
-      </Pressable>
+      <IconButton icon="minus" disabled={disabled} onPress={onDec} />
       <AppText variant="label" tone="muted">
         {label}
       </AppText>
-      <Pressable
-        disabled={disabled}
-        onPress={onInc}
-        style={[styles.miniBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-        <AppText variant="title" weight="700" tone="secondary" style={styles.miniBtnText}>
-          +
-        </AppText>
-      </Pressable>
+      <IconButton icon="plus" disabled={disabled} onPress={onInc} />
     </View>
-  );
-}
-
-function StepButton({
-  icon,
-  onPress,
-}: {
-  icon: 'chevronLeft' | 'chevronRight';
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.stepBtn, { backgroundColor: colors.surface2, borderColor: colors.border2 }]}>
-      <Icon name={icon} size={16} color={colors.tx2} />
-    </Pressable>
   );
 }
 
@@ -408,14 +370,6 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.xs,
-  },
-  stepBtn: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   timeRow: {
     flexDirection: 'row',
@@ -441,17 +395,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  miniBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  miniBtnText: {
-    lineHeight: 20,
-  },
   durationRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -473,26 +416,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
     marginTop: spacing.xxs,
-  },
-  memo: {
-    ...typeScale.item,
-    fontWeight: '500',
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.sm,
-    minHeight: 80,
-    textAlignVertical: 'top',
-  },
-  notice: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.sm,
-  },
-  noticeText: {
-    flex: 1,
-    lineHeight: 20,
   },
   actions: {
     gap: spacing.xs,

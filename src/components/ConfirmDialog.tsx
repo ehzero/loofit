@@ -1,9 +1,10 @@
-import { Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { radius, spacing } from '@/src/theme/tokens';
 
 import { AppText } from './AppText';
+import { Button } from './Button';
 
 export type ConfirmConfig = {
   title: string;
@@ -31,29 +32,19 @@ export function ConfirmDialog({
             {config?.description}
           </AppText>
           <View style={styles.actions}>
-            <Pressable
-              onPress={onClose}
-              style={[styles.button, { backgroundColor: colors.surface2 }]}>
-              <AppText variant="item" tone="secondary">
-                닫기
-              </AppText>
-            </Pressable>
-            <Pressable
+            <Button size="md" variant="neutral" style={styles.action} onPress={onClose}>
+              닫기
+            </Button>
+            <Button
+              size="md"
+              variant={config?.danger ? 'dangerSolid' : 'accent'}
+              style={styles.action}
               onPress={() => {
                 config?.onConfirm();
                 onClose();
-              }}
-              style={[
-                styles.button,
-                { backgroundColor: config?.danger ? colors.dangerSolid : colors.accent },
-              ]}>
-              <AppText
-                variant="item"
-                weight="800"
-                style={{ color: config?.danger ? '#FFFFFF' : colors.accentText }}>
-                {config?.confirmLabel}
-              </AppText>
-            </Pressable>
+              }}>
+              {config?.confirmLabel}
+            </Button>
           </View>
         </View>
       </View>
@@ -85,10 +76,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
-  button: {
+  action: {
     flex: 1,
-    borderRadius: radius.md,
-    paddingVertical: spacing.sm + 2,
-    alignItems: 'center',
   },
 });

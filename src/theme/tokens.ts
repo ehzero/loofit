@@ -32,6 +32,10 @@ export const radius = {
 // ---- Typography scale --------------------------------------------------
 // Variant = size + default weight. Screens override weight/color only when
 // the variant's default doesn't fit.
+// Every variant sets an explicit lineHeight: without it, iOS derives line
+// height from the rendered glyphs' font-fallback metrics, so mixed-script
+// labels ("7일") measure taller than pure-Korean ones ("전체") and identical
+// components end up with different heights.
 
 export type TypeVariant =
   | 'caption'
@@ -47,18 +51,33 @@ export type TypeVariant =
   | 'timer';
 
 export const typeScale: Record<TypeVariant, TextStyle> = {
-  caption: { fontSize: 10, fontWeight: '700' },
-  label: { fontSize: 12, fontWeight: '700' },
-  footnote: { fontSize: 13, fontWeight: '600' },
+  caption: { fontSize: 10, fontWeight: '700', lineHeight: 14 },
+  label: { fontSize: 12, fontWeight: '700', lineHeight: 16 },
+  footnote: { fontSize: 13, fontWeight: '600', lineHeight: 18 },
   body: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
-  item: { fontSize: 15, fontWeight: '700' },
-  cta: { fontSize: 17, fontWeight: '800' },
-  title: { fontSize: 18, fontWeight: '800' },
-  heading: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3 },
-  display: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5 },
-  hero: { fontSize: 42, fontWeight: '800', letterSpacing: -1, lineHeight: 44 },
-  timer: { fontSize: 74, fontWeight: '800', letterSpacing: -2, fontVariant: ['tabular-nums'] },
+  item: { fontSize: 15, fontWeight: '700', lineHeight: 20 },
+  cta: { fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  title: { fontSize: 18, fontWeight: '800', lineHeight: 24 },
+  heading: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3, lineHeight: 28 },
+  display: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32 },
+  hero: { fontSize: 42, fontWeight: '800', letterSpacing: -1, lineHeight: 46 },
+  timer: {
+    fontSize: 74,
+    fontWeight: '800',
+    letterSpacing: -2,
+    lineHeight: 80,
+    fontVariant: ['tabular-nums'],
+  },
 };
+
+// ---- Surface hierarchy ---------------------------------------------------
+// Rule of thumb for picking a surface color:
+//   bg       screen background
+//   card     containers sitting directly on the screen bg
+//            (Card, standalone rows, callouts)
+//   surface2 rows/controls sitting INSIDE a card-colored container
+//            (sheet rows, segmented items, small icon buttons)
+//   chip     pills/tracks inside either surface
 
 export type ThemePalette = {
   bg: string;

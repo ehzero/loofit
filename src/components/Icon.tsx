@@ -26,6 +26,8 @@ const ICONS = {
   moon: feather('moon'),
   sun: feather('sun'),
   edit: feather('sliders'),
+  plus: feather('plus'),
+  minus: feather('minus'),
   dumbbell: mci('dumbbell'),
 } satisfies Record<string, IconSet>;
 

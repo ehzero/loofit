@@ -6,7 +6,7 @@ import { radius, spacing } from '@/src/theme/tokens';
 
 import { AppText } from './AppText';
 
-type ButtonVariant = 'accent' | 'neutral' | 'ghost' | 'danger';
+type ButtonVariant = 'accent' | 'neutral' | 'ghost' | 'danger' | 'dangerSolid';
 
 type ButtonProps = {
   onPress?: () => void;
@@ -32,10 +32,14 @@ export function Button({
       ? colors.accent
       : variant === 'neutral'
         ? colors.surface2
-        : 'transparent';
+        : variant === 'dangerSolid'
+          ? colors.dangerSolid
+          : 'transparent';
   const tone =
     variant === 'accent' ? 'accentContrast' : variant === 'danger' ? 'danger' : 'secondary';
   const borderColor = variant === 'ghost' ? colors.border2 : 'transparent';
+  // dangerSolid needs fixed white for contrast on the solid red.
+  const labelStyle = variant === 'dangerSolid' ? { color: '#FFFFFF' } : null;
 
   return (
     <Pressable
@@ -50,7 +54,7 @@ export function Button({
         pressed && !disabled ? styles.pressed : null,
         style,
       ]}>
-      <AppText variant={size === 'lg' ? 'cta' : 'body'} weight="800" tone={tone}>
+      <AppText variant={size === 'lg' ? 'cta' : 'body'} weight="800" tone={tone} style={labelStyle}>
         {children}
       </AppText>
     </Pressable>

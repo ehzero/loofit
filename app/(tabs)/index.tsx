@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
+import { Badge } from '@/src/components/Badge';
 import { BottomSheet } from '@/src/components/BottomSheet';
 import { Button } from '@/src/components/Button';
 import { Card } from '@/src/components/Card';
@@ -94,10 +95,13 @@ export default function HomeScreen() {
         </View>
         <View style={styles.onboardList}>
           {TEMPLATES.map((template) => (
-            <TemplatePick
+            <ListRow
               key={template.key}
-              name={template.name}
-              desc={template.desc}
+              variant="card"
+              surface="card"
+              chevron
+              title={template.name}
+              subtitle={template.desc}
               onPress={() =>
                 createTemplate(template.key).then(() =>
                   showToast(`${template.name} 루틴을 만들었어요`)
@@ -105,9 +109,12 @@ export default function HomeScreen() {
               }
             />
           ))}
-          <TemplatePick
-            name="직접 만들기"
-            desc="빈 루틴에서 시작"
+          <ListRow
+            variant="card"
+            surface="card"
+            chevron
+            title="직접 만들기"
+            subtitle="빈 루틴에서 시작"
             onPress={() => createCustom().then(() => router.push('/routine'))}
           />
         </View>
@@ -342,7 +349,6 @@ export default function HomeScreen() {
               <RecordRow
                 key={session.id}
                 session={session}
-                compact
                 onPress={() => router.push(`/record/${session.id}`)}
               />
             ))
@@ -364,25 +370,6 @@ export default function HomeScreen() {
         }}
       />
     </>
-  );
-}
-
-function TemplatePick({ name, desc, onPress }: { name: string; desc: string; onPress: () => void }) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      style={[styles.templatePick, { backgroundColor: colors.card, borderColor: colors.border }]}>
-      <View style={styles.templateText}>
-        <AppText variant="item" weight="800">
-          {name}
-        </AppText>
-        <AppText variant="footnote" weight="500" tone="muted">
-          {desc}
-        </AppText>
-      </View>
-      <Icon name="chevronRight" size={18} color={colors.tx5} />
-    </Pressable>
   );
 }
 
@@ -422,7 +409,7 @@ function StartSheet({
               onPress={() => onStartRoutine(day.id)}
               right={
                 startable && day.id === overview.nextRoutineDay?.id ? (
-                  <NextBadge />
+                  <Badge variant="accent" label="다음" />
                 ) : undefined
               }
             />
@@ -440,17 +427,6 @@ function StartSheet({
         </View>
       </View>
     </BottomSheet>
-  );
-}
-
-function NextBadge() {
-  const { colors } = useTheme();
-  return (
-    <View style={[styles.nextBadge, { backgroundColor: colors.accent }]}>
-      <AppText variant="label" tone="accentContrast">
-        다음
-      </AppText>
-    </View>
   );
 }
 
@@ -503,17 +479,6 @@ const styles = StyleSheet.create({
   },
   onboardList: {
     gap: spacing.xs,
-  },
-  templatePick: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderRadius: radius.lg,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.md,
-  },
-  templateText: {
-    gap: spacing.xxs,
   },
   // during
   duringWrap: {
@@ -609,10 +574,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
-  },
-  nextBadge: {
-    borderRadius: radius.xs,
-    paddingHorizontal: spacing.xs,
-    paddingVertical: 3,
   },
 });

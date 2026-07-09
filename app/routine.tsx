@@ -1,16 +1,19 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
+import { Button } from '@/src/components/Button';
+import { Callout } from '@/src/components/Callout';
 import { Chip } from '@/src/components/Chip';
-import { Icon } from '@/src/components/Icon';
+import { IconButton } from '@/src/components/IconButton';
+import { Input } from '@/src/components/Input';
 import { Screen } from '@/src/components/Screen';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
-import { radius, spacing, typeScale } from '@/src/theme/tokens';
+import { radius, spacing } from '@/src/theme/tokens';
 import type { BodyPart, RoutineDay } from '@/src/types';
 
 export default function RoutineScreen() {
@@ -49,17 +52,14 @@ export default function RoutineScreen() {
 
   return (
     <Screen title="루틴 설정" onBack={() => router.back()}>
-      <View style={[styles.hint, { backgroundColor: colors.card, borderColor: colors.border }]}>
-        <Icon name="bolt" size={18} color={colors.accent} />
-        <AppText variant="footnote" tone="secondary" style={styles.hintText}>
-          다음 운동은{' '}
-          <AppText variant="footnote" weight="800" tone="accent">
-            {nextName}
-          </AppText>{' '}
-          이에요. 각 분할의 <AppText variant="footnote" weight="800">다음 시작</AppText> 버튼으로
-          시작점을 바꿀 수 있어요.
-        </AppText>
-      </View>
+      <Callout icon="bolt" tone="accent">
+        다음 운동은{' '}
+        <AppText variant="footnote" weight="800" tone="accent">
+          {nextName}
+        </AppText>{' '}
+        이에요. 각 분할의 <AppText variant="footnote" weight="800">다음 시작</AppText> 버튼으로
+        시작점을 바꿀 수 있어요.
+      </Callout>
 
       <View style={styles.splitList}>
         {days.map((day, index) => (
@@ -102,44 +102,21 @@ export default function RoutineScreen() {
         </AppText>
         <View style={styles.chipWrap}>
           {overview.bodyParts.map((part) => (
-            <View
-              key={part.id}
-              style={[
-                styles.managePill,
-                { backgroundColor: colors.surface2, borderColor: colors.border2 },
-              ]}>
-              <AppText variant="footnote" weight="700" tone="secondary">
-                {part.name}
-              </AppText>
-              <Pressable onPress={() => archivePart(part.id)} hitSlop={6}>
-                <Icon name="close" size={14} color={colors.tx4} />
-              </Pressable>
-            </View>
+            <Chip key={part.id} label={part.name} onRemove={() => archivePart(part.id)} />
           ))}
         </View>
         <View style={styles.addPartRow}>
-          <TextInput
+          <Input
             value={newPart}
             onChangeText={setNewPart}
             placeholder="새 부위 이름"
-            placeholderTextColor={colors.tx5}
             onSubmitEditing={submitPart}
             returnKeyType="done"
-            style={[
-              styles.input,
-              { backgroundColor: colors.card, borderColor: colors.border2, color: colors.tx },
-            ]}
+            style={styles.addPartInput}
           />
-          <Pressable
-            onPress={submitPart}
-            style={[
-              styles.addPartBtn,
-              { backgroundColor: colors.chip, borderColor: colors.border2 },
-            ]}>
-            <AppText variant="body" weight="700">
-              추가
-            </AppText>
-          </Pressable>
+          <Button size="md" variant="neutral" onPress={submitPart}>
+            추가
+          </Button>
         </View>
       </View>
     </Screen>
@@ -211,8 +188,8 @@ function SplitCard({
         <AppText variant="title" style={styles.splitName} numberOfLines={1}>
           {routineDayDisplayName(day)}
         </AppText>
-        <IconBtn name="chevronUp" disabled={isFirst} onPress={onUp} />
-        <IconBtn name="chevronDown" disabled={isLast} onPress={onDown} />
+        <IconButton icon="chevronUp" disabled={isFirst} onPress={onUp} />
+        <IconButton icon="chevronDown" disabled={isLast} onPress={onDown} />
       </View>
 
       {hasRoutineDayAlias(day) && day.parts.length > 0 ? (
@@ -254,30 +231,19 @@ function SplitCard({
             {isEditing ? '편집 완료' : '부위 편집'}
           </AppText>
         </Pressable>
-        <Pressable
-          onPress={onDelete}
-          style={[
-            styles.deleteBtn,
-            { backgroundColor: colors.surface2, borderColor: colors.border2 },
-          ]}>
-          <Icon name="trash" size={15} color={colors.danger} />
-        </Pressable>
+        <IconButton icon="trash" iconColor={colors.danger} onPress={onDelete} />
       </View>
 
       {isEditing ? (
         <View style={[styles.editor, { borderTopColor: colors.line }]}>
-          <TextInput
+          <Input
+            surface="surface2"
             value={name}
             onChangeText={setName}
             onEndEditing={() => renameDay(day.id, name)}
             onSubmitEditing={() => renameDay(day.id, name)}
             returnKeyType="done"
             placeholder="별칭 (선택) — 예: Push"
-            placeholderTextColor={colors.tx5}
-            style={[
-              styles.editorInput,
-              { backgroundColor: colors.surface2, borderColor: colors.border2, color: colors.tx },
-            ]}
           />
           <View style={styles.chipWrap}>
             {bodyParts.map((part) => (
@@ -295,44 +261,7 @@ function SplitCard({
   );
 }
 
-function IconBtn({
-  name,
-  disabled,
-  onPress,
-}: {
-  name: 'chevronUp' | 'chevronDown';
-  disabled?: boolean;
-  onPress: () => void;
-}) {
-  const { colors } = useTheme();
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={[
-        styles.iconBtn,
-        {
-          backgroundColor: colors.surface2,
-          borderColor: colors.border2,
-          opacity: disabled ? 0.35 : 1,
-        },
-      ]}>
-      <Icon name={name} size={15} color={colors.tx3} />
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  hint: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: spacing.sm,
-  },
-  hintText: {
-    flex: 1,
-  },
   splitList: {
     gap: spacing.sm,
   },
@@ -357,14 +286,6 @@ const styles = StyleSheet.create({
   splitName: {
     flex: 1,
   },
-  iconBtn: {
-    width: 30,
-    height: 30,
-    borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   splitActions: {
     flexDirection: 'row',
     gap: spacing.xs,
@@ -375,25 +296,10 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     alignItems: 'center',
   },
-  deleteBtn: {
-    borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.sm,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   editor: {
     borderTopWidth: StyleSheet.hairlineWidth,
     paddingTop: spacing.sm,
     gap: spacing.sm,
-  },
-  editorInput: {
-    ...typeScale.body,
-    fontWeight: '700',
-    borderRadius: radius.sm,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
   },
   addSplit: {
     borderWidth: 1.5,
@@ -410,32 +316,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: spacing.xs,
   },
-  managePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-    paddingLeft: spacing.sm,
-    paddingRight: spacing.xs,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
   addPartRow: {
     flexDirection: 'row',
     gap: spacing.xs,
   },
-  input: {
-    ...typeScale.body,
+  addPartInput: {
     flex: 1,
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-  },
-  addPartBtn: {
-    borderRadius: radius.md,
-    borderWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: spacing.md,
-    justifyContent: 'center',
   },
 });
