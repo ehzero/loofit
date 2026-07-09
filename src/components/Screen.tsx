@@ -1,9 +1,11 @@
 import type { PropsWithChildren, ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { spacing } from '@/src/theme/tokens';
 
+import { AppText } from './AppText';
 import { Icon } from './Icon';
 
 type ScreenProps = PropsWithChildren<{
@@ -12,7 +14,7 @@ type ScreenProps = PropsWithChildren<{
   headerRight?: ReactNode;
   isLoading?: boolean;
   scroll?: boolean;
-  /** Optional background override (e.g. widget preview uses a dark gradient-like fill). */
+  /** Optional background override (e.g. widget preview uses a dark fill). */
   background?: string;
 }>;
 
@@ -37,9 +39,11 @@ export function Screen({
           </Pressable>
         ) : null}
         {title ? (
-          <Text style={[styles.title, { color: colors.tx, marginLeft: onBack ? 4 : 0 }]}>{title}</Text>
+          <AppText variant="display" style={[styles.title, onBack ? styles.titleAfterBack : null]}>
+            {title}
+          </AppText>
         ) : (
-          <View style={{ flex: 1 }} />
+          <View style={styles.spacer} />
         )}
         {headerRight ?? null}
       </View>
@@ -56,9 +60,7 @@ export function Screen({
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]} edges={['top']}>
       {scroll ? (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           {header}
           {body}
         </ScrollView>
@@ -77,9 +79,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   content: {
-    padding: 20,
-    paddingBottom: 32,
-    gap: 20,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
   },
   flexContent: {
     flex: 1,
@@ -87,18 +89,21 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.xs,
     marginTop: 2,
   },
   back: {
-    padding: 4,
-    marginLeft: -4,
+    padding: spacing.xxs,
+    marginLeft: -spacing.xxs,
   },
   title: {
     flex: 1,
-    fontSize: 26,
-    fontWeight: '800',
-    letterSpacing: -0.5,
+  },
+  titleAfterBack: {
+    marginLeft: spacing.xxs,
+  },
+  spacer: {
+    flex: 1,
   },
   loading: {
     minHeight: 260,

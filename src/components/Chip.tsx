@@ -1,13 +1,18 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
 
-/** Static, read-only pill (e.g. body-part tags on the next-workout card). */
+import { AppText } from './AppText';
+
+/** Static, read-only pill (e.g. body-part tags). */
 export function Tag({ label }: { label: string }) {
   const { colors } = useTheme();
   return (
     <View style={[styles.pill, { backgroundColor: colors.chip, borderColor: colors.border2 }]}>
-      <Text style={[styles.text, { color: colors.tx2 }]}>{label}</Text>
+      <AppText variant="footnote" weight="700" tone="secondary">
+        {label}
+      </AppText>
     </View>
   );
 }
@@ -33,23 +38,18 @@ export function Chip({
           borderColor: selected ? colors.accent : colors.border2,
         },
       ]}>
-      <Text
-        style={[styles.text, { color: selected ? colors.accentText : colors.tx2 }]}>
+      <AppText variant="footnote" weight="700" tone={selected ? 'accentContrast' : 'secondary'}>
         {label}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   pill: {
-    paddingHorizontal: 13,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
     borderWidth: StyleSheet.hairlineWidth,
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

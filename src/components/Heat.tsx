@@ -3,7 +3,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { weekdayLabel } from '@/src/domain/date';
 import { useTheme } from '@/src/theme/ThemeProvider';
-import { heatColor, type ThemeColors } from '@/src/theme/tokens';
+import { heatColor, typeScale, type ThemeColors } from '@/src/theme/tokens';
 import type { HeatmapDay } from '@/src/types';
 
 type HeatCell = HeatmapDay & {
@@ -168,8 +168,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   weekdayHeaderLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...typeScale.caption,
   },
   legend: {
     flexDirection: 'row',
@@ -177,8 +176,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   legendText: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...typeScale.caption,
   },
   legendCell: {
     width: 11,

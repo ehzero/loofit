@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
+
+import { AppText } from './AppText';
 
 type SegmentedProps<T extends string> = {
   options: Array<{ value: T; label: string }>;
@@ -22,10 +25,12 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
               styles.item,
               { backgroundColor: active ? colors.accent : colors.surface2 },
             ]}>
-            <Text
-              style={[styles.text, { color: active ? colors.accentText : colors.tx3 }]}>
+            <AppText
+              variant="footnote"
+              weight="700"
+              tone={active ? 'accentContrast' : 'tertiary'}>
               {option.label}
-            </Text>
+            </AppText>
           </Pressable>
         );
       })}
@@ -36,19 +41,15 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
 const styles = StyleSheet.create({
   track: {
     flexDirection: 'row',
-    gap: 7,
-    padding: 5,
-    borderRadius: 14,
+    gap: spacing.xs,
+    padding: spacing.xxs,
+    borderRadius: radius.md,
     borderWidth: StyleSheet.hairlineWidth,
   },
   item: {
     flex: 1,
-    paddingVertical: 9,
-    borderRadius: 11,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
     alignItems: 'center',
-  },
-  text: {
-    fontSize: 13,
-    fontWeight: '700',
   },
 });

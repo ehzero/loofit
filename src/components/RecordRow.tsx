@@ -1,11 +1,12 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatDateK, formatDuration } from '@/src/domain/date';
 import { joinPartNames } from '@/src/domain/routine';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
 import type { WorkoutSession } from '@/src/types';
 
-const ACTIVE_COLOR = '#F5A623';
+import { AppText } from './AppText';
 
 export function RecordRow({
   session,
@@ -28,40 +29,51 @@ export function RecordRow({
         {
           backgroundColor: colors.card,
           borderColor: colors.border,
-          padding: compact ? 14 : 16,
-          paddingHorizontal: 16,
+          paddingVertical: compact ? spacing.sm : spacing.md,
         },
       ]}>
       <View style={styles.main}>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, { color: colors.tx }]} numberOfLines={1}>
+          <AppText variant="item" weight="800" numberOfLines={1} style={styles.title}>
             {title}
-          </Text>
+          </AppText>
           {compact ? (
-            <Text style={[styles.tagPlain, { color: colors.tx5 }]}>{tag}</Text>
+            <AppText variant="label" tone="faint">
+              {tag}
+            </AppText>
           ) : (
             <View style={[styles.tagBox, { borderColor: colors.border2 }]}>
-              <Text style={[styles.tagBoxText, { color: colors.tx5 }]}>{tag}</Text>
+              <AppText variant="label" tone="faint">
+                {tag}
+              </AppText>
             </View>
           )}
         </View>
-        <Text style={[styles.date, { color: colors.tx4 }]}>{formatDateK(session.startedAt)}</Text>
+        <AppText variant="label" weight="600" tone="muted">
+          {formatDateK(session.startedAt)}
+        </AppText>
       </View>
 
       <View style={styles.trailing}>
         {session.status === 'completed' ? (
           <>
-            <Text style={[styles.duration, { color: colors.accent }]}>
+            <AppText variant="item" weight="800" tone="accent">
               {formatDuration(session.durationSeconds)}
-            </Text>
-            {!compact ? <Text style={[styles.statusLabel, { color: colors.tx4 }]}>완료</Text> : null}
+            </AppText>
+            {!compact ? (
+              <AppText variant="label" tone="muted">
+                완료
+              </AppText>
+            ) : null}
           </>
         ) : session.status === 'canceled' ? (
-          <Text style={[styles.statusMuted, { color: colors.tx5 }]}>
+          <AppText variant="footnote" weight="700" tone="faint">
             {compact ? '취소' : '취소됨'}
-          </Text>
+          </AppText>
         ) : (
-          <Text style={[styles.statusActive, { color: ACTIVE_COLOR }]}>진행 중</Text>
+          <AppText variant="footnote" weight="700" tone="warning">
+            진행 중
+          </AppText>
         )}
       </View>
     </Pressable>
@@ -72,61 +84,32 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
-    borderRadius: 16,
+    gap: spacing.sm,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
+    paddingHorizontal: spacing.md,
   },
   main: {
     flex: 1,
     minWidth: 0,
-    gap: 5,
+    gap: spacing.xxs,
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: spacing.xs,
   },
   title: {
-    fontSize: 15,
-    fontWeight: '800',
     flexShrink: 1,
-  },
-  tagPlain: {
-    fontSize: 11,
-    fontWeight: '700',
   },
   tagBox: {
     borderWidth: StyleSheet.hairlineWidth,
-    borderRadius: 6,
+    borderRadius: radius.xs,
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  tagBoxText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  date: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
   trailing: {
     alignItems: 'flex-end',
-    gap: 6,
-  },
-  duration: {
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  statusLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  statusMuted: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  statusActive: {
-    fontSize: 13,
-    fontWeight: '700',
+    gap: spacing.xxs,
   },
 });

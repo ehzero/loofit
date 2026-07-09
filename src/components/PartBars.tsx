@@ -1,7 +1,10 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { formatDuration } from '@/src/domain/date';
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
+
+import { AppText } from './AppText';
 
 type PartStat = { name: string; durationSeconds: number };
 
@@ -14,10 +17,12 @@ export function PartBars({ stats }: { stats: PartStat[] }) {
       {stats.map((stat) => (
         <View key={stat.name} style={styles.item}>
           <View style={styles.labelRow}>
-            <Text style={[styles.name, { color: colors.tx2 }]}>{stat.name}</Text>
-            <Text style={[styles.duration, { color: colors.tx4 }]}>
+            <AppText variant="footnote" weight="700" tone="secondary">
+              {stat.name}
+            </AppText>
+            <AppText variant="footnote" weight="700" tone="muted">
               {formatDuration(stat.durationSeconds)}
-            </Text>
+            </AppText>
           </View>
           <View style={[styles.track, { backgroundColor: colors.chip }]}>
             <View
@@ -38,30 +43,22 @@ export function PartBars({ stats }: { stats: PartStat[] }) {
 
 const styles = StyleSheet.create({
   list: {
-    gap: 15,
+    gap: spacing.md,
   },
   item: {
-    gap: 7,
+    gap: spacing.xs,
   },
   labelRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  name: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  duration: {
-    fontSize: 13,
-    fontWeight: '700',
-  },
   track: {
     height: 8,
-    borderRadius: 999,
+    borderRadius: radius.pill,
     overflow: 'hidden',
   },
   fill: {
     height: '100%',
-    borderRadius: 999,
+    borderRadius: radius.pill,
   },
 });

@@ -1,7 +1,10 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
+
+import { AppText } from './AppText';
 
 type ButtonVariant = 'accent' | 'neutral' | 'ghost' | 'danger';
 
@@ -30,12 +33,8 @@ export function Button({
       : variant === 'neutral'
         ? colors.surface2
         : 'transparent';
-  const textColor =
-    variant === 'accent'
-      ? colors.accentText
-      : variant === 'danger'
-        ? colors.danger
-        : colors.tx2;
+  const tone =
+    variant === 'accent' ? 'accentContrast' : variant === 'danger' ? 'danger' : 'secondary';
   const borderColor = variant === 'ghost' ? colors.border2 : 'transparent';
 
   return (
@@ -51,9 +50,9 @@ export function Button({
         pressed && !disabled ? styles.pressed : null,
         style,
       ]}>
-      <Text style={[size === 'lg' ? styles.labelLg : styles.labelMd, { color: textColor }]}>
+      <AppText variant={size === 'lg' ? 'cta' : 'body'} weight="800" tone={tone}>
         {children}
-      </Text>
+      </AppText>
     </Pressable>
   );
 }
@@ -64,15 +63,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   lg: {
-    borderRadius: 16,
-    paddingVertical: 17,
-    paddingHorizontal: 18,
+    borderRadius: radius.lg,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.md,
     minHeight: 54,
   },
   md: {
-    borderRadius: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
     minHeight: 44,
   },
   disabled: {
@@ -80,13 +79,5 @@ const styles = StyleSheet.create({
   },
   pressed: {
     opacity: 0.85,
-  },
-  labelLg: {
-    fontSize: 17,
-    fontWeight: '800',
-  },
-  labelMd: {
-    fontSize: 14,
-    fontWeight: '700',
   },
 });

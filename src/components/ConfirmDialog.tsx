@@ -1,6 +1,9 @@
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
+
+import { AppText } from './AppText';
 
 export type ConfirmConfig = {
   title: string;
@@ -23,27 +26,33 @@ export function ConfirmDialog({
     <Modal visible={!!config} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.backdrop}>
         <View style={[styles.dialog, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
-          <Text style={[styles.title, { color: colors.tx }]}>{config?.title}</Text>
-          <Text style={[styles.description, { color: colors.tx3 }]}>{config?.description}</Text>
+          <AppText variant="title">{config?.title}</AppText>
+          <AppText variant="footnote" weight="500" tone="tertiary" style={styles.description}>
+            {config?.description}
+          </AppText>
           <View style={styles.actions}>
             <Pressable
               onPress={onClose}
               style={[styles.button, { backgroundColor: colors.surface2 }]}>
-              <Text style={[styles.buttonText, { color: colors.tx2 }]}>닫기</Text>
+              <AppText variant="item" tone="secondary">
+                닫기
+              </AppText>
             </Pressable>
             <Pressable
               onPress={() => {
                 config?.onConfirm();
                 onClose();
               }}
-              style={[styles.button, { backgroundColor: config?.danger ? '#E05555' : colors.accent }]}>
-              <Text
-                style={[
-                  styles.buttonText,
-                  { color: config?.danger ? '#FFFFFF' : colors.accentText, fontWeight: '800' },
-                ]}>
+              style={[
+                styles.button,
+                { backgroundColor: config?.danger ? colors.dangerSolid : colors.accent },
+              ]}>
+              <AppText
+                variant="item"
+                weight="800"
+                style={{ color: config?.danger ? '#FFFFFF' : colors.accentText }}>
                 {config?.confirmLabel}
-              </Text>
+              </AppText>
             </Pressable>
           </View>
         </View>
@@ -58,38 +67,28 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 28,
+    padding: spacing.xl,
   },
   dialog: {
     width: '100%',
     maxWidth: 340,
-    borderRadius: 22,
+    borderRadius: radius.xl,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 24,
-    gap: 8,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
+    padding: spacing.xl,
+    gap: spacing.xs,
   },
   description: {
-    fontSize: 13,
-    fontWeight: '500',
     lineHeight: 20,
   },
   actions: {
     flexDirection: 'row',
-    gap: 10,
-    marginTop: 14,
+    gap: spacing.sm,
+    marginTop: spacing.sm,
   },
   button: {
     flex: 1,
-    borderRadius: 13,
-    paddingVertical: 14,
+    borderRadius: radius.md,
+    paddingVertical: spacing.sm + 2,
     alignItems: 'center',
-  },
-  buttonText: {
-    fontSize: 15,
-    fontWeight: '700',
   },
 });

@@ -1,6 +1,9 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
+
+import { AppText } from './AppText';
 
 type Tile = { label: string; value: string };
 
@@ -12,8 +15,10 @@ export function StatTiles({ tiles }: { tiles: Tile[] }) {
         <View
           key={tile.label}
           style={[styles.tile, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Text style={[styles.label, { color: colors.tx4 }]}>{tile.label}</Text>
-          <Text style={[styles.value, { color: colors.tx }]}>{tile.value}</Text>
+          <AppText variant="label" tone="muted">
+            {tile.label}
+          </AppText>
+          <AppText variant="display">{tile.value}</AppText>
         </View>
       ))}
     </View>
@@ -23,21 +28,13 @@ export function StatTiles({ tiles }: { tiles: Tile[] }) {
 const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.sm,
   },
   tile: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: radius.lg,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-    gap: 8,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  value: {
-    fontSize: 26,
-    fontWeight: '800',
+    padding: spacing.md,
+    gap: spacing.xs,
   },
 });

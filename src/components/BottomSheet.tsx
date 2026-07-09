@@ -1,7 +1,10 @@
 import type { PropsWithChildren } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
+import { radius, spacing } from '@/src/theme/tokens';
+
+import { AppText } from './AppText';
 
 type BottomSheetProps = PropsWithChildren<{
   visible: boolean;
@@ -21,7 +24,7 @@ export function BottomSheet({ visible, title, onClose, children }: BottomSheetPr
           <View style={styles.gripWrap}>
             <View style={[styles.grip, { backgroundColor: colors.grip }]} />
           </View>
-          <Text style={[styles.title, { color: colors.tx }]}>{title}</Text>
+          <AppText variant="title">{title}</AppText>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
             {children}
           </ScrollView>
@@ -38,16 +41,16 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   sheet: {
-    borderTopLeftRadius: 26,
-    borderTopRightRadius: 26,
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderLeftWidth: StyleSheet.hairlineWidth,
     borderRightWidth: StyleSheet.hairlineWidth,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 28,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xl,
     maxHeight: '82%',
-    gap: 16,
+    gap: spacing.md,
   },
   gripWrap: {
     alignItems: 'center',
@@ -55,13 +58,9 @@ const styles = StyleSheet.create({
   grip: {
     width: 40,
     height: 5,
-    borderRadius: 3,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '800',
+    borderRadius: radius.xs,
   },
   body: {
-    gap: 16,
+    gap: spacing.md,
   },
 });
