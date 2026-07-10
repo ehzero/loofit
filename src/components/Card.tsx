@@ -1,4 +1,5 @@
 import type { PropsWithChildren, ReactNode } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -27,19 +28,8 @@ export function Card({
 }: CardProps) {
   const { colors } = useTheme();
   const isHero = variant === 'hero';
-  return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-          borderRadius: isHero ? radius.xl : radius.lg,
-          padding: padding ?? (isHero ? spacing.lg : spacing.md),
-          gap: isHero ? spacing.md : gap,
-        },
-        style,
-      ]}>
+  const content = (
+    <>
       {title || action ? (
         <View style={styles.header}>
           {title ? (
@@ -53,6 +43,35 @@ export function Card({
         </View>
       ) : null}
       {children}
+    </>
+  );
+  const cardStyle = [
+    styles.card,
+    {
+      backgroundColor: colors.card,
+      borderColor: colors.border,
+      borderRadius: isHero ? radius.xl : radius.lg,
+      padding: padding ?? (isHero ? spacing.lg : spacing.md),
+      gap: isHero ? spacing.md : gap,
+    },
+    style,
+  ];
+
+  if (isHero) {
+    return (
+      <LinearGradient
+        colors={[colors.g1, colors.g2]}
+        start={{ x: 0.39, y: 0 }}
+        end={{ x: 0.61, y: 1 }}
+        style={cardStyle}>
+        {content}
+      </LinearGradient>
+    );
+  }
+
+  return (
+    <View style={cardStyle}>
+      {content}
     </View>
   );
 }
