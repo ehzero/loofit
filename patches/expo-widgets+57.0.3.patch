@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
-index 972fa4f..72296e1 100644
+index 972fa4f..d8e935a 100644
 --- a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
 +++ b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
 @@ -1,4 +1,7 @@
@@ -43,7 +43,7 @@ index 972fa4f..72296e1 100644
      WidgetsEvents.shared.sendNotification(type: .userEvent, data: [
        "source": source as Any,
        "target": target as Any,
-@@ -100,6 +113,1000 @@ struct WidgetUserInteraction: AppIntent {
+@@ -100,6 +113,1407 @@ struct WidgetUserInteraction: AppIntent {
    }
  }
  
@@ -58,6 +58,12 @@ index 972fa4f..72296e1 100644
 +  private static let defaultAccent = "#CFF56A"
 +  private static let heatmapBaseColor = "#16161A"
 +  private static let heatmapEmptyColor = "#1B1B1F"
++  private static let heatmapGapColor = "#00000000"
++  private static let heatmapDayLabelColor = "#9A9AA0"
++  private static let heatmapWeekdayLabels = "일,월,화,수,목,금,토"
++  private static let heatmapWeekdayLabelColor = "#6B6B70"
++  private static let heatmapRecentMonthCount = 6
++  private static let defaultBrandName = "루핏"
 +  private static let sqliteTransient = unsafeBitCast(
 +    OpaquePointer(bitPattern: -1),
 +    to: sqlite3_destructor_type.self
@@ -211,8 +217,15 @@ index 972fa4f..72296e1 100644
 +        return nil
 +      }
 +
++      let display = workoutDisplayTitleAndDetail(
++        db,
++        routineDayId: active.routineDayId,
++        partsTitle: active.title
++      )
++
 +      return CompletedWorkout(
-+        title: active.title,
++        title: display.title,
++        detail: display.detail,
 +        durationSeconds: duration,
 +        completedAt: now
 +      )
@@ -233,6 +246,7 @@ index 972fa4f..72296e1 100644
 +      "props": [
 +        "state": "active",
 +        "title": result.title,
++        "detail": "",
 +        "subtitle": "운동 중",
 +        "durationLabel": "진행 중",
 +        "startedAt": result.startedAt
@@ -256,6 +270,7 @@ index 972fa4f..72296e1 100644
 +      "props": [
 +        "state": "completed",
 +        "title": result.title,
++        "detail": result.detail,
 +        "subtitle": "오늘 운동 완료",
 +        "durationLabel": formatDuration(result.durationSeconds)
 +      ]
@@ -282,21 +297,26 @@ index 972fa4f..72296e1 100644
 +        return [
 +          "state": "idle",
 +          "title": "루틴 설정 필요",
++          "detail": "",
 +          "subtitle": "앱에서 첫 루틴을 설정하세요",
 +          "durationLabel": "바로 시작"
 +        ]
 +      }
 +
 +      let parts = fetchRoutineDayParts(db, routineDayId: routineDay.id)
++      let alias = routineDay.name.trimmingCharacters(in: .whitespacesAndNewlines)
++      let partNames = joinPartNames(parts.map(\.name))
 +      return [
 +        "state": "idle",
-+        "title": routineDay.name,
-+        "subtitle": joinPartNames(parts.map(\.name)),
++        "title": alias.isEmpty ? partNames : alias,
++        "detail": alias.isEmpty ? "" : partNames,
++        "subtitle": "",
 +        "durationLabel": "바로 시작"
 +      ]
 +    } ?? [
 +      "state": "idle",
 +      "title": "루틴 설정 필요",
++      "detail": "",
 +      "subtitle": "앱에서 첫 루틴을 설정하세요",
 +      "durationLabel": "바로 시작"
 +    ]
@@ -306,21 +326,42 @@ index 972fa4f..72296e1 100644
 +    guard let payload = withDatabase({ db -> HeatmapWidgetPayload? in
 +      let now = Date()
 +      let accent = fetchThemeAccent(db) ?? defaultAccent
++      let calendar = Calendar.current
++      let today = calendar.startOfDay(for: now)
++      let weekSince = calendar.date(byAdding: .day, value: -6, to: today) ?? today
++      let monthSince = calendar.date(byAdding: .day, value: -29, to: today) ?? today
++      let currentMonthStart = calendar.date(
++        from: calendar.dateComponents([.year, .month], from: today)
++      ) ?? today
++      let sixMonthSince = calendar.date(
++        byAdding: .month,
++        value: -(heatmapRecentMonthCount - 1),
++        to: currentMonthStart
++      ) ?? currentMonthStart
++      let weekStats = fetchCompletedRangeStats(db, since: weekSince)
++      let monthStats = fetchCompletedRangeStats(db, since: monthSince)
++      let sixMonthStats = fetchCompletedRangeStats(db, since: sixMonthSince)
 +      return HeatmapWidgetPayload(
 +        week: buildHeatmapWidgetProps(
++          title: heatmapWidgetTitle("지난 7일", count: weekStats.count),
 +          cells: buildHeatmapDays(db, days: 7, now: now),
 +          variant: .week,
-+          accent: accent
++          accent: accent,
++          footer: buildWeekHeatmapFooter(db, now: now, stats: weekStats, since: weekSince)
 +        ),
 +        month: buildHeatmapWidgetProps(
++          title: heatmapWidgetTitle("지난 30일", count: monthStats.count),
 +          cells: buildHeatmapGrid(db, days: 30, now: now),
 +          variant: .month,
-+          accent: accent
++          accent: accent,
++          footer: nil
 +        ),
 +        year: buildHeatmapWidgetProps(
-+          cells: buildHeatmapGrid(db, days: 365, now: now),
++          title: heatmapWidgetTitle("지난 6개월", count: sixMonthStats.count),
++          cells: buildRecentMonthHeatmapGrid(db, months: heatmapRecentMonthCount, now: now),
 +          variant: .year,
-+          accent: accent
++          accent: accent,
++          footer: nil
 +        )
 +      )
 +    }) else {
@@ -455,6 +496,24 @@ index 972fa4f..72296e1 100644
 +      [.int(sessionId)]
 +    )
 +    return joinPartNames(names)
++  }
++
++  private static func workoutDisplayTitleAndDetail(
++    _ db: OpaquePointer,
++    routineDayId: Int64?,
++    partsTitle: String
++  ) -> WorkoutDisplay {
++    guard let routineDayId,
++          let routineDay = fetchRoutineDay(db, routineDayId: routineDayId) else {
++      return WorkoutDisplay(title: partsTitle, detail: "")
++    }
++
++    let alias = routineDay.name.trimmingCharacters(in: .whitespacesAndNewlines)
++    guard !alias.isEmpty, alias != partsTitle else {
++      return WorkoutDisplay(title: partsTitle, detail: "")
++    }
++
++    return WorkoutDisplay(title: alias, detail: partsTitle)
 +  }
 +
 +  private static func fetchActiveRoutineId(_ db: OpaquePointer) -> Int64? {
@@ -671,37 +730,293 @@ index 972fa4f..72296e1 100644
 +    return leadingCells + rangeCells
 +  }
 +
++  private static func buildRecentMonthHeatmapGrid(
++    _ db: OpaquePointer,
++    months: Int,
++    now: Date
++  ) -> [[String: Any]] {
++    let calendar = Calendar.current
++    let today = calendar.startOfDay(for: now)
++    let components = calendar.dateComponents([.year, .month], from: today)
++    let currentMonthStart = calendar.date(
++      from: DateComponents(year: components.year, month: components.month, day: 1)
++    ) ?? today
++    let rangeStart = calendar.date(
++      byAdding: .month,
++      value: -(max(months, 1) - 1),
++      to: currentMonthStart
++    ) ?? currentMonthStart
++    let leadingCellCount = max(calendar.component(.weekday, from: rangeStart) - 1, 0)
++    let gridStart = calendar.date(byAdding: .day, value: -leadingCellCount, to: rangeStart) ?? rangeStart
++    let dayCount = max((calendar.dateComponents([.day], from: gridStart, to: today).day ?? 0) + 1, 1)
++
++    return buildHeatmapDays(db, days: dayCount, now: now)
++  }
++
++  private static func buildWeekHeatmapFooter(
++    _ db: OpaquePointer,
++    now: Date,
++    stats: CompletedRangeStats,
++    since: Date
++  ) -> HeatmapFooter {
++    let recent = fetchRecentCompletedWorkouts(db, since: since, now: now)
++
++    return HeatmapFooter(
++      statLabels: ["총 시간", "평균"],
++      statValues: [
++        formatDuration(stats.durationSeconds),
++        formatDuration(averageDurationSeconds(stats))
++      ],
++      recentLabel: "최근 운동",
++      recentTitles: recent.map { "\($0.title) · \(formatDuration($0.durationSeconds))" },
++      recentMetas: recent.map { relativeWorkoutDayLabel($0.startedAt, now: now) }
++    )
++  }
++
++  private static func heatmapWidgetTitle(_ label: String, count: Int) -> String {
++    "\(label) · \(count)회"
++  }
++
++  private static func averageDurationSeconds(_ stats: CompletedRangeStats) -> Int {
++    stats.count > 0 ? Int((Double(stats.durationSeconds) / Double(stats.count)).rounded()) : 0
++  }
++
++  private static func fetchCompletedRangeStats(
++    _ db: OpaquePointer,
++    since: Date
++  ) -> CompletedRangeStats {
++    guard let statement = prepare(
++      db,
++      """
++      SELECT COUNT(*) AS count, SUM(duration_seconds) AS total
++      FROM workout_sessions
++      WHERE status = 'completed' AND started_at >= ?
++      """,
++      [.text(isoString(since))]
++    ) else {
++      return CompletedRangeStats(count: 0, durationSeconds: 0)
++    }
++    defer { sqlite3_finalize(statement) }
++
++    guard sqlite3_step(statement) == SQLITE_ROW else {
++      return CompletedRangeStats(count: 0, durationSeconds: 0)
++    }
++
++    return CompletedRangeStats(
++      count: Int(sqlite3_column_int64(statement, 0)),
++      durationSeconds: Int(sqlite3_column_int64(statement, 1))
++    )
++  }
++
++  private static func fetchRecentCompletedWorkouts(
++    _ db: OpaquePointer,
++    since: Date,
++    now: Date
++  ) -> [RecentWorkout] {
++    guard let statement = prepare(
++      db,
++      """
++      SELECT id, routine_day_id, started_at, duration_seconds
++      FROM workout_sessions
++      WHERE status = 'completed' AND started_at >= ?
++      ORDER BY started_at DESC, id DESC
++      LIMIT 2
++      """,
++      [.text(isoString(since))]
++    ) else {
++      return []
++    }
++    defer { sqlite3_finalize(statement) }
++
++    var records: [RecentWorkout] = []
++    while sqlite3_step(statement) == SQLITE_ROW {
++      let sessionId = sqlite3_column_int64(statement, 0)
++      let routineDayId = columnInt64(statement, 1)
++      guard let startedAtString = columnString(statement, 2),
++            let startedAt = parseISODate(startedAtString),
++            startedAt <= now else {
++        continue
++      }
++
++      records.append(
++        RecentWorkout(
++          title: fetchWorkoutRecordTitle(db, sessionId: sessionId, routineDayId: routineDayId),
++          startedAt: startedAt,
++          durationSeconds: Int(sqlite3_column_int64(statement, 3))
++        )
++      )
++    }
++    return records
++  }
++
++  private static func fetchWorkoutRecordTitle(
++    _ db: OpaquePointer,
++    sessionId: Int64,
++    routineDayId: Int64?
++  ) -> String {
++    if let routineDayId,
++       let routineDay = fetchRoutineDay(db, routineDayId: routineDayId) {
++      let alias = routineDay.name.trimmingCharacters(in: .whitespacesAndNewlines)
++      if !alias.isEmpty {
++        return alias
++      }
++    }
++
++    let names = fetchStrings(
++      db,
++      """
++      SELECT body_part_name
++      FROM workout_session_parts_snapshot
++      WHERE workout_session_id = ?
++      ORDER BY sort_order ASC, id ASC
++      """,
++      [.int(sessionId)]
++    )
++    return names.isEmpty ? "자유 운동" : names.joined(separator: " · ")
++  }
++
++  private static func relativeWorkoutDayLabel(_ startedAt: Date, now: Date) -> String {
++    let calendar = Calendar.current
++    let today = calendar.startOfDay(for: now)
++    let startedDay = calendar.startOfDay(for: startedAt)
++    let diffDays = max(0, calendar.dateComponents([.day], from: startedDay, to: today).day ?? 0)
++
++    if diffDays == 0 {
++      return "오늘"
++    }
++    if diffDays == 1 {
++      return "어제"
++    }
++    return "\(diffDays)일 전"
++  }
++
 +  private static func buildHeatmapWidgetProps(
++    title: String,
 +    cells: [[String: Any]],
 +    variant: HeatmapWidgetVariant,
-+    accent: String
++    accent: String,
++    footer: HeatmapFooter?
 +  ) -> [String: Any] {
 +    let spec = heatmapWidgetSpec(for: variant)
++    let renderCells = variant == .year ? insertMonthTransitionGapCells(cells) : cells
++    let monthMetadata: WeekMonthMetadata
++    if variant == .year {
++      monthMetadata = buildWeekMonthMetadata(renderCells)
++    } else {
++      monthMetadata = WeekMonthMetadata(labels: [], gapBeforeWeeks: [])
++    }
++
 +    return [
-+      "colors": cells.map { cell in
-+        heatmapColor(bucket: intValue(cell["bucket"]), accent: accent)
++      "title": title,
++      "colors": renderCells.map { cell in
++        heatmapCellColor(cell, accent: accent)
 +      }.joined(separator: ","),
++      "labels": renderCells.map { cell in
++        isGapCell(cell) ? "" : dayOfMonthLabel(cell["dateKey"] as? String)
++      }.joined(separator: ","),
++      "labelColors": renderCells.map { cell in
++        isGapCell(cell) ? heatmapDayLabelColor : heatmapLabelColor(bucket: intValue(cell["bucket"]), accent: accent)
++      }.joined(separator: ","),
++      "weekdayLabels": heatmapWeekdayLabels,
++      "monthLabels": monthMetadata.labels.joined(separator: ","),
++      "monthGapBeforeWeeks": monthMetadata.gapBeforeWeeks.joined(separator: ","),
++      "brandName": defaultBrandName,
++      "footerStatLabels": footer?.statLabels.joined(separator: ",") ?? "",
++      "footerStatValues": footer?.statValues.joined(separator: ",") ?? "",
++      "recentWorkoutLabel": footer?.recentLabel ?? "",
++      "recentWorkoutTitles": footer?.recentTitles.joined(separator: ",") ?? "",
++      "recentWorkoutMetas": footer?.recentMetas.joined(separator: ",") ?? "",
 +      "background": "#141418",
 +      "titleColor": "#8A8A90",
 +      "brandColor": "#6B6B70",
++      "footerValueColor": heatmapDayLabelColor,
++      "weekdayLabelColor": heatmapWeekdayLabelColor,
 +      "titleSize": 11,
 +      "brandSize": 10,
++      "weekdayLabelSize": 8,
++      "monthLabelSize": 9,
++      "cellLabelSize": spec.cellLabelSize,
 +      "contentPadding": 16,
 +      "cellGap": spec.cellGap,
 +      "cellRadius": spec.cellRadius,
 +      "headerGap": spec.headerGap,
-+      "columns": spec.columns
++      "columns": spec.columns,
++      "monthGapColumns": spec.monthGapColumns
 +    ]
++  }
++
++  private static func insertMonthTransitionGapCells(_ cells: [[String: Any]]) -> [[String: Any]] {
++    var result: [[String: Any]] = []
++    var hasSeenFirstMonth = false
++
++    for cell in cells {
++      let isMonthStart = (
++        !isGapCell(cell)
++          && dayFromDateKey(cell["dateKey"] as? String ?? "") == 1
++      )
++
++      if isMonthStart {
++        if hasSeenFirstMonth {
++          result.append(contentsOf: monthTransitionGapCells())
++        } else {
++          hasSeenFirstMonth = true
++        }
++      }
++
++      result.append(cell)
++    }
++
++    return result
++  }
++
++  private static func monthTransitionGapCells() -> [[String: Any]] {
++    (0..<7).map { _ in
++      [
++        "dateKey": "",
++        "durationSeconds": 0,
++        "bucket": 0,
++        "isGap": true
++      ]
++    }
++  }
++
++  private static func buildWeekMonthMetadata(_ cells: [[String: Any]]) -> WeekMonthMetadata {
++    let weekCount = Int(ceil(Double(cells.count) / 7.0))
++    var labels = Array(repeating: "", count: weekCount)
++    var gapBeforeWeeks = Array(repeating: "0", count: weekCount)
++
++    for week in 0..<weekCount {
++      let start = week * 7
++      let end = min(start + 7, cells.count)
++      guard start < end else {
++        continue
++      }
++
++      for index in start..<end {
++        guard !isGapCell(cells[index]),
++              let dateKey = cells[index]["dateKey"] as? String,
++              dayFromDateKey(dateKey) == 1,
++              let month = monthFromDateKey(dateKey) else {
++          continue
++        }
++        let dayIndex = index - start
++        let labelWeek = dayIndex == 0 || week + 1 >= weekCount ? week : week + 1
++        labels[labelWeek] = "\(month)월"
++        break
++      }
++    }
++
++    return WeekMonthMetadata(labels: labels, gapBeforeWeeks: gapBeforeWeeks)
 +  }
 +
 +  private static func heatmapWidgetSpec(for variant: HeatmapWidgetVariant) -> HeatmapWidgetSpec {
 +    switch variant {
 +    case .week:
-+      return HeatmapWidgetSpec(cellGap: 4, cellRadius: 4, headerGap: 12, columns: 7)
++      return HeatmapWidgetSpec(cellGap: 4, cellRadius: 4, headerGap: 8, columns: 7, cellLabelSize: 8, monthGapColumns: 0)
 +    case .month:
-+      return HeatmapWidgetSpec(cellGap: 3, cellRadius: 3, headerGap: 12, columns: 7)
++      return HeatmapWidgetSpec(cellGap: 3, cellRadius: 3, headerGap: 8, columns: 7, cellLabelSize: 7, monthGapColumns: 0)
 +    case .year:
-+      return HeatmapWidgetSpec(cellGap: 1.5, cellRadius: 1, headerGap: 8, columns: 0)
++      return HeatmapWidgetSpec(cellGap: 2, cellRadius: 2, headerGap: 8, columns: 0, cellLabelSize: 0, monthGapColumns: 0)
 +    }
 +  }
 +
@@ -718,6 +1033,66 @@ index 972fa4f..72296e1 100644
 +    default:
 +      return heatmapEmptyColor
 +    }
++  }
++
++  private static func heatmapCellColor(_ cell: [String: Any], accent: String) -> String {
++    isGapCell(cell) ? heatmapGapColor : heatmapColor(bucket: intValue(cell["bucket"]), accent: accent)
++  }
++
++  private static func heatmapLabelColor(bucket: Int, accent: String) -> String {
++    if bucket >= 3 {
++      return accentTextColor(accent)
++    }
++    return heatmapDayLabelColor
++  }
++
++  private static func isGapCell(_ cell: [String: Any]) -> Bool {
++    boolValue(cell["isGap"])
++  }
++
++  private static func boolValue(_ value: Any?) -> Bool {
++    if let value = value as? Bool {
++      return value
++    }
++    if let value = value as? NSNumber {
++      return value.boolValue
++    }
++    if let value = value as? String {
++      return value == "1" || value.lowercased() == "true"
++    }
++    return false
++  }
++
++  private static func dayOfMonthLabel(_ dateKey: String?) -> String {
++    guard let day = dateKey?.split(separator: "-").last,
++          let dayNumber = Int(day) else {
++      return ""
++    }
++    return "\(dayNumber)"
++  }
++
++  private static func monthFromDateKey(_ dateKey: String) -> Int? {
++    let components = dateKey.split(separator: "-")
++    guard components.count >= 2 else {
++      return nil
++    }
++    return Int(components[1])
++  }
++
++  private static func dayFromDateKey(_ dateKey: String) -> Int? {
++    let components = dateKey.split(separator: "-")
++    guard components.count >= 3 else {
++      return nil
++    }
++    return Int(components[2])
++  }
++
++  private static func accentTextColor(_ accent: String) -> String {
++    guard let rgb = parseHex(accent) else {
++      return "#0B0B0B"
++    }
++    let brightness = (0.299 * rgb.red + 0.587 * rgb.green + 0.114 * rgb.blue) / 255
++    return brightness > 0.62 ? "#0B0B0B" : "#FFFFFF"
 +  }
 +
 +  private static func mixHex(_ a: String, _ b: String, weight: Double) -> String {
@@ -965,7 +1340,7 @@ index 972fa4f..72296e1 100644
 +    if minutes > 0 {
 +      return "\(minutes)분"
 +    }
-+    return "\(remainingSeconds)초"
++    return seconds == 0 ? "0분" : "\(remainingSeconds)초"
 +  }
 +
 +  private static func joinPartNames(_ names: [String]) -> String {
@@ -992,6 +1367,32 @@ index 972fa4f..72296e1 100644
 +    let cellRadius: Double
 +    let headerGap: Double
 +    let columns: Int
++    let cellLabelSize: Int
++    let monthGapColumns: Int
++  }
++
++  private struct WeekMonthMetadata {
++    let labels: [String]
++    let gapBeforeWeeks: [String]
++  }
++
++  private struct CompletedRangeStats {
++    let count: Int
++    let durationSeconds: Int
++  }
++
++  private struct RecentWorkout {
++    let title: String
++    let startedAt: Date
++    let durationSeconds: Int
++  }
++
++  private struct HeatmapFooter {
++    let statLabels: [String]
++    let statValues: [String]
++    let recentLabel: String
++    let recentTitles: [String]
++    let recentMetas: [String]
 +  }
 +
 +  private struct RGB {
@@ -1022,8 +1423,14 @@ index 972fa4f..72296e1 100644
 +
 +  private struct CompletedWorkout {
 +    let title: String
++    let detail: String
 +    let durationSeconds: Int
 +    let completedAt: Date
++  }
++
++  private struct WorkoutDisplay {
++    let title: String
++    let detail: String
 +  }
 +
 +  private struct RoutineDay {

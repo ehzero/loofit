@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
@@ -10,6 +10,7 @@ import { Icon } from '@/src/components/Icon';
 import { ListRow } from '@/src/components/ListRow';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
+import { BRAND } from '@/src/config/brand';
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
@@ -28,15 +29,30 @@ const MODE_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
 ];
 
 // TODO: placeholder — 실제 호스팅 URL로 교체 예정
-const TERMS_URL = 'https://loofit.app/terms';
-const PRIVACY_URL = 'https://loofit.app/privacy';
+const TERMS_URL = BRAND.urls.terms;
+const PRIVACY_URL = BRAND.urls.privacy;
 
 export default function SettingsScreen() {
   const router = useRouter();
   const { colors, mode, setMode, accent, setAccent } = useTheme();
   const { showToast } = useToast();
   const resetDevData = useAppStore((state) => state.resetDevData);
+  const refresh = useAppStore((state) => state.refresh);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
+  const updateMode = useCallback(
+    async (next: ThemeMode) => {
+      await setMode(next);
+      await refresh();
+    },
+    [refresh, setMode]
+  );
+  const updateAccent = useCallback(
+    async (next: string) => {
+      await setAccent(next);
+      await refresh();
+    },
+    [refresh, setAccent]
+  );
 
   return (
     <>
@@ -51,7 +67,7 @@ export default function SettingsScreen() {
             <AppText variant="footnote" weight="700" tone="tertiary">
               테마
             </AppText>
-            <Segmented options={MODE_OPTIONS} value={mode} onChange={setMode} />
+            <Segmented options={MODE_OPTIONS} value={mode} onChange={updateMode} />
           </View>
           <View style={styles.subBlock}>
             <AppText variant="footnote" weight="700" tone="tertiary">
@@ -63,7 +79,9 @@ export default function SettingsScreen() {
                 return (
                   <Pressable
                     key={option}
-                    onPress={() => setAccent(option)}
+                    onPress={() => {
+                      void updateAccent(option);
+                    }}
                     style={[
                       styles.swatch,
                       {
@@ -87,7 +105,7 @@ export default function SettingsScreen() {
             divider
             right={
               <AppText variant="body" tone="muted">
-                루핏 v0.1
+                {BRAND.displayName} v0.1
               </AppText>
             }
           />
@@ -125,10 +143,10 @@ export default function SettingsScreen() {
 
         <View style={styles.footer}>
           <AppText variant="label" weight="500" tone="hint">
-            내 루틴대로, 운동을 가볍게 기록하세요.
+            {BRAND.tagline}
           </AppText>
           <AppText variant="caption" weight="500" tone="hint">
-            © {new Date().getFullYear()} Loofit. All rights reserved.
+            © {new Date().getFullYear()} {BRAND.displayName}. All rights reserved.
           </AppText>
         </View>
       </Screen>

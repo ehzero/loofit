@@ -27,8 +27,8 @@ type ThemeContextValue = {
   scheme: ThemeScheme;
   accent: string;
   colors: ThemeColors;
-  setMode: (mode: ThemeMode) => void;
-  setAccent: (accent: string) => void;
+  setMode: (mode: ThemeMode) => Promise<void>;
+  setAccent: (accent: string) => Promise<void>;
 };
 
 const ThemeContext = createContext<ThemeContextValue | null>(null);
@@ -62,14 +62,14 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     };
   }, []);
 
-  const setMode = useCallback((next: ThemeMode) => {
+  const setMode = useCallback(async (next: ThemeMode) => {
     setModeState(next);
-    setAppSetting(MODE_KEY, next).catch(() => {});
+    await setAppSetting(MODE_KEY, next).catch(() => {});
   }, []);
 
-  const setAccent = useCallback((next: string) => {
+  const setAccent = useCallback(async (next: string) => {
     setAccentState(next);
-    setAppSetting(ACCENT_KEY, next).catch(() => {});
+    await setAppSetting(ACCENT_KEY, next).catch(() => {});
   }, []);
 
   const scheme: ThemeScheme =

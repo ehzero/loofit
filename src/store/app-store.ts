@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { BRAND } from '@/src/config/brand';
 import {
   addBodyPart,
   addEmptyRoutineDay,
@@ -66,7 +67,7 @@ type AppState = {
 async function loadAndSync(): Promise<AppOverview> {
   const overview = await getOverview();
   await syncWidgetsFromOverview(overview).catch((error) => {
-    console.warn('[Loofit] Widget sync skipped', error);
+    console.warn(`[${BRAND.displayName}] Widget sync skipped`, error);
   });
   return overview;
 }

@@ -12,6 +12,8 @@ function HeatmapTimelineFallbackView(props: HeatmapWidgetProps) {
 
   const background = props.background || '#141418';
   const titleColor = props.titleColor || '#8A8A90';
+  const title = props.title || '';
+  const brandName = props.brandName || '';
 
   return (
     <VStack
@@ -19,8 +21,8 @@ function HeatmapTimelineFallbackView(props: HeatmapWidgetProps) {
       spacing={8}
       modifiers={[padding({ all: props.contentPadding || 16 }), containerBackground(background, 'widget')]}>
       {[
-        <Text key="label" modifiers={[font({ size: 11, weight: 'heavy' }), foregroundColor(titleColor)]}>
-          LOOFIT
+        <Text key="label" modifiers={[font({ size: 10, weight: 'semibold' }), foregroundColor(titleColor)]}>
+          {title || brandName}
         </Text>,
       ]}
     </VStack>

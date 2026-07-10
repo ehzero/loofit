@@ -6,9 +6,13 @@ import { radius, spacing } from '@/src/theme/tokens';
 
 import { AppText } from './AppText';
 
-type PartStat = { name: string; durationSeconds: number };
+type DurationStat = {
+  name: string;
+  durationSeconds: number;
+  detail?: string;
+};
 
-export function PartBars({ stats }: { stats: PartStat[] }) {
+export function DurationBars({ stats }: { stats: DurationStat[] }) {
   const { colors } = useTheme();
   const max = Math.max(1, ...stats.map((stat) => stat.durationSeconds));
 
@@ -21,7 +25,7 @@ export function PartBars({ stats }: { stats: PartStat[] }) {
               {stat.name}
             </AppText>
             <AppText variant="footnote" weight="700" tone="muted">
-              {formatDuration(stat.durationSeconds)}
+              {[stat.detail, formatDuration(stat.durationSeconds)].filter(Boolean).join(' · ')}
             </AppText>
           </View>
           <View style={[styles.track, { backgroundColor: colors.chip }]}>

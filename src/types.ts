@@ -95,16 +95,16 @@ export type HeatmapGridCell = HeatmapDay & {
 export type RangeStats = {
   workoutCount: number;
   durationSeconds: number;
+  bySplit: Array<{
+    name: string;
+    workoutCount: number;
+    durationSeconds: number;
+  }>;
 };
 
 export type DashboardStats = {
   weekWorkoutCount: number;
   totalDurationSeconds: number;
-  byBodyPart: Array<{
-    name: string;
-    color: string;
-    durationSeconds: number;
-  }>;
 };
 
 export type AppOverview = {
@@ -125,6 +125,7 @@ export type AppOverview = {
   rangeStats: {
     last7: RangeStats;
     last30: RangeStats;
+    last6Months: RangeStats;
     last365: RangeStats;
   };
 };

@@ -1,17 +1,31 @@
-import { Platform } from 'react-native';
+import { Appearance, Platform } from 'react-native';
 import Constants from 'expo-constants';
 import { after, type LiveActivity } from 'expo-widgets';
 
+import { BRAND } from '@/src/config/brand';
 import { getAppSetting } from '@/src/db/repository';
 import { formatClock, formatDuration, getEndOfLocalDay } from '@/src/domain/date';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
-import { accentTextFor, DEFAULT_ACCENT, makeColors } from '@/src/theme/tokens';
+import {
+  DEFAULT_ACCENT,
+  makeColors,
+  type ThemeColors,
+  type ThemeMode,
+  type ThemeScheme,
+} from '@/src/theme/tokens';
 import type { AppOverview, WorkoutSession } from '@/src/types';
-import { buildHeatmapWidgetProps } from '@/src/widgets/heatmap-widget-model';
+import {
+  buildHeatmapWidgetProps,
+  buildWeekHeatmapFooterProps,
+  formatHeatmapWidgetTitle,
+  formatSixMonthHeatmapWidgetTitle,
+} from '@/src/widgets/heatmap-widget-model';
 
 import type { WorkoutControlWidgetProps, WorkoutLiveActivityProps } from './types';
 
 let liveActivity: LiveActivity<WorkoutLiveActivityProps> | null = null;
+const THEME_MODE_KEY = 'theme_mode';
+const THEME_ACCENT_KEY = 'theme_accent';
 
 export async function syncWidgetsFromOverview(overview: AppOverview): Promise<void> {
   if (!areWidgetsEnabled()) {
@@ -28,33 +42,50 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
     import('./WorkoutLiveActivity'),
   ]);
 
-  const accent = (await getAppSetting('theme_accent').catch(() => null)) ?? DEFAULT_ACCENT;
-  const accentText = accentTextFor(accent);
+  const widgetColors = await getWidgetThemeColors();
 
   WorkoutControlWidget.updateTimeline([
     {
       date: new Date(),
-      props: buildWorkoutControlProps(overview, accent, accentText),
+      props: buildWorkoutControlProps(overview, widgetColors),
     },
     {
       date: getTomorrowStart(),
-      props: buildIdleControlProps(overview, accent, accentText),
+      props: buildIdleControlProps(overview, widgetColors),
     },
   ]);
 
-  const darkColors = makeColors('dark', accent);
-
   HeatmapWeekWidget.updateSnapshot(
-    buildHeatmapWidgetProps({ variant: 'week', cells: overview.heatmap7, colors: darkColors })
+    buildHeatmapWidgetProps({
+      title: formatHeatmapWidgetTitle('지난 7일', overview.rangeStats.last7.workoutCount),
+      variant: 'week',
+      cells: overview.heatmap7,
+      colors: widgetColors,
+      footer: buildWeekHeatmapFooterProps({
+        stats: overview.rangeStats.last7,
+        recentSessions: overview.recentSessions,
+        routineDays: overview.routineDays,
+      }),
+    })
   );
   HeatmapMonthWidget.updateSnapshot(
-    buildHeatmapWidgetProps({ variant: 'month', cells: overview.heatmapGrid, colors: darkColors })
+    buildHeatmapWidgetProps({
+      title: formatHeatmapWidgetTitle('지난 30일', overview.rangeStats.last30.workoutCount),
+      variant: 'month',
+      cells: overview.heatmapGrid,
+      colors: widgetColors,
+    })
   );
   HeatmapYearWidget.updateSnapshot(
-    buildHeatmapWidgetProps({ variant: 'year', cells: overview.heatmapYear, colors: darkColors })
+    buildHeatmapWidgetProps({
+      title: formatSixMonthHeatmapWidgetTitle(overview.rangeStats.last6Months),
+      variant: 'year',
+      cells: overview.heatmapYear,
+      colors: widgetColors,
+    })
   );
 
-  await syncLiveActivity(overview, WorkoutLiveActivity, accent);
+  await syncLiveActivity(overview, WorkoutLiveActivity, widgetColors);
 }
 
 function areWidgetsEnabled(): boolean {
@@ -65,32 +96,92 @@ function joinParts(session: WorkoutSession): string {
   return session.parts.map((part) => part.bodyPartName).join(' · ');
 }
 
+function routineSessionTitle(
+  session: WorkoutSession,
+  routineDays: AppOverview['routineDays']
+): string {
+  const routineDay = session.routineDayId
+    ? routineDays.find((day) => day.id === session.routineDayId)
+    : null;
+  return routineDay ? routineDayDisplayName(routineDay) : joinParts(session);
+}
+
+function uniqueJoined(values: string[]): string {
+  return [...new Set(values.filter(Boolean))].join(' · ');
+}
+
+async function getWidgetThemeColors(): Promise<ThemeColors> {
+  const [savedMode, savedAccent] = await Promise.all([
+    getAppSetting(THEME_MODE_KEY).catch(() => null),
+    getAppSetting(THEME_ACCENT_KEY).catch(() => null),
+  ]);
+  const mode = isThemeMode(savedMode) ? savedMode : 'system';
+  const accent = savedAccent || DEFAULT_ACCENT;
+  return makeColors(resolveThemeScheme(mode), accent);
+}
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value === 'system' || value === 'dark' || value === 'light';
+}
+
+function resolveThemeScheme(mode: ThemeMode): ThemeScheme {
+  if (mode !== 'system') {
+    return mode;
+  }
+  return Appearance.getColorScheme() === 'light' ? 'light' : 'dark';
+}
+
+function workoutControlThemeProps(colors: ThemeColors): Pick<
+  WorkoutControlWidgetProps,
+  | 'background'
+  | 'labelColor'
+  | 'brandColor'
+  | 'titleColor'
+  | 'detailColor'
+  | 'secondaryButtonBackground'
+  | 'secondaryButtonText'
+> {
+  return {
+    background: colors.card,
+    labelColor: colors.tx3,
+    brandColor: colors.tx5,
+    titleColor: colors.tx,
+    detailColor: colors.tx3,
+    secondaryButtonBackground: colors.surface2,
+    secondaryButtonText: colors.tx,
+  };
+}
+
 function buildWorkoutControlProps(
   overview: AppOverview,
-  accent: string,
-  accentText: string
+  colors: ThemeColors
 ): WorkoutControlWidgetProps {
+  const themeProps = workoutControlThemeProps(colors);
   if (overview.activeSession) {
     const parts = joinParts(overview.activeSession);
     return {
       state: 'active',
+      brandName: BRAND.displayName,
+      ...themeProps,
       title: parts,
+      detail: '',
       subtitle: parts,
       durationLabel: '',
       startedAt: overview.activeSession.startedAt,
-      accent,
-      accentText,
+      accent: colors.accent,
+      accentText: colors.accentText,
     };
   }
 
   if (overview.todaySessions.length > 0) {
-    const parts = [
-      ...new Set(
-        overview.todaySessions.flatMap((session) =>
-          session.parts.map((part) => part.bodyPartName)
-        )
-      ),
-    ].join(' · ');
+    const title = uniqueJoined(
+      overview.todaySessions.map((session) => routineSessionTitle(session, overview.routineDays))
+    );
+    const parts = uniqueJoined(
+      overview.todaySessions.flatMap((session) =>
+        session.parts.map((part) => part.bodyPartName)
+      )
+    );
     const totalSeconds = overview.todaySessions.reduce(
       (sum, session) => sum + session.durationSeconds,
       0
@@ -102,35 +193,37 @@ function buildWorkoutControlProps(
     const last = ordered[ordered.length - 1];
     return {
       state: 'completed',
-      title: parts,
+      brandName: BRAND.displayName,
+      ...themeProps,
+      title,
+      detail: title === parts ? '' : parts,
       subtitle: `${formatClock(first.startedAt)} – ${formatClock(last.endedAt ?? last.startedAt)}`,
       durationLabel: formatDuration(totalSeconds),
-      accent,
-      accentText,
+      accent: colors.accent,
+      accentText: colors.accentText,
     };
   }
 
-  return buildIdleControlProps(overview, accent, accentText);
+  return buildIdleControlProps(overview, colors);
 }
 
 function buildIdleControlProps(
   overview: AppOverview,
-  accent: string,
-  accentText: string
+  colors: ThemeColors
 ): WorkoutControlWidgetProps {
   const nextDay = overview.nextRoutineDay;
+  const title = nextDay ? routineDayDisplayName(nextDay) : '루틴 설정 필요';
+  const parts = nextDay ? nextDay.parts.map((part) => part.name).join(' · ') : '';
   return {
     state: 'idle',
-    title: nextDay ? routineDayDisplayName(nextDay) : '루틴 설정 필요',
-    // Without an alias the title already lists the parts — don't repeat them.
-    subtitle: nextDay
-      ? hasRoutineDayAlias(nextDay)
-        ? nextDay.parts.map((part) => part.name).join(' · ')
-        : ''
-      : '앱에서 첫 루틴을 설정하세요',
+    brandName: BRAND.displayName,
+    ...workoutControlThemeProps(colors),
+    title,
+    detail: nextDay && hasRoutineDayAlias(nextDay) ? parts : '',
+    subtitle: nextDay ? '' : '앱에서 첫 루틴을 설정하세요',
     durationLabel: '',
-    accent,
-    accentText,
+    accent: colors.accent,
+    accentText: colors.accentText,
   };
 }
 
@@ -143,14 +236,16 @@ function getTomorrowStart(): Date {
 async function syncLiveActivity(
   overview: AppOverview,
   WorkoutLiveActivity: typeof import('./WorkoutLiveActivity').WorkoutLiveActivity,
-  accent: string
+  colors: ThemeColors
 ): Promise<void> {
   if (overview.activeSession) {
     const props: WorkoutLiveActivityProps = {
       title: joinParts(overview.activeSession),
-      subtitle: '루핏 운동 중',
+      subtitle: `${BRAND.displayName} 운동 중`,
       startedAt: overview.activeSession.startedAt,
-      accent,
+      accent: colors.accent,
+      background: colors.card,
+      titleColor: colors.tx,
     };
     const instances = WorkoutLiveActivity.getInstances();
     const activeInstance = instances[0] ?? liveActivity;

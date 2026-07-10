@@ -2,7 +2,11 @@ import type * as SQLite from 'expo-sqlite';
 
 import { buildHeatmap, buildHeatmapGrid } from '@/src/domain/heatmap';
 import { addLocalDays, getWeekStart, startOfLocalDay, toLocalDateKey } from '@/src/domain/date';
-import { getNextRoutineDay, getRoutineDayAfterCompletion } from '@/src/domain/routine';
+import {
+  getNextRoutineDay,
+  getRoutineDayAfterCompletion,
+  routineDayDisplayName,
+} from '@/src/domain/routine';
 import type {
   AppOverview,
   BodyPart,
@@ -873,8 +877,11 @@ export async function getSessions(options?: {
   );
 }
 
-/** Completed-session count and total duration since the given instant. */
-async function getCompletedRangeStats(sinceIso: string): Promise<RangeStats> {
+/** Completed-session count, total duration, and split totals since the given instant. */
+async function getCompletedRangeStats(
+  sinceIso: string,
+  routineDays: RoutineDay[]
+): Promise<RangeStats> {
   const db = await getDatabase();
   const row = await db.getFirstAsync<{ count: number; total: number | null }>(
     `SELECT COUNT(*) AS count, SUM(duration_seconds) AS total
@@ -882,9 +889,33 @@ async function getCompletedRangeStats(sinceIso: string): Promise<RangeStats> {
      WHERE status = 'completed' AND started_at >= ?`,
     sinceIso
   );
+  const splitRows = await db.getAllAsync<{
+    routine_day_id: number | null;
+    routine_day_name: string | null;
+    count: number;
+    total: number;
+  }>(
+    `SELECT ws.routine_day_id,
+            MAX(rd.name) AS routine_day_name,
+            COUNT(*) AS count,
+            SUM(ws.duration_seconds) AS total
+     FROM workout_sessions ws
+     LEFT JOIN routine_days rd ON rd.id = ws.routine_day_id
+     WHERE ws.status = 'completed' AND ws.started_at >= ?
+     GROUP BY ws.routine_day_id
+     HAVING total > 0
+     ORDER BY total DESC`,
+    sinceIso
+  );
+
   return {
     workoutCount: row?.count ?? 0,
     durationSeconds: Math.round(row?.total ?? 0),
+    bySplit: splitRows.map((split) => ({
+      name: splitDisplayName(split.routine_day_id, split.routine_day_name, routineDays),
+      workoutCount: split.count,
+      durationSeconds: Math.round(split.total),
+    })),
   };
 }
 
@@ -893,7 +924,7 @@ async function getCompletedRangeStats(sinceIso: string): Promise<RangeStats> {
  * regardless of how many sessions exist (the overview's session list is
  * capped for recency, which must not cap the totals).
  */
-async function getDashboardStats(bodyParts: BodyPart[], now: Date): Promise<DashboardStats> {
+async function getDashboardStats(now: Date): Promise<DashboardStats> {
   const db = await getDatabase();
   const weekStart = getWeekStart(now);
   const weekEnd = addLocalDays(weekStart, 7);
@@ -907,35 +938,29 @@ async function getDashboardStats(bodyParts: BodyPart[], now: Date): Promise<Dash
   const totalRow = await db.getFirstAsync<{ total: number | null }>(
     `SELECT SUM(duration_seconds) AS total FROM workout_sessions WHERE status = 'completed'`
   );
-  // Each session's duration is split evenly across its snapshot parts,
-  // mirroring the previous in-memory aggregation.
-  const partRows = await db.getAllAsync<{ name: string; color: string; duration: number }>(
-    `SELECT snap.body_part_name AS name,
-            MAX(snap.body_part_color) AS color,
-            SUM(ws.duration_seconds * 1.0 / cnt.part_count) AS duration
-     FROM workout_session_parts_snapshot snap
-     JOIN workout_sessions ws ON ws.id = snap.workout_session_id
-     JOIN (
-       SELECT workout_session_id, COUNT(*) AS part_count
-       FROM workout_session_parts_snapshot
-       GROUP BY workout_session_id
-     ) cnt ON cnt.workout_session_id = snap.workout_session_id
-     WHERE ws.status = 'completed'
-     GROUP BY snap.body_part_name
-     HAVING duration > 0
-     ORDER BY duration DESC`
-  );
 
-  const colorByName = new Map(bodyParts.map((part) => [part.name, part.color]));
   return {
     weekWorkoutCount: weekRow?.count ?? 0,
     totalDurationSeconds: Math.round(totalRow?.total ?? 0),
-    byBodyPart: partRows.map((row) => ({
-      name: row.name,
-      color: colorByName.get(row.name) ?? row.color,
-      durationSeconds: Math.round(row.duration),
-    })),
   };
+}
+
+function splitDisplayName(
+  routineDayId: number | null,
+  routineDayName: string | null,
+  routineDays: RoutineDay[]
+): string {
+  if (!routineDayId) {
+    return '자유 운동';
+  }
+
+  const routineDay = routineDays.find((day) => day.id === routineDayId);
+  if (routineDay) {
+    return routineDayDisplayName(routineDay);
+  }
+
+  const fallback = routineDayName?.trim();
+  return fallback || '삭제된 분할';
 }
 
 export async function getOverview(now = new Date()): Promise<AppOverview> {
@@ -965,6 +990,7 @@ export async function getOverview(now = new Date()): Promise<AppOverview> {
   // One date-bounded query covers every heatmap range (the year view is the
   // superset); a count cap would silently truncate long histories.
   const today = startOfLocalDay(now);
+  const sixMonthRangeStart = new Date(today.getFullYear(), today.getMonth() - 5, 1);
   const heatmapSessions = await getSessions({
     statuses: ['completed'],
     sinceStartedAt: addLocalDays(today, -364).toISOString(),
@@ -984,11 +1010,12 @@ export async function getOverview(now = new Date()): Promise<AppOverview> {
     heatmap30: buildHeatmap(heatmapSessions, 30, now),
     heatmapGrid: buildHeatmapGrid(heatmapSessions, 30, now),
     heatmapYear: buildHeatmapGrid(heatmapSessions, 365, now),
-    dashboard: await getDashboardStats(bodyParts, now),
+    dashboard: await getDashboardStats(now),
     rangeStats: {
-      last7: await getCompletedRangeStats(addLocalDays(today, -6).toISOString()),
-      last30: await getCompletedRangeStats(addLocalDays(today, -29).toISOString()),
-      last365: await getCompletedRangeStats(addLocalDays(today, -364).toISOString()),
+      last7: await getCompletedRangeStats(addLocalDays(today, -6).toISOString(), routineDays),
+      last30: await getCompletedRangeStats(addLocalDays(today, -29).toISOString(), routineDays),
+      last6Months: await getCompletedRangeStats(sixMonthRangeStart.toISOString(), routineDays),
+      last365: await getCompletedRangeStats(addLocalDays(today, -364).toISOString(), routineDays),
     },
   };
 }

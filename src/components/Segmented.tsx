@@ -8,7 +8,7 @@ import { AppText } from './AppText';
 type SegmentedProps<T extends string> = {
   options: Array<{ value: T; label: string }>;
   value: T;
-  onChange: (value: T) => void;
+  onChange: (value: T) => void | Promise<void>;
 };
 
 export function Segmented<T extends string>({ options, value, onChange }: SegmentedProps<T>) {
@@ -20,7 +20,9 @@ export function Segmented<T extends string>({ options, value, onChange }: Segmen
         return (
           <Pressable
             key={option.value}
-            onPress={() => onChange(option.value)}
+            onPress={() => {
+              void onChange(option.value);
+            }}
             style={[
               styles.item,
               { backgroundColor: active ? colors.accent : colors.surface2 },

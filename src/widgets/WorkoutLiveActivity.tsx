@@ -14,12 +14,13 @@ function WorkoutLiveActivityView(props: WorkoutLiveActivityProps) {
 
   // Constants must live inside the function body: the 'widget' directive
   // extracts it into an isolated JS context without module scope.
-  // Same dark-card tokens as the widgets and the in-app preview.
-  const BG = '#141418';
-  const TX = '#F4F4F2';
+  const DEFAULT_BG = '#141418';
+  const DEFAULT_TX = '#F4F4F2';
   const TIMER_MAX_HOURS = 12;
 
   const accent = props.accent ?? '#CFF56A';
+  const bg = props.background || DEFAULT_BG;
+  const titleColor = props.titleColor || DEFAULT_TX;
   const startedAt = new Date(props.startedAt);
   const timerRange = {
     lower: startedAt,
@@ -28,20 +29,20 @@ function WorkoutLiveActivityView(props: WorkoutLiveActivityProps) {
 
   return {
     banner: (
-      <VStack alignment="leading" spacing={6} modifiers={[activityBackgroundTint(BG)]}>
+      <VStack alignment="leading" spacing={6} modifiers={[activityBackgroundTint(bg)]}>
         <HStack spacing={4}>
           <Text modifiers={[font({ size: 11, weight: 'heavy' }), foregroundColor(accent)]}>
             운동 중
           </Text>
           <Spacer />
-          <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundColor(TX)]}>
+          <Text modifiers={[font({ size: 13, weight: 'bold' }), foregroundColor(titleColor)]}>
             {props.title}
           </Text>
         </HStack>
         <Text
           timerInterval={timerRange}
           countsDown={false}
-          modifiers={[font({ size: 30, weight: 'heavy' }), monospacedDigit(), foregroundColor(TX)]}
+          modifiers={[font({ size: 30, weight: 'heavy' }), monospacedDigit(), foregroundColor(titleColor)]}
         />
       </VStack>
     ),
@@ -52,7 +53,7 @@ function WorkoutLiveActivityView(props: WorkoutLiveActivityProps) {
       <Text
         timerInterval={timerRange}
         countsDown={false}
-        modifiers={[font({ size: 12, weight: 'bold' }), monospacedDigit(), foregroundColor(TX)]}
+        modifiers={[font({ size: 12, weight: 'bold' }), monospacedDigit(), foregroundColor(titleColor)]}
       />
     ),
     minimal: (
@@ -60,7 +61,7 @@ function WorkoutLiveActivityView(props: WorkoutLiveActivityProps) {
     ),
     expandedBottom: (
       <HStack spacing={4}>
-        <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundColor(TX)]}>
+        <Text modifiers={[font({ size: 14, weight: 'bold' }), foregroundColor(titleColor)]}>
           {props.title}
         </Text>
         <Spacer />

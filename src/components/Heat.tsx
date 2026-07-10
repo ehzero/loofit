@@ -9,6 +9,8 @@ import type { HeatmapDay } from '@/src/types';
 type HeatCell = HeatmapDay & {
   /** false renders the out-of-range placeholder (grid-alignment filler). */
   inRange?: boolean;
+  /** transparent spacer inserted before a month transition in the year grid. */
+  isGap?: boolean;
 };
 
 /**
@@ -82,7 +84,9 @@ function yearMonthMarkers(cells: HeatCell[]) {
 
   for (let week = 0; week < weekCount; week += 1) {
     const weekCells = cells.slice(week * 7, week * 7 + 7);
-    const firstVisibleCell = weekCells.find((cell) => cell.inRange ?? true);
+    const firstVisibleCell = weekCells.find(
+      (cell) => !cell.isGap && cell.dateKey && (cell.inRange ?? true)
+    );
     if (!firstVisibleCell) {
       continue;
     }
@@ -103,6 +107,38 @@ function yearMonthMarkers(cells: HeatCell[]) {
   return markers;
 }
 
+function insertYearMonthTransitionGaps(cells: HeatCell[]): HeatCell[] {
+  const result: HeatCell[] = [];
+  let hasVisibleInRangeCell = false;
+
+  for (const cell of cells) {
+    const isVisibleInRangeCell = !cell.isGap && cell.dateKey && (cell.inRange ?? true);
+    const isMonthStart =
+      isVisibleInRangeCell && Number(cell.dateKey.split('-')[2]) === 1;
+
+    if (isMonthStart && hasVisibleInRangeCell) {
+      result.push(...yearMonthGapCells(result.length));
+    }
+
+    result.push(cell);
+
+    if (isVisibleInRangeCell) {
+      hasVisibleInRangeCell = true;
+    }
+  }
+
+  return result;
+}
+
+function yearMonthGapCells(offset: number): HeatCell[] {
+  return Array.from({ length: 7 }, (_, index) => ({
+    dateKey: `month-gap-${offset}-${index}`,
+    durationSeconds: 0,
+    bucket: 0,
+    isGap: true,
+  }));
+}
+
 /**
  * GitHub-style year heatmap: weekday rows with labels on the left, weeks as
  * columns inside a horizontal scroller that starts at the most recent week.
@@ -119,8 +155,9 @@ export function HeatYearGrid({
   const { colors: themeColors } = useTheme();
   const colors = colorsOverride ?? themeColors;
   const scrollRef = useRef<ScrollView>(null);
-  const weekCount = Math.ceil(cells.length / 7);
-  const monthMarkers = useMemo(() => yearMonthMarkers(cells), [cells]);
+  const renderCells = useMemo(() => insertYearMonthTransitionGaps(cells), [cells]);
+  const weekCount = Math.ceil(renderCells.length / 7);
+  const monthMarkers = useMemo(() => yearMonthMarkers(renderCells), [renderCells]);
 
   return (
     <View style={styles.yearWrap}>
@@ -141,14 +178,14 @@ export function HeatYearGrid({
             {Array.from({ length: 7 }, (_, weekday) => (
               <View key={weekday} style={styles.yearRow}>
                 {Array.from({ length: weekCount }, (_, week) => {
-                  const cell = cells[week * 7 + weekday];
+                  const cell = renderCells[week * 7 + weekday];
                   return (
                     <View
                       key={week}
                       style={[
                         styles.yearCell,
                         {
-                          backgroundColor: cell
+                          backgroundColor: cell && !cell.isGap
                             ? heatColor(colors, cell.bucket, cell.inRange ?? true)
                             : 'transparent',
                         },

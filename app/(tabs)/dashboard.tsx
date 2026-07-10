@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { Card } from '@/src/components/Card';
 import { EmptyState } from '@/src/components/EmptyState';
 import { HeatGrid, HeatLegend, HeatYearGrid } from '@/src/components/Heat';
-import { PartBars } from '@/src/components/PartBars';
+import { DurationBars } from '@/src/components/PartBars';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
 import { StatTiles } from '@/src/components/StatTiles';
@@ -55,14 +55,15 @@ export default function DashboardScreen() {
         )}
       </Card>
 
-      <Card title="부위별 운동 시간">
-        {overview.dashboard.byBodyPart.length === 0 ? (
+      <Card title="분할별 운동 시간">
+        {stats.bySplit.length === 0 ? (
           <EmptyState compact title="아직 데이터가 없어요." />
         ) : (
-          <PartBars
-            stats={overview.dashboard.byBodyPart.slice(0, 6).map((part) => ({
-              name: part.name,
-              durationSeconds: part.durationSeconds,
+          <DurationBars
+            stats={stats.bySplit.slice(0, 6).map((split) => ({
+              name: split.name,
+              detail: `${split.workoutCount}회`,
+              durationSeconds: split.durationSeconds,
             }))}
           />
         )}

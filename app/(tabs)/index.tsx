@@ -18,6 +18,7 @@ import { RecordRow } from '@/src/components/RecordRow';
 import { Screen } from '@/src/components/Screen';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { StatTiles } from '@/src/components/StatTiles';
+import { BRAND } from '@/src/config/brand';
 import {
   formatClock,
   formatDateFull,
@@ -77,7 +78,7 @@ export default function HomeScreen() {
   }, [active, now]);
 
   if (!overview) {
-    return <Screen title="루핏" isLoading={!isReady} />;
+    return <Screen title={BRAND.displayName} isLoading={!isReady} />;
   }
 
   // ---- Onboarding: no routine yet ----
@@ -90,7 +91,7 @@ export default function HomeScreen() {
           </View>
           <AppText variant="display">아직 루틴이 없어요</AppText>
           <AppText variant="item" weight="500" tone="tertiary" style={styles.onboardDesc}>
-            루틴을 만들면 다음에 할 운동을{'\n'}루핏이 자동으로 알려드려요.
+            루틴을 만들면 다음에 할 운동을{'\n'}{BRAND.displayName}이 자동으로 알려드려요.
           </AppText>
         </View>
         <View style={styles.onboardList}>
