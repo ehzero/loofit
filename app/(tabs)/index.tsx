@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Pressable, RefreshControl, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
 import { Badge } from '@/src/components/Badge';
@@ -58,7 +58,9 @@ export default function HomeScreen() {
   const [sheet, setSheet] = useState<'start' | 'change' | null>(null);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
   const [now, setNow] = useState(Date.now());
-  const [messageSeed] = useState(() => Math.random().toString(36).slice(2));
+  const [messageSeed, setMessageSeed] = useState(createMessageSeed);
+  const [isMessageRefreshing, setIsMessageRefreshing] = useState(false);
+  const messageRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const active = overview?.activeSession ?? null;
 
@@ -69,6 +71,15 @@ export default function HomeScreen() {
     const timer = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(timer);
   }, [active]);
+
+  useEffect(
+    () => () => {
+      if (messageRefreshTimerRef.current) {
+        clearTimeout(messageRefreshTimerRef.current);
+      }
+    },
+    []
+  );
 
   const elapsedSeconds = useMemo(() => {
     if (!active) {
@@ -223,10 +234,52 @@ export default function HomeScreen() {
     partNames: messagePartNames,
     seed: `${messageSeed}:${messagePartKey}:${overview.latestCompletedToday?.id ?? 'none'}`,
   });
+  const refreshGreeting = () => {
+    setIsMessageRefreshing(true);
+    setMessageSeed((currentSeed) => {
+      const currentGreeting = getHomeMessage({
+        phase: isPost ? 'after' : 'before',
+        partNames: messagePartNames,
+        seed: `${currentSeed}:${messagePartKey}:${overview.latestCompletedToday?.id ?? 'none'}`,
+      });
+
+      for (let attempt = 0; attempt < 8; attempt += 1) {
+        const nextSeed = `${createMessageSeed()}:${attempt}`;
+        const nextGreeting = getHomeMessage({
+          phase: isPost ? 'after' : 'before',
+          partNames: messagePartNames,
+          seed: `${nextSeed}:${messagePartKey}:${overview.latestCompletedToday?.id ?? 'none'}`,
+        });
+
+        if (nextGreeting !== currentGreeting) {
+          return nextSeed;
+        }
+      }
+
+      return createMessageSeed();
+    });
+
+    if (messageRefreshTimerRef.current) {
+      clearTimeout(messageRefreshTimerRef.current);
+    }
+    messageRefreshTimerRef.current = setTimeout(() => {
+      setIsMessageRefreshing(false);
+      messageRefreshTimerRef.current = null;
+    }, 240);
+  };
 
   return (
     <>
-      <Screen>
+      <Screen
+        refreshControl={
+          <RefreshControl
+            refreshing={isMessageRefreshing}
+            onRefresh={refreshGreeting}
+            tintColor={colors.accent}
+            colors={[colors.accent]}
+            progressBackgroundColor={colors.card}
+          />
+        }>
         <View style={styles.greetBlock}>
           <AppText variant="footnote" tone="muted">
             {formatDateFull(new Date())}
@@ -372,6 +425,10 @@ export default function HomeScreen() {
       />
     </>
   );
+}
+
+function createMessageSeed(): string {
+  return `${Date.now()}:${Math.random().toString(36).slice(2)}`;
 }
 
 function StartSheet({

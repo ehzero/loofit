@@ -1,5 +1,12 @@
-import type { PropsWithChildren, ReactNode } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import type { PropsWithChildren, ReactElement, ReactNode } from 'react';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+  type RefreshControlProps,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -14,6 +21,7 @@ type ScreenProps = PropsWithChildren<{
   headerRight?: ReactNode;
   isLoading?: boolean;
   scroll?: boolean;
+  refreshControl?: ReactElement<RefreshControlProps>;
   /** Optional background override (e.g. widget preview uses a dark fill). */
   background?: string;
 }>;
@@ -24,6 +32,7 @@ export function Screen({
   headerRight,
   isLoading,
   scroll = true,
+  refreshControl,
   background,
   children,
 }: ScreenProps) {
@@ -60,7 +69,10 @@ export function Screen({
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: bg }]} edges={['top']}>
       {scroll ? (
-        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.content}
+          refreshControl={refreshControl}
+          showsVerticalScrollIndicator={false}>
           {header}
           {body}
         </ScrollView>
