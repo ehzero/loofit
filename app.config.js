@@ -65,8 +65,19 @@ module.exports = ({ config }) => {
     ...config,
     ...appJson.expo,
     name: brand.displayName,
+    ios: {
+      ...(appJson.expo.ios ?? {}),
+      config: {
+        ...(appJson.expo.ios?.config ?? {}),
+        usesNonExemptEncryption: false,
+      },
+    },
     extra: {
       ...(appJson.expo.extra ?? {}),
+      eas: {
+        ...(appJson.expo.extra?.eas ?? {}),
+        projectId: '803560ac-f833-44f7-8e5f-b47144d1df1c',
+      },
       widgetsEnabled,
     },
     plugins,

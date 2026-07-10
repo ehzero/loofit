@@ -149,14 +149,46 @@ Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세
 
 ### 6. 실기기와 EAS
 
-현재 repo에는 `eas.json`이 없다. 따라서 원격 EAS 빌드는 아직 문서화된 실행 절차가 아니라 예정된 배포 방향이다.
+원격 EAS 빌드는 `eas.json` 기준으로 실행한다. iOS 우선 검증 앱이므로 TestFlight 제출은 `production` 프로필을 사용한다.
 
-실기기 검증을 진행하려면 먼저 아래를 확정해야 한다.
+프로필 기준:
 
-- Expo/EAS 프로젝트 연결
+- `development`: 실기기 Development Build
+- `development-simulator`: iOS 시뮬레이터 Development Build
+- `preview`: 내부 배포용 빌드
+- `production`: TestFlight/App Store 제출용 빌드
+
+처음 EAS를 사용할 때는 아래를 확인한다.
+
+- Expo/EAS 프로젝트 연결: `@ehzero/loofit`
+- EAS projectId: `803560ac-f833-44f7-8e5f-b47144d1df1c`
 - Apple Developer Team 및 bundle identifier 권한
 - App Group 설정: `group.com.loofit.app`
 - Widget Extension 및 Live Activity 권한
-- `eas.json` 빌드 프로필
+- App Store Connect 앱 레코드 생성
 
-`eas.json`이 추가된 뒤에는 Development Build 프로필과 Store 제출 프로필을 분리해서 문서화한다.
+TestFlight 제출:
+
+- `npx eas-cli@latest build --platform ios --profile production --auto-submit`
+
+빌드와 제출을 나눠서 진행하려면:
+
+- `npx eas-cli@latest build --platform ios --profile production`
+- `npx eas-cli@latest submit --platform ios --profile production --latest`
+
+`production`은 `cli.appVersionSource: remote`와 `autoIncrement: true`를 사용하므로, TestFlight 중복 빌드 번호를 피하기 위해 EAS 원격 빌드 번호를 기준으로 관리한다.
+
+현재 EAS/TestFlight 상태:
+
+- `npx eas-cli@latest init`으로 Expo 프로젝트는 생성되어 있다.
+- `app.config.js`가 dynamic config라 EAS projectId는 자동 삽입되지 않았고, `extra.eas.projectId`에 수동으로 넣어둔 상태다.
+- iOS 암호화 수출 규정 프롬프트에서 EAS CLI가 한 번 크래시했으므로 `app.config.js`의 `ios.config.usesNonExemptEncryption: false`와 `app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`를 유지한다.
+- 첫 `production` 빌드 시 EAS remote `buildNumber`는 `1`로 초기화되었다.
+- TestFlight 업로드는 아직 완료되지 않았다. 직전 시도는 Apple 2단계 인증 코드 입력 단계에서 중단했다.
+- iOS 빌드는 앱 타깃 `com.loofit.app`과 위젯 타깃 `com.loofit.app.widgets`의 credentials를 모두 설정해야 한다. 두 타깃은 Distribution Certificate를 공유할 수 있지만 Provisioning Profile은 각각 필요하다.
+
+Patch 관리:
+
+- `patches/expo-widgets+57.0.3.patch`는 위젯 AppIntent 동작을 위해 유지한다.
+- `patches/expo-modules-jsi+57.0.1.patch`는 삭제했다. 해당 파일은 실제 소스 수정뿐 아니라 `DerivedData`, xcframework 산출물, LICENSE 삭제 등이 섞인 잘못된 patch-package 파일이었고 `npm install`의 `postinstall`을 실패시켰다.
+- `expo-modules-jsi` 패치가 다시 필요하면 빌드 산출물이 섞이지 않게 `node_modules/expo-modules-jsi/apple/Sources/**` 같은 실제 소스 변경만 남긴 뒤 `npx patch-package expo-modules-jsi`로 새로 만든다.
