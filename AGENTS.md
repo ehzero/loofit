@@ -78,6 +78,14 @@
 - 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build 기준으로 검증한다.
 - Android 위젯과 고정 알림은 iOS MVP 반응 확인 후 확장한다.
 
+## 위젯 구현 참고
+
+- `/ios`와 `/android`는 생성 산출물로 ignore되어 있으므로, 유지해야 하는 네이티브 위젯 변경은 config plugin으로 남긴다.
+- 히트맵 iOS 위젯은 `plugins/with-loofit-heatmap-widgets.js`가 생성하는 SwiftUI `GeometryReader` 렌더러가 실제 화면을 그린다.
+- `src/widgets/HeatmapCalendarWidget.tsx`는 히트맵을 그리는 원천이 아니라, `expo-widgets` timeline snapshot props를 업데이트하기 위한 핸들이다.
+- 앱 내 히트맵 위젯 미리보기와 실제 위젯은 `src/widgets/widget-spec.ts`와 `src/widgets/heatmap-widget-model.ts`의 값을 공유한다.
+- 히트맵 셀 크기는 고정값이 아니라 `cellSize = (contentWidth - gap * (columns - 1)) / columns` 규칙으로 계산한다.
+
 ## 자주 쓰는 명령
 
 - `npm run typecheck`

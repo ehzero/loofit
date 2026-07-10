@@ -19,6 +19,16 @@ export type HeatmapWidgetProps = {
    * widget-side parsing (split) dependency-free.
    */
   colors: string;
+  background: string;
+  titleColor: string;
+  brandColor: string;
+  titleSize: number;
+  brandSize: number;
+  contentPadding: number;
+  cellGap: number;
+  cellRadius: number;
+  headerGap: number;
+  columns: number;
 };
 
 export type WorkoutLiveActivityProps = {

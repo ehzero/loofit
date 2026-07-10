@@ -543,6 +543,13 @@ Expo의 iOS 위젯/Live Activity 기능은 Development Build가 필요하다. Ex
 
 초기 개발 단계에서 iPhone 실제 기기로 기술 스파이크를 진행해야 한다.
 
+구현 참고:
+
+- 히트맵 iOS 위젯은 Expo JS 위젯 뷰가 아니라 SwiftUI `GeometryReader` 기반 네이티브 렌더러로 표시한다.
+- 앱 미리보기와 실제 위젯은 공통 스펙 값을 공유하되, renderer는 RN과 SwiftUI로 분리한다.
+- `/ios`는 생성 산출물이므로 히트맵 위젯 SwiftUI 패치는 `plugins/with-loofit-heatmap-widgets.js`에서 재생성한다.
+- 히트맵 셀 크기는 컨테이너 너비, padding, gap, column 수로 동적 계산한다.
+
 참고:
 
 - https://docs.expo.dev/versions/latest/sdk/widgets/

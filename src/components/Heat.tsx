@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useMemo, useRef } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { weekdayLabel } from '@/src/domain/date';
@@ -73,6 +73,35 @@ export function HeatGrid({
 
 const YEAR_CELL = 12;
 const YEAR_GAP = 3;
+const YEAR_COLUMN_WIDTH = YEAR_CELL + YEAR_GAP;
+
+function yearMonthMarkers(cells: HeatCell[]) {
+  const weekCount = Math.ceil(cells.length / 7);
+  const markers: Array<{ key: string; label: string; week: number }> = [];
+  let previousMonth: number | null = null;
+
+  for (let week = 0; week < weekCount; week += 1) {
+    const weekCells = cells.slice(week * 7, week * 7 + 7);
+    const firstVisibleCell = weekCells.find((cell) => cell.inRange ?? true);
+    if (!firstVisibleCell) {
+      continue;
+    }
+
+    const [, monthValue] = firstVisibleCell.dateKey.split('-').map(Number);
+    if (!monthValue || monthValue === previousMonth) {
+      continue;
+    }
+
+    previousMonth = monthValue;
+    markers.push({
+      key: `${firstVisibleCell.dateKey}-${week}`,
+      label: `${monthValue}월`,
+      week,
+    });
+  }
+
+  return markers;
+}
 
 /**
  * GitHub-style year heatmap: weekday rows with labels on the left, weeks as
@@ -91,6 +120,7 @@ export function HeatYearGrid({
   const colors = colorsOverride ?? themeColors;
   const scrollRef = useRef<ScrollView>(null);
   const weekCount = Math.ceil(cells.length / 7);
+  const monthMarkers = useMemo(() => yearMonthMarkers(cells), [cells]);
 
   return (
     <View style={styles.yearWrap}>
@@ -106,27 +136,45 @@ export function HeatYearGrid({
         horizontal
         showsHorizontalScrollIndicator={false}
         onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
-        <View style={styles.yearRows}>
-          {Array.from({ length: 7 }, (_, weekday) => (
-            <View key={weekday} style={styles.yearRow}>
-              {Array.from({ length: weekCount }, (_, week) => {
-                const cell = cells[week * 7 + weekday];
-                return (
-                  <View
-                    key={week}
-                    style={[
-                      styles.yearCell,
-                      {
-                        backgroundColor: cell
-                          ? heatColor(colors, cell.bucket, cell.inRange ?? true)
-                          : 'transparent',
-                      },
-                    ]}
-                  />
-                );
-              })}
-            </View>
-          ))}
+        <View>
+          <View style={styles.yearRows}>
+            {Array.from({ length: 7 }, (_, weekday) => (
+              <View key={weekday} style={styles.yearRow}>
+                {Array.from({ length: weekCount }, (_, week) => {
+                  const cell = cells[week * 7 + weekday];
+                  return (
+                    <View
+                      key={week}
+                      style={[
+                        styles.yearCell,
+                        {
+                          backgroundColor: cell
+                            ? heatColor(colors, cell.bucket, cell.inRange ?? true)
+                            : 'transparent',
+                        },
+                      ]}
+                    />
+                  );
+                })}
+              </View>
+            ))}
+          </View>
+
+          <View style={styles.yearMonthLabels}>
+            {monthMarkers.map((marker) => (
+              <Text
+                key={marker.key}
+                style={[
+                  styles.yearMonthLabel,
+                  {
+                    color: colors.tx5,
+                    left: marker.week * YEAR_COLUMN_WIDTH,
+                  },
+                ]}>
+                {marker.label}
+              </Text>
+            ))}
+          </View>
         </View>
       </ScrollView>
     </View>
@@ -208,5 +256,15 @@ const styles = StyleSheet.create({
     width: YEAR_CELL,
     height: YEAR_CELL,
     borderRadius: 3,
+  },
+  yearMonthLabels: {
+    height: 16,
+    marginTop: 6,
+    position: 'relative',
+  },
+  yearMonthLabel: {
+    ...typeScale.caption,
+    position: 'absolute',
+    top: 0,
   },
 });

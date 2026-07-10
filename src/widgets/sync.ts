@@ -5,14 +5,11 @@ import { after, type LiveActivity } from 'expo-widgets';
 import { getAppSetting } from '@/src/db/repository';
 import { formatClock, formatDuration, getEndOfLocalDay } from '@/src/domain/date';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
-import { accentTextFor, DEFAULT_ACCENT, heatColor, makeColors } from '@/src/theme/tokens';
+import { accentTextFor, DEFAULT_ACCENT, makeColors } from '@/src/theme/tokens';
 import type { AppOverview, WorkoutSession } from '@/src/types';
+import { buildHeatmapWidgetProps } from '@/src/widgets/heatmap-widget-model';
 
 import type { WorkoutControlWidgetProps, WorkoutLiveActivityProps } from './types';
-
-// Must match the widget views' dark card background so out-of-range heatmap
-// cells disappear into it.
-const WIDGET_BG = '#141418';
 
 let liveActivity: LiveActivity<WorkoutLiveActivityProps> | null = null;
 
@@ -46,16 +43,16 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
   ]);
 
   const darkColors = makeColors('dark', accent);
-  const gridColors = (cells: Array<{ bucket: number; inRange: boolean }>) =>
-    cells
-      .map((cell) => (cell.inRange ? heatColor(darkColors, cell.bucket) : WIDGET_BG))
-      .join(',');
 
-  HeatmapWeekWidget.updateSnapshot({
-    colors: overview.heatmap7.map((day) => heatColor(darkColors, day.bucket)).join(','),
-  });
-  HeatmapMonthWidget.updateSnapshot({ colors: gridColors(overview.heatmapGrid) });
-  HeatmapYearWidget.updateSnapshot({ colors: gridColors(overview.heatmapYear) });
+  HeatmapWeekWidget.updateSnapshot(
+    buildHeatmapWidgetProps({ variant: 'week', cells: overview.heatmap7, colors: darkColors })
+  );
+  HeatmapMonthWidget.updateSnapshot(
+    buildHeatmapWidgetProps({ variant: 'month', cells: overview.heatmapGrid, colors: darkColors })
+  );
+  HeatmapYearWidget.updateSnapshot(
+    buildHeatmapWidgetProps({ variant: 'year', cells: overview.heatmapYear, colors: darkColors })
+  );
 
   await syncLiveActivity(overview, WorkoutLiveActivity, accent);
 }

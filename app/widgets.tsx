@@ -2,25 +2,24 @@ import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { HeatGrid } from '@/src/components/Heat';
 import { PulseDot } from '@/src/components/PulseDot';
 import { Screen } from '@/src/components/Screen';
 import { formatClock, formatDuration, formatElapsed } from '@/src/domain/date';
 import { joinPartNames, routineDayDisplayName } from '@/src/domain/routine';
 import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
-import { heatColor, makeColors, radius, spacing, type ThemeColors } from '@/src/theme/tokens';
-import type { HeatmapGridCell } from '@/src/types';
+import { makeColors, radius, spacing } from '@/src/theme/tokens';
+import { buildHeatmapWidgetProps } from '@/src/widgets/heatmap-widget-model';
+import { HeatmapWidgetPreview } from '@/src/widgets/preview/HeatmapWidgetPreview';
+import { WIDGET_PREVIEW_SPEC } from '@/src/widgets/widget-spec';
 
 // The design renders these widgets on a fixed dark home-screen preview
 // regardless of the in-app theme, so we build a dark palette explicitly.
-// Text sizes/colors here are widget-surface constants that must stay in sync
-// with the real widget views (src/widgets/*), which cannot import tokens due
-// to the 'widget' directive's isolated JS context — they are exempt from the
-// app-wide token rule. Structural spacing/radius still uses tokens.
-const WIDGET_BG = '#0C0D10';
-const CARD_BG = 'rgba(20,20,24,0.72)';
-const CARD_BORDER = 'rgba(255,255,255,0.08)';
+// Heatmap widgets use WIDGET_PREVIEW_SPEC as their source of truth; the iOS
+// widget renderer receives the same values through snapshot props.
+const WIDGET_BG = WIDGET_PREVIEW_SPEC.screenBackground;
+const CARD_BG = WIDGET_PREVIEW_SPEC.card.background;
+const CARD_BORDER = WIDGET_PREVIEW_SPEC.card.border;
 
 export default function WidgetsScreen() {
   const router = useRouter();
@@ -54,6 +53,15 @@ export default function WidgetsScreen() {
           orderedToday[orderedToday.length - 1].startedAt
       )}`
     : '오후 7:24 – 오후 8:29';
+  const weekWidget = overview
+    ? buildHeatmapWidgetProps({ variant: 'week', cells: overview.heatmap7, colors: dark })
+    : null;
+  const monthWidget = overview
+    ? buildHeatmapWidgetProps({ variant: 'month', cells: overview.heatmapGrid, colors: dark })
+    : null;
+  const yearWidget = overview
+    ? buildHeatmapWidgetProps({ variant: 'year', cells: overview.heatmapYear, colors: dark })
+    : null;
 
   return (
     <Screen title="위젯 미리보기" onBack={() => router.back()} background={WIDGET_BG}>
@@ -117,34 +125,33 @@ export default function WidgetsScreen() {
 
         <Text style={styles.sizeLabel}>Small</Text>
         <View style={styles.smallRow}>
-          <View style={[styles.widgetCard, styles.smallSquare]}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.tinyLabel}>최근 7일</Text>
-              <Text style={styles.brand}>LOOFIT</Text>
-            </View>
-            {overview ? (
-              <HeatGrid cells={overview.heatmap7} colorsOverride={dark} gap={4} radius={4} />
-            ) : null}
-          </View>
-          <View style={[styles.widgetCard, styles.smallSquare]}>
-            <View style={styles.rowBetween}>
-              <Text style={styles.tinyLabel}>최근 30일</Text>
-              <Text style={styles.brand}>LOOFIT</Text>
-            </View>
-            {overview ? (
-              <HeatGrid cells={overview.heatmapGrid} colorsOverride={dark} gap={3} radius={3} />
-            ) : null}
-          </View>
+          {weekWidget ? (
+            <HeatmapWidgetPreview
+              title="최근 7일"
+              variant="week"
+              widget={weekWidget}
+              style={styles.smallSquare}
+            />
+          ) : null}
+          {monthWidget ? (
+            <HeatmapWidgetPreview
+              title="최근 30일"
+              variant="month"
+              widget={monthWidget}
+              style={styles.smallSquare}
+            />
+          ) : null}
         </View>
 
         <Text style={styles.sizeLabel}>Medium</Text>
-        <View style={[styles.widgetCard, styles.mediumRect]}>
-          <View style={styles.rowBetween}>
-            <Text style={styles.tinyLabel}>최근 1년</Text>
-            <Text style={styles.brand}>LOOFIT</Text>
-          </View>
-          {overview ? <YearMiniGrid cells={overview.heatmapYear} colors={dark} /> : null}
-        </View>
+        {yearWidget ? (
+          <HeatmapWidgetPreview
+            title="최근 1년"
+            variant="year"
+            widget={yearWidget}
+            style={styles.mediumRect}
+          />
+        ) : null}
       </View>
     </Screen>
   );
@@ -155,35 +162,6 @@ function CtaPill({ label, bg, fg }: { label: string; bg: string; fg: string }) {
   return (
     <View style={[styles.widgetCtaSm, { backgroundColor: bg }]}>
       <Text style={[styles.widgetCtaSmText, { color: fg }]}>{label}</Text>
-    </View>
-  );
-}
-
-/** Compressed GitHub-style year grid mirroring HeatmapYearWidget's layout. */
-function YearMiniGrid({ cells, colors }: { cells: HeatmapGridCell[]; colors: ThemeColors }) {
-  const weekCount = Math.ceil(cells.length / 7);
-  return (
-    <View style={styles.yearMini}>
-      {Array.from({ length: 7 }, (_, weekday) => (
-        <View key={weekday} style={styles.yearMiniRow}>
-          {Array.from({ length: weekCount }, (_, week) => {
-            const cell = cells[week * 7 + weekday];
-            return (
-              <View
-                key={week}
-                style={[
-                  styles.yearMiniCell,
-                  {
-                    backgroundColor: cell
-                      ? heatColor(colors, cell.bucket, cell.inRange)
-                      : 'transparent',
-                  },
-                ]}
-              />
-            );
-          })}
-        </View>
-      ))}
     </View>
   );
 }
@@ -251,20 +229,6 @@ const styles = StyleSheet.create({
   mediumRect: {
     aspectRatio: 2.14,
     justifyContent: 'space-between',
-  },
-  yearMini: {
-    flex: 1,
-    justifyContent: 'center',
-    gap: 1.5,
-  },
-  yearMiniRow: {
-    flexDirection: 'row',
-    gap: 1.5,
-  },
-  yearMiniCell: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 1,
   },
   widgetCtaSm: {
     borderRadius: radius.md,

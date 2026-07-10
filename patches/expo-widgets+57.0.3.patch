@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
-index 972fa4f..b1b1073 100644
+index 972fa4f..72296e1 100644
 --- a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
 +++ b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
 @@ -1,4 +1,7 @@
@@ -43,16 +43,21 @@ index 972fa4f..b1b1073 100644
      WidgetsEvents.shared.sendNotification(type: .userEvent, data: [
        "source": source as Any,
        "target": target as Any,
-@@ -100,6 +113,802 @@ struct WidgetUserInteraction: AppIntent {
+@@ -100,6 +113,1000 @@ struct WidgetUserInteraction: AppIntent {
    }
  }
  
 +private enum LoofitWidgetActions {
 +  private static let databaseName = "loofit.db"
-+  private static let heatmapWidgetName = "HeatmapCalendarWidget"
++  private static let heatmapWeekWidgetName = "HeatmapWeekWidget"
++  private static let heatmapMonthWidgetName = "HeatmapMonthWidget"
++  private static let heatmapYearWidgetName = "HeatmapYearWidget"
 +  private static let liveActivityName = "WorkoutLiveActivity"
 +  private static let startTarget = "start-recommended"
 +  private static let endTarget = "end-active"
++  private static let defaultAccent = "#CFF56A"
++  private static let heatmapBaseColor = "#16161A"
++  private static let heatmapEmptyColor = "#1B1B1F"
 +  private static let sqliteTransient = unsafeBitCast(
 +    OpaquePointer(bitPattern: -1),
 +    to: sqlite3_destructor_type.self
@@ -79,7 +84,7 @@ index 972fa4f..b1b1073 100644
 +      guard let result = completeActiveWorkout() else {
 +        return timeline
 +      }
-+      syncHeatmapWidget()
++      syncHeatmapWidgets()
 +      await endLiveActivities()
 +      return timelineAfterCompletion(timeline, entryIndex: entryIndex, result: result)
 +
@@ -297,21 +302,47 @@ index 972fa4f..b1b1073 100644
 +    ]
 +  }
 +
-+  private static func syncHeatmapWidget() {
-+    guard let days = withDatabase({ db in buildHeatmapDays(db, days: 30, now: Date()) }) else {
++  private static func syncHeatmapWidgets() {
++    guard let payload = withDatabase({ db -> HeatmapWidgetPayload? in
++      let now = Date()
++      let accent = fetchThemeAccent(db) ?? defaultAccent
++      return HeatmapWidgetPayload(
++        week: buildHeatmapWidgetProps(
++          cells: buildHeatmapDays(db, days: 7, now: now),
++          variant: .week,
++          accent: accent
++        ),
++        month: buildHeatmapWidgetProps(
++          cells: buildHeatmapGrid(db, days: 30, now: now),
++          variant: .month,
++          accent: accent
++        ),
++        year: buildHeatmapWidgetProps(
++          cells: buildHeatmapGrid(db, days: 365, now: now),
++          variant: .year,
++          accent: accent
++        )
++      )
++    }) else {
 +      return
 +    }
 +
++    updateHeatmapTimeline(kind: heatmapWeekWidgetName, props: payload.week)
++    updateHeatmapTimeline(kind: heatmapMonthWidgetName, props: payload.month)
++    updateHeatmapTimeline(kind: heatmapYearWidgetName, props: payload.year)
++  }
++
++  private static func updateHeatmapTimeline(kind: String, props: [String: Any]) {
 +    WidgetsStorage.set(
 +      [
 +        [
 +          "timestamp": currentTimestamp(),
-+          "props": ["days": days]
++          "props": props
 +        ]
 +      ],
-+      forKey: "__expo_widgets_\(heatmapWidgetName)_timeline"
++      forKey: "__expo_widgets_\(kind)_timeline"
 +    )
-+    WidgetCenter.shared.reloadTimelines(ofKind: heatmapWidgetName)
++    WidgetCenter.shared.reloadTimelines(ofKind: kind)
 +  }
 +
 +  private static func startLiveActivity(title: String, startedAt: String) async {
@@ -556,6 +587,14 @@ index 972fa4f..b1b1073 100644
 +    )
 +  }
 +
++  private static func fetchThemeAccent(_ db: OpaquePointer) -> String? {
++    fetchStrings(
++      db,
++      "SELECT value FROM app_settings WHERE key = ? LIMIT 1",
++      [.text("theme_accent")]
++    ).first
++  }
++
 +  private static func buildHeatmapDays(
 +    _ db: OpaquePointer,
 +    days: Int,
@@ -601,6 +640,141 @@ index 972fa4f..b1b1073 100644
 +        "bucket": heatmapBucket(duration)
 +      ]
 +    }
++  }
++
++  private static func buildHeatmapGrid(
++    _ db: OpaquePointer,
++    days: Int,
++    now: Date
++  ) -> [[String: Any]] {
++    let calendar = Calendar.current
++    let today = calendar.startOfDay(for: now)
++    let rangeStart = calendar.date(byAdding: .day, value: -(days - 1), to: today) ?? today
++    let leadingCellCount = max(calendar.component(.weekday, from: rangeStart) - 1, 0)
++    let rangeCells = buildHeatmapDays(db, days: days, now: now)
++
++    guard leadingCellCount > 0 else {
++      return rangeCells
++    }
++
++    let leadingCells: [[String: Any]] = (0..<leadingCellCount).compactMap { index in
++      guard let date = calendar.date(byAdding: .day, value: index - leadingCellCount, to: rangeStart) else {
++        return nil
++      }
++      return [
++        "dateKey": localDateKey(date),
++        "durationSeconds": 0,
++        "bucket": 0
++      ]
++    }
++
++    return leadingCells + rangeCells
++  }
++
++  private static func buildHeatmapWidgetProps(
++    cells: [[String: Any]],
++    variant: HeatmapWidgetVariant,
++    accent: String
++  ) -> [String: Any] {
++    let spec = heatmapWidgetSpec(for: variant)
++    return [
++      "colors": cells.map { cell in
++        heatmapColor(bucket: intValue(cell["bucket"]), accent: accent)
++      }.joined(separator: ","),
++      "background": "#141418",
++      "titleColor": "#8A8A90",
++      "brandColor": "#6B6B70",
++      "titleSize": 11,
++      "brandSize": 10,
++      "contentPadding": 16,
++      "cellGap": spec.cellGap,
++      "cellRadius": spec.cellRadius,
++      "headerGap": spec.headerGap,
++      "columns": spec.columns
++    ]
++  }
++
++  private static func heatmapWidgetSpec(for variant: HeatmapWidgetVariant) -> HeatmapWidgetSpec {
++    switch variant {
++    case .week:
++      return HeatmapWidgetSpec(cellGap: 4, cellRadius: 4, headerGap: 12, columns: 7)
++    case .month:
++      return HeatmapWidgetSpec(cellGap: 3, cellRadius: 3, headerGap: 12, columns: 7)
++    case .year:
++      return HeatmapWidgetSpec(cellGap: 1.5, cellRadius: 1, headerGap: 8, columns: 0)
++    }
++  }
++
++  private static func heatmapColor(bucket: Int, accent: String) -> String {
++    switch bucket {
++    case 1:
++      return mixHex(accent, heatmapBaseColor, weight: 0.24)
++    case 2:
++      return mixHex(accent, heatmapBaseColor, weight: 0.48)
++    case 3:
++      return mixHex(accent, heatmapBaseColor, weight: 0.74)
++    case 4:
++      return accent
++    default:
++      return heatmapEmptyColor
++    }
++  }
++
++  private static func mixHex(_ a: String, _ b: String, weight: Double) -> String {
++    guard let ca = parseHex(a),
++          let cb = parseHex(b) else {
++      return a
++    }
++
++    return hexString(
++      red: ca.red * weight + cb.red * (1 - weight),
++      green: ca.green * weight + cb.green * (1 - weight),
++      blue: ca.blue * weight + cb.blue * (1 - weight)
++    )
++  }
++
++  private static func parseHex(_ value: String) -> RGB? {
++    let hex = value
++      .trimmingCharacters(in: .whitespacesAndNewlines)
++      .replacingOccurrences(of: "#", with: "")
++
++    guard hex.count >= 6 else {
++      return nil
++    }
++
++    var integer: UInt64 = 0
++    guard Scanner(string: String(hex.prefix(6))).scanHexInt64(&integer) else {
++      return nil
++    }
++
++    return RGB(
++      red: Double((integer >> 16) & 0xFF),
++      green: Double((integer >> 8) & 0xFF),
++      blue: Double(integer & 0xFF)
++    )
++  }
++
++  private static func hexString(red: Double, green: Double, blue: Double) -> String {
++    let red = Int(round(max(0, min(255, red))))
++    let green = Int(round(max(0, min(255, green))))
++    let blue = Int(round(max(0, min(255, blue))))
++    return String(format: "#%02x%02x%02x", red, green, blue)
++  }
++
++  private static func intValue(_ value: Any?) -> Int {
++    if let value = value as? Int {
++      return value
++    }
++    if let value = value as? Int64 {
++      return Int(value)
++    }
++    if let value = value as? NSNumber {
++      return value.intValue
++    }
++    if let value = value as? String, let number = Int(value) {
++      return number
++    }
++    return 0
 +  }
 +
 +  private static func prepare(
@@ -799,6 +973,31 @@ index 972fa4f..b1b1073 100644
 +      return "자유 운동"
 +    }
 +    return names.joined(separator: " + ")
++  }
++
++  private enum HeatmapWidgetVariant {
++    case week
++    case month
++    case year
++  }
++
++  private struct HeatmapWidgetPayload {
++    let week: [String: Any]
++    let month: [String: Any]
++    let year: [String: Any]
++  }
++
++  private struct HeatmapWidgetSpec {
++    let cellGap: Double
++    let cellRadius: Double
++    let headerGap: Double
++    let columns: Int
++  }
++
++  private struct RGB {
++    let red: Double
++    let green: Double
++    let blue: Double
 +  }
 +
 +  private enum SQLiteValue {

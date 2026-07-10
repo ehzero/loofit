@@ -52,18 +52,21 @@
               "name": "HeatmapWeekWidget",
               "displayName": "Loofit Heatmap · 7일",
               "description": "Review your last 7 days of workouts.",
+              "contentMarginsDisabled": true,
               "supportedFamilies": ["systemSmall"]
             },
             {
               "name": "HeatmapMonthWidget",
               "displayName": "Loofit Heatmap · 30일",
               "description": "Review your last 30 days of workouts.",
+              "contentMarginsDisabled": true,
               "supportedFamilies": ["systemSmall"]
             },
             {
               "name": "HeatmapYearWidget",
               "displayName": "Loofit Heatmap · 1년",
               "description": "Review your last year of workouts.",
+              "contentMarginsDisabled": true,
               "supportedFamilies": ["systemMedium"]
             },
             {
@@ -74,7 +77,8 @@
             }
           ]
         }
-      ]
+      ],
+      "./plugins/with-loofit-heatmap-widgets"
     ],
     "experiments": {
       "typedRoutes": true
