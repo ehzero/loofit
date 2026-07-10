@@ -3,7 +3,7 @@ import Constants from 'expo-constants';
 import { after, type LiveActivity } from 'expo-widgets';
 
 import { BRAND } from '@/src/config/brand';
-import { getAppSetting } from '@/src/db/repository';
+import { getAppSetting, setAppSetting } from '@/src/db/repository';
 import { formatClock, formatDuration, getEndOfLocalDay } from '@/src/domain/date';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
 import {
@@ -26,6 +26,7 @@ import type { WorkoutControlWidgetProps, WorkoutLiveActivityProps } from './type
 let liveActivity: LiveActivity<WorkoutLiveActivityProps> | null = null;
 const THEME_MODE_KEY = 'theme_mode';
 const THEME_ACCENT_KEY = 'theme_accent';
+const WIDGET_THEME_SNAPSHOT_KEY = 'widget_theme_snapshot';
 
 export async function syncWidgetsFromOverview(overview: AppOverview): Promise<void> {
   if (!areWidgetsEnabled()) {
@@ -43,6 +44,9 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
   ]);
 
   const widgetColors = await getWidgetThemeColors();
+  await saveWidgetThemeSnapshot(widgetColors).catch((error) => {
+    console.warn(`[${BRAND.displayName}] Widget theme snapshot skipped`, error);
+  });
 
   WorkoutControlWidget.updateTimeline([
     {
@@ -152,6 +156,34 @@ function workoutControlThemeProps(colors: ThemeColors): Pick<
   };
 }
 
+function buildWidgetThemeSnapshot(colors: ThemeColors): Record<string, string> {
+  return {
+    brandName: BRAND.displayName,
+    accent: colors.accent,
+    accentText: colors.accentText,
+    background: colors.card,
+    labelColor: colors.tx3,
+    brandColor: colors.tx5,
+    titleColor: colors.tx,
+    detailColor: colors.tx3,
+    secondaryButtonBackground: colors.surface2,
+    secondaryButtonText: colors.tx,
+    heatmapBackground: colors.card,
+    heatmapTitleColor: colors.tx3,
+    heatmapBrandColor: colors.tx5,
+    heatmapFooterValueColor: colors.tx2,
+    heatmapWeekdayLabelColor: colors.tx4,
+    heatmapDayLabelColor: colors.tx3,
+    heatmapBaseColor: colors.heatbase,
+    heatmapEmptyColor: colors.heat0,
+    heatmapGapColor: '#00000000',
+  };
+}
+
+async function saveWidgetThemeSnapshot(colors: ThemeColors): Promise<void> {
+  await setAppSetting(WIDGET_THEME_SNAPSHOT_KEY, JSON.stringify(buildWidgetThemeSnapshot(colors)));
+}
+
 function buildWorkoutControlProps(
   overview: AppOverview,
   colors: ThemeColors
@@ -244,6 +276,7 @@ async function syncLiveActivity(
       subtitle: `${BRAND.displayName} 운동 중`,
       startedAt: overview.activeSession.startedAt,
       accent: colors.accent,
+      accentText: colors.accentText,
       background: colors.card,
       titleColor: colors.tx,
     };

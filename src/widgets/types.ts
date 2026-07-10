@@ -75,6 +75,7 @@ export type WorkoutLiveActivityProps = {
   subtitle: string;
   startedAt: string;
   accent: string;
+  accentText?: string;
   background?: string;
   titleColor?: string;
 };

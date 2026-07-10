@@ -31,6 +31,36 @@ import { WIDGET_PREVIEW_SPEC } from '@/src/widgets/widget-spec';
 import type { HeatmapWidgetProps } from '@/src/widgets/types';
 
 const CONTROL = WIDGET_PREVIEW_SPEC.control;
+const LIVE_ACTIVITY_PREVIEW = {
+  banner: {
+    buttonWidth: 88,
+    buttonHeight: 32,
+    buttonTextSize: 13,
+  },
+  compact: {
+    width: 128,
+    height: 38,
+    paddingHorizontal: 13,
+    titleWidth: 48,
+    timerWidth: 38,
+  },
+  minimal: {
+    size: 46,
+  },
+  expanded: {
+    width: 292,
+    height: 52,
+    contentWidth: 286,
+    contentHeight: 32,
+    horizontalPadding: 3,
+    titleWidth: 124,
+    timerWidth: 66,
+    buttonWidth: 68,
+    buttonHeight: 26,
+    buttonTextSize: 11,
+    gap: 7,
+  },
+} as const;
 
 type WidgetPreviewTheme = {
   cardBackground: string;
@@ -149,6 +179,30 @@ export default function WidgetsScreen() {
             style={styles.mediumRect}
           />
         </WidgetTypePreview>
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: colors.tx3 }]}>Live Activity</Text>
+
+        <LiveActivityBannerPreview
+          accent={accent}
+          accentText={colors.accentText}
+          elapsed="42:10"
+          previewTheme={previewTheme}
+          title="하체 · 어깨"
+        />
+      </View>
+
+      <View style={styles.section}>
+        <Text style={[styles.sectionLabel, { color: colors.tx3 }]}>Dynamic Island</Text>
+
+        <DynamicIslandPreview
+          accent={accent}
+          accentText={colors.accentText}
+          elapsed="2:08:33"
+          previewTheme={previewTheme}
+          title="하체 · 어깨"
+        />
       </View>
 
       <WidgetGuideSheet visible={guideVisible} onClose={() => setGuideVisible(false)} />
@@ -311,6 +365,170 @@ function ControlActionPreview({
       <CtaPill label={actionLabel} bg={actionBg ?? accent} fg={actionFg} />
     </View>
   );
+}
+
+function LiveActivityBannerPreview({
+  accent,
+  accentText,
+  elapsed,
+  previewTheme,
+  title,
+}: {
+  accent: string;
+  accentText: string;
+  elapsed: string;
+  previewTheme: WidgetPreviewTheme;
+  title: string;
+}) {
+  const compactTitle = compactWorkoutTitle(title);
+
+  return (
+    <View style={styles.livePreviewItem}>
+      <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>잠금화면</Text>
+      <View
+        style={[
+          styles.liveBanner,
+          { backgroundColor: previewTheme.cardBackground, borderColor: previewTheme.cardBorder },
+        ]}>
+        <View style={styles.liveBannerHeader}>
+          <Text
+            style={[styles.liveBannerTitle, { color: previewTheme.titleColor }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.78}
+          >
+            {title || compactTitle}
+          </Text>
+          <Text style={[styles.liveStatusText, { color: accent }]}>운동 중</Text>
+        </View>
+        <View style={styles.liveBannerFooter}>
+          <Text style={[styles.liveBannerTimer, { color: accent }]}>{elapsed}</Text>
+          <StopPill accent={accent} accentText={accentText} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+function DynamicIslandPreview({
+  accent,
+  accentText,
+  elapsed,
+  previewTheme,
+  title,
+}: {
+  accent: string;
+  accentText: string;
+  elapsed: string;
+  previewTheme: WidgetPreviewTheme;
+  title: string;
+}) {
+  const compactTitle = compactWorkoutTitle(title);
+  const minimalTitle = minimalWorkoutTitle(title);
+
+  return (
+    <View style={styles.livePreviewItem}>
+      <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+        compact / minimal / expanded
+      </Text>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.liveIslandScroller}
+      >
+        <View style={styles.liveIslandCompact}>
+          <Text
+            style={[styles.liveCompactLeadingText, { color: accent }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.55}
+          >
+            {compactTitle}
+          </Text>
+          <Text
+            style={[styles.liveCompactTrailingText, { color: accent }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.68}
+          >
+            {elapsed}
+          </Text>
+        </View>
+
+        <View style={styles.liveIslandMinimal}>
+          <Text
+            style={[styles.liveMinimalText, { color: accent }]}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.72}
+          >
+            {minimalTitle}
+          </Text>
+        </View>
+
+        <View style={styles.liveIslandExpanded}>
+          <View style={styles.liveIslandExpandedRow}>
+            <Text
+              style={[
+                styles.liveExpandedTitle,
+                { color: WIDGET_PREVIEW_SPEC.control.text.title.color },
+              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.76}
+            >
+              {title}
+            </Text>
+            <View style={styles.liveExpandedActionGroup}>
+              <Text style={[styles.liveExpandedTimer, { color: accent }]} numberOfLines={1}>
+                {elapsed}
+              </Text>
+              <StopPill accent={accent} accentText={accentText} variant="expanded" />
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+}
+
+function StopPill({
+  accent,
+  accentText,
+  variant = 'banner',
+}: {
+  accent: string;
+  accentText: string;
+  variant?: 'banner' | 'expanded';
+}) {
+  const compact = variant === 'expanded';
+
+  return (
+    <View
+      style={[
+        styles.liveStopPill,
+        compact ? styles.liveStopPillCompact : null,
+        { backgroundColor: accent },
+      ]}>
+      <Text
+        style={[
+          styles.liveStopLabel,
+          compact ? styles.liveStopLabelCompact : null,
+          { color: accentText },
+        ]}>
+        운동 종료
+      </Text>
+    </View>
+  );
+}
+
+function compactWorkoutTitle(title: string): string {
+  const parts = title.split(' · ').filter(Boolean);
+  return parts.length > 0 ? parts.join('·') : title;
+}
+
+function minimalWorkoutTitle(title: string): string {
+  return (title.split(' · ')[0] || title).slice(0, 4);
 }
 
 function buildWidgetPreviewTheme(colors: ThemeColors): WidgetPreviewTheme {
@@ -624,6 +842,148 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     paddingRight: spacing.lg,
   },
+  livePreviewItem: {
+    gap: 7,
+  },
+  liveBanner: {
+    minHeight: 104,
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    padding: 14,
+    gap: 7,
+    justifyContent: 'center',
+  },
+  liveBannerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  liveBannerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+  },
+  liveStatusText: {
+    flexShrink: 0,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  liveBannerTitle: {
+    flex: 1,
+    flexShrink: 1,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '800',
+  },
+  liveBannerTimer: {
+    flex: 1,
+    fontSize: 32,
+    lineHeight: 38,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+  },
+  liveStopPill: {
+    width: LIVE_ACTIVITY_PREVIEW.banner.buttonWidth,
+    height: LIVE_ACTIVITY_PREVIEW.banner.buttonHeight,
+    borderRadius: LIVE_ACTIVITY_PREVIEW.banner.buttonHeight / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  liveStopPillCompact: {
+    width: LIVE_ACTIVITY_PREVIEW.expanded.buttonWidth,
+    height: LIVE_ACTIVITY_PREVIEW.expanded.buttonHeight,
+    borderRadius: LIVE_ACTIVITY_PREVIEW.expanded.buttonHeight / 2,
+  },
+  liveStopLabel: {
+    fontSize: LIVE_ACTIVITY_PREVIEW.banner.buttonTextSize,
+    lineHeight: 17,
+    fontWeight: '800',
+  },
+  liveStopLabelCompact: {
+    fontSize: LIVE_ACTIVITY_PREVIEW.expanded.buttonTextSize,
+    lineHeight: 14,
+  },
+  liveIslandScroller: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingRight: spacing.lg,
+  },
+  liveIslandCompact: {
+    width: LIVE_ACTIVITY_PREVIEW.compact.width,
+    height: LIVE_ACTIVITY_PREVIEW.compact.height,
+    borderRadius: LIVE_ACTIVITY_PREVIEW.compact.height / 2,
+    paddingHorizontal: LIVE_ACTIVITY_PREVIEW.compact.paddingHorizontal,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#000000',
+    gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
+  },
+  liveCompactLeadingText: {
+    width: LIVE_ACTIVITY_PREVIEW.compact.titleWidth,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  liveCompactTrailingText: {
+    width: LIVE_ACTIVITY_PREVIEW.compact.timerWidth,
+    fontSize: 11,
+    lineHeight: 16,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
+  liveIslandMinimal: {
+    width: LIVE_ACTIVITY_PREVIEW.minimal.size,
+    height: LIVE_ACTIVITY_PREVIEW.minimal.size,
+    borderRadius: LIVE_ACTIVITY_PREVIEW.minimal.size / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+  },
+  liveMinimalText: {
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '800',
+  },
+  liveIslandExpanded: {
+    width: LIVE_ACTIVITY_PREVIEW.expanded.width,
+    height: LIVE_ACTIVITY_PREVIEW.expanded.height,
+    borderRadius: LIVE_ACTIVITY_PREVIEW.expanded.height / 2,
+    paddingHorizontal: LIVE_ACTIVITY_PREVIEW.expanded.horizontalPadding,
+    justifyContent: 'center',
+    backgroundColor: '#000000',
+  },
+  liveIslandExpandedRow: {
+    width: LIVE_ACTIVITY_PREVIEW.expanded.contentWidth,
+    height: LIVE_ACTIVITY_PREVIEW.expanded.contentHeight,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
+  },
+  liveExpandedTitle: {
+    width: LIVE_ACTIVITY_PREVIEW.expanded.titleWidth,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+  },
+  liveExpandedActionGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
+  },
+  liveExpandedTimer: {
+    width: LIVE_ACTIVITY_PREVIEW.expanded.timerWidth,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'right',
+  },
   controlCard: {
     width: CONTROL.cardSize,
     aspectRatio: 1,
@@ -640,7 +1000,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   smallSquare: {
-    width: '47%',
+    flex: 1,
+    minWidth: 0,
   },
   smallName: {
     fontSize: CONTROL.text.title.size,
