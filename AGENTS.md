@@ -85,3 +85,70 @@
 - `npm run ios`
 - `npm run start`
 
+## 빌드와 실행
+
+이 앱은 위젯과 Live Activity를 검증해야 하므로 Expo Go 기준으로 판단하지 않는다. 기본 검증 기준은 iOS Development Build다.
+
+### 1. 일반 검증
+
+코드 변경 후 먼저 아래 명령을 실행한다.
+
+- `npm run typecheck`
+- `npm test`
+
+문서나 단순 스타일 변경처럼 테스트와 무관한 작업이 아니라면, 완료 전 두 명령을 우선 확인한다.
+
+### 2. iOS 시뮬레이터 빌드
+
+시뮬레이터에 네이티브 앱을 새로 빌드/설치해야 할 때 사용한다.
+
+- `npm run ios`
+
+이 명령은 내부적으로 `expo run:ios`를 실행한다. iOS 네이티브 타깃, 위젯 타깃, Pod 변경, `app.json`, `app.config.js`, 네이티브 모듈 변경이 있으면 다시 실행한다.
+
+### 3. Metro 실행
+
+Development Build로 설치된 앱에 JS 번들을 공급할 때 사용한다.
+
+- `npm run start -- --dev-client --host localhost`
+
+시뮬레이터에서 앱이 `Could not connect to development server` 화면을 보이면 Metro가 꺼져 있거나 Expo Go 모드로 떠 있을 가능성이 높다. 이때는 위 명령으로 dev-client 모드 Metro를 띄운 뒤 앱을 다시 연다.
+
+### 4. 빠른 새로고침
+
+JS/TS 화면 코드, 컴포넌트, 스타일 변경은 대체로 재빌드가 필요 없다.
+
+- 저장 시 Fast Refresh가 자동 반영된다.
+- 시뮬레이터에서 전체 JS 리로드가 필요하면 `Cmd + R`을 누른다.
+- Metro 터미널에서는 `r`로 리로드할 수 있다.
+
+다음 변경은 재빌드가 필요하다.
+
+- `ios/` 네이티브 코드 변경
+- 위젯 또는 Live Activity 네이티브 설정 변경
+- `app.json`, `app.config.js`의 네이티브 설정 변경
+- 새 네이티브 모듈 설치
+- Pod 또는 Xcode 프로젝트 설정 변경
+
+### 5. 시뮬레이터 수동 실행
+
+Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세스를 재시작하고 dev-client URL로 다시 연다.
+
+- `xcrun simctl terminate booted com.loofit.app || true`
+- `xcrun simctl openurl booted 'com.loofit.app://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081'`
+
+현재 번들 ID는 `com.loofit.app`이다.
+
+### 6. 실기기와 EAS
+
+현재 repo에는 `eas.json`이 없다. 따라서 원격 EAS 빌드는 아직 문서화된 실행 절차가 아니라 예정된 배포 방향이다.
+
+실기기 검증을 진행하려면 먼저 아래를 확정해야 한다.
+
+- Expo/EAS 프로젝트 연결
+- Apple Developer Team 및 bundle identifier 권한
+- App Group 설정: `group.com.loofit.app`
+- Widget Extension 및 Live Activity 권한
+- `eas.json` 빌드 프로필
+
+`eas.json`이 추가된 뒤에는 Development Build 프로필과 Store 제출 프로필을 분리해서 문서화한다.

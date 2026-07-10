@@ -8,6 +8,8 @@ export type WorkoutControlWidgetProps = {
   durationLabel: string;
   startedAt?: string;
   accent: string;
+  /** Contrast color for text on the accent CTA (custom-drawn button). */
+  accentText: string;
 };
 
 export type HeatmapWidgetProps = {

@@ -1,15 +1,19 @@
 import { HStack, RoundedRectangle, Spacer, Text, VStack } from '@expo/ui/swift-ui';
 import {
+  aspectRatio,
   containerBackground,
   font,
   foregroundColor,
-  frame,
 } from '@expo/ui/swift-ui/modifiers';
 import { createWidget } from 'expo-widgets';
 
 import type { HeatmapWidgetProps } from './types';
 
-// Each view below is extracted into an isolated JS context by the 'widget'
+// These views must mirror the in-app widget preview (app/widgets.tsx heatmap
+// cards) exactly. Cells are greedy squares (no fixed frame + aspectRatio 1)
+// so each row fills the widget width like the preview's flex cells.
+//
+// Each view is extracted into an isolated JS context by the 'widget'
 // directive (no module scope) and must keep every container's children as ONE
 // flat array — the native children parser drops nested arrays silently.
 
@@ -20,7 +24,6 @@ function HeatmapWeekWidgetView(props: HeatmapWidgetProps) {
   const BG = '#141418';
   const TX3 = '#8A8A90';
   const TX4 = '#6B6B70';
-  const CELL = 14;
 
   const source =
     typeof props.colors === 'string' ? props.colors.split(',').filter(Boolean) : [];
@@ -41,20 +44,20 @@ function HeatmapWeekWidgetView(props: HeatmapWidgetProps) {
   );
 
   const row = (
-    <HStack key="row" spacing={3}>
+    <HStack key="row" spacing={4}>
       {cells.map((color, index) => (
         <RoundedRectangle
           key={index}
-          cornerRadius={3}
-          modifiers={[frame({ width: CELL, height: CELL }), foregroundColor(color)]}
+          cornerRadius={4}
+          modifiers={[aspectRatio({ ratio: 1, contentMode: 'fit' }), foregroundColor(color)]}
         />
       ))}
     </HStack>
   );
 
   return (
-    <VStack alignment="leading" spacing={8} modifiers={[containerBackground(BG, 'widget')]}>
-      {[header, row]}
+    <VStack alignment="leading" spacing={12} modifiers={[containerBackground(BG, 'widget')]}>
+      {[header, row, <Spacer key="grow" />]}
     </VStack>
   );
 }
@@ -66,7 +69,6 @@ function HeatmapMonthWidgetView(props: HeatmapWidgetProps) {
   const BG = '#141418';
   const TX3 = '#8A8A90';
   const TX4 = '#6B6B70';
-  const CELL = 12;
 
   const cells =
     typeof props.colors === 'string' ? props.colors.split(',').filter(Boolean) : [];
@@ -96,15 +98,15 @@ function HeatmapMonthWidgetView(props: HeatmapWidgetProps) {
         <RoundedRectangle
           key={cellIndex}
           cornerRadius={3}
-          modifiers={[frame({ width: CELL, height: CELL }), foregroundColor(color)]}
+          modifiers={[aspectRatio({ ratio: 1, contentMode: 'fit' }), foregroundColor(color)]}
         />
       ))}
     </HStack>
   ));
 
   return (
-    <VStack alignment="leading" spacing={4} modifiers={[containerBackground(BG, 'widget')]}>
-      {[header, ...rowViews]}
+    <VStack alignment="leading" spacing={3} modifiers={[containerBackground(BG, 'widget')]}>
+      {[header, ...rowViews, <Spacer key="grow" />]}
     </VStack>
   );
 }
@@ -116,7 +118,6 @@ function HeatmapYearWidgetView(props: HeatmapWidgetProps) {
   const BG = '#141418';
   const TX3 = '#8A8A90';
   const TX4 = '#6B6B70';
-  const CELL = 4;
   const GAP = 1.5;
 
   const cells =
@@ -149,7 +150,7 @@ function HeatmapYearWidgetView(props: HeatmapWidgetProps) {
           key={week}
           cornerRadius={1}
           modifiers={[
-            frame({ width: CELL, height: CELL }),
+            aspectRatio({ ratio: 1, contentMode: 'fit' }),
             foregroundColor(color ?? '#00000000'),
           ]}
         />
@@ -163,8 +164,8 @@ function HeatmapYearWidgetView(props: HeatmapWidgetProps) {
   }
 
   return (
-    <VStack alignment="leading" spacing={GAP + 4} modifiers={[containerBackground(BG, 'widget')]}>
-      {[header, ...rowViews]}
+    <VStack alignment="leading" spacing={GAP} modifiers={[containerBackground(BG, 'widget')]}>
+      {[header, <Spacer key="top" />, ...rowViews, <Spacer key="bottom" />]}
     </VStack>
   );
 }

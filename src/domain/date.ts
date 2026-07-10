@@ -54,14 +54,17 @@ export function weekdayLabel(date: Date | string): string {
   return WEEKDAYS[value.getDay()];
 }
 
-/** MM:SS, or H:MM:SS once an hour has elapsed. Used by the running timer. */
+/**
+ * M:SS, or H:MM:SS once an hour has elapsed. The leading unit is unpadded to
+ * match SwiftUI's `timerInterval` text, which renders the widget timer.
+ */
 export function formatElapsed(totalSeconds: number): string {
   const seconds = Math.max(0, Math.floor(totalSeconds));
   const hours = Math.floor(seconds / 3600);
   const minutes = Math.floor((seconds % 3600) / 60);
   const secs = seconds % 60;
   const pad = (n: number) => `${n}`.padStart(2, '0');
-  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${pad(minutes)}:${pad(secs)}`;
+  return hours > 0 ? `${hours}:${pad(minutes)}:${pad(secs)}` : `${minutes}:${pad(secs)}`;
 }
 
 /** e.g. "오후 7:24" */

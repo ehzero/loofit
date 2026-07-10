@@ -5,7 +5,7 @@ import { after, type LiveActivity } from 'expo-widgets';
 import { getAppSetting } from '@/src/db/repository';
 import { formatClock, formatDuration, getEndOfLocalDay } from '@/src/domain/date';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
-import { DEFAULT_ACCENT, heatColor, makeColors } from '@/src/theme/tokens';
+import { accentTextFor, DEFAULT_ACCENT, heatColor, makeColors } from '@/src/theme/tokens';
 import type { AppOverview, WorkoutSession } from '@/src/types';
 
 import type { WorkoutControlWidgetProps, WorkoutLiveActivityProps } from './types';
@@ -32,15 +32,16 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
   ]);
 
   const accent = (await getAppSetting('theme_accent').catch(() => null)) ?? DEFAULT_ACCENT;
+  const accentText = accentTextFor(accent);
 
   WorkoutControlWidget.updateTimeline([
     {
       date: new Date(),
-      props: buildWorkoutControlProps(overview, accent),
+      props: buildWorkoutControlProps(overview, accent, accentText),
     },
     {
       date: getTomorrowStart(),
-      props: buildIdleControlProps(overview, accent),
+      props: buildIdleControlProps(overview, accent, accentText),
     },
   ]);
 
@@ -69,7 +70,8 @@ function joinParts(session: WorkoutSession): string {
 
 function buildWorkoutControlProps(
   overview: AppOverview,
-  accent: string
+  accent: string,
+  accentText: string
 ): WorkoutControlWidgetProps {
   if (overview.activeSession) {
     const parts = joinParts(overview.activeSession);
@@ -80,6 +82,7 @@ function buildWorkoutControlProps(
       durationLabel: '',
       startedAt: overview.activeSession.startedAt,
       accent,
+      accentText,
     };
   }
 
@@ -106,15 +109,17 @@ function buildWorkoutControlProps(
       subtitle: `${formatClock(first.startedAt)} – ${formatClock(last.endedAt ?? last.startedAt)}`,
       durationLabel: formatDuration(totalSeconds),
       accent,
+      accentText,
     };
   }
 
-  return buildIdleControlProps(overview, accent);
+  return buildIdleControlProps(overview, accent, accentText);
 }
 
 function buildIdleControlProps(
   overview: AppOverview,
-  accent: string
+  accent: string,
+  accentText: string
 ): WorkoutControlWidgetProps {
   const nextDay = overview.nextRoutineDay;
   return {
@@ -128,6 +133,7 @@ function buildIdleControlProps(
       : '앱에서 첫 루틴을 설정하세요',
     durationLabel: '',
     accent,
+    accentText,
   };
 }
 

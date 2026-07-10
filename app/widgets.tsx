@@ -72,9 +72,7 @@ export default function WidgetsScreen() {
               {next ? routineDayDisplayName(next) : 'Pull'}
             </Text>
             <View style={styles.smallSpacer} />
-            <View style={[styles.widgetCtaSm, { backgroundColor: accent }]}>
-              <Text style={[styles.widgetCtaSmText, { color: dark.accentText }]}>운동 시작</Text>
-            </View>
+            <CtaPill label="운동 시작" bg={accent} fg={dark.accentText} />
           </View>
 
           {/* DURING */}
@@ -86,14 +84,14 @@ export default function WidgetsScreen() {
               </View>
               <Text style={styles.brand}>LOOFIT</Text>
             </View>
-            <Text style={styles.smallTimer}>{duringElapsed}</Text>
-            <Text style={styles.partsStr} numberOfLines={1}>
-              {duringPart}
-            </Text>
-            <View style={styles.smallSpacer} />
-            <View style={[styles.widgetCtaSm, { backgroundColor: '#26262B' }]}>
-              <Text style={[styles.widgetCtaSmText, { color: '#F4F4F2' }]}>운동 종료</Text>
+            <View style={styles.timerBlock}>
+              <Text style={styles.smallTimer}>{duringElapsed}</Text>
+              <Text style={styles.partsStr} numberOfLines={1}>
+                {duringPart}
+              </Text>
             </View>
+            <View style={styles.smallSpacer} />
+            <CtaPill label="운동 종료" bg="#26262B" fg="#F4F4F2" />
           </View>
 
           {/* POST */}
@@ -152,6 +150,15 @@ export default function WidgetsScreen() {
   );
 }
 
+/** The one small-widget CTA pill — PRE/DURING must share identical geometry. */
+function CtaPill({ label, bg, fg }: { label: string; bg: string; fg: string }) {
+  return (
+    <View style={[styles.widgetCtaSm, { backgroundColor: bg }]}>
+      <Text style={[styles.widgetCtaSmText, { color: fg }]}>{label}</Text>
+    </View>
+  );
+}
+
 /** Compressed GitHub-style year grid mirroring HeatmapYearWidget's layout. */
 function YearMiniGrid({ cells, colors }: { cells: HeatmapGridCell[]; colors: ThemeColors }) {
   const weekCount = Math.ceil(cells.length / 7);
@@ -187,12 +194,14 @@ const styles = StyleSheet.create({
   },
   sectionLabel: {
     fontSize: 12,
+    lineHeight: 16,
     fontWeight: '800',
     color: '#9A9A9F',
     letterSpacing: 0.5,
   },
   sizeLabel: {
     fontSize: 11,
+    lineHeight: 14,
     fontWeight: '700',
     color: '#6B6B70',
     marginTop: 2,
@@ -211,12 +220,14 @@ const styles = StyleSheet.create({
   },
   smallName: {
     fontSize: 19,
+    lineHeight: 24,
     fontWeight: '800',
     color: '#F4F4F2',
     letterSpacing: -0.4,
   },
   smallTimer: {
     fontSize: 26,
+    lineHeight: 30,
     fontWeight: '800',
     color: '#F4F4F2',
     letterSpacing: -0.5,
@@ -225,8 +236,13 @@ const styles = StyleSheet.create({
   smallSpacer: {
     flex: 1,
   },
+  // 타이머와 부위는 한 묶음 — 카드 gap(12)이 두 번 걸려 정사각을 넘치는 것 방지
+  timerBlock: {
+    gap: 4,
+  },
   smallRange: {
     fontSize: 11,
+    lineHeight: 14,
     fontWeight: '600',
     color: '#8A8A90',
   },
@@ -258,6 +274,8 @@ const styles = StyleSheet.create({
   widgetCtaSmText: {
     fontSize: 13,
     fontWeight: '800',
+    // 명시적 lineHeight — 글리프 구성에 따른 높이 드리프트 방지 (실위젯 CTA와 동일 높이)
+    lineHeight: 18,
   },
   widgetCard: {
     backgroundColor: CARD_BG,
@@ -274,17 +292,20 @@ const styles = StyleSheet.create({
   },
   tinyLabel: {
     fontSize: 11,
+    lineHeight: 14,
     fontWeight: '800',
     color: '#8A8A90',
     letterSpacing: 0.6,
   },
   brand: {
     fontSize: 10,
+    lineHeight: 13,
     fontWeight: '700',
     color: '#6B6B70',
   },
   partsStr: {
     fontSize: 13,
+    lineHeight: 18,
     fontWeight: '600',
     color: '#8A8A90',
   },
@@ -295,6 +316,7 @@ const styles = StyleSheet.create({
   },
   smallDur: {
     fontSize: 22,
+    lineHeight: 26,
     fontWeight: '800',
   },
 });
