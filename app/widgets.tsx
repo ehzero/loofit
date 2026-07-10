@@ -26,9 +26,18 @@ import {
   formatSixMonthHeatmapWidgetTitle,
   type HeatmapWidgetFooterProps,
 } from '@/src/widgets/heatmap-widget-model';
+import {
+  buildWorkoutLockScreenProps,
+  buildWorkoutLockScreenSummaryFromCells,
+  lockScreenThemeFromColors,
+} from '@/src/widgets/lock-screen-widget-model';
 import { HeatmapWidgetPreview } from '@/src/widgets/preview/HeatmapWidgetPreview';
 import { WIDGET_PREVIEW_SPEC } from '@/src/widgets/widget-spec';
-import type { HeatmapWidgetProps } from '@/src/widgets/types';
+import type {
+  HeatmapWidgetProps,
+  WorkoutLockScreenSummaryWidgetProps,
+  WorkoutLockScreenWidgetProps,
+} from '@/src/widgets/types';
 
 const CONTROL = WIDGET_PREVIEW_SPEC.control;
 const LIVE_ACTIVITY_PREVIEW = {
@@ -40,7 +49,7 @@ const LIVE_ACTIVITY_PREVIEW = {
   compact: {
     width: 128,
     height: 38,
-    paddingHorizontal: 13,
+    paddingHorizontal: 7,
     titleWidth: 48,
     timerWidth: 38,
   },
@@ -50,10 +59,10 @@ const LIVE_ACTIVITY_PREVIEW = {
   expanded: {
     width: 292,
     height: 52,
-    contentWidth: 286,
+    contentWidth: 268,
     contentHeight: 32,
-    horizontalPadding: 3,
-    titleWidth: 124,
+    horizontalPadding: 12,
+    titleWidth: 110,
     timerWidth: 66,
     buttonWidth: 68,
     buttonHeight: 26,
@@ -62,11 +71,38 @@ const LIVE_ACTIVITY_PREVIEW = {
   },
 } as const;
 
+const DYNAMIC_ISLAND_PREVIEW = {
+  background: '#000000',
+  border: 'rgba(255,255,255,0.08)',
+} as const;
+
+const LOCK_SCREEN_WIDGET_PREVIEW = {
+  inline: {
+    height: 24,
+  },
+  circular: {
+    size: 62,
+  },
+  rectangular: {
+    width: 160,
+    height: 72,
+  },
+} as const;
+
+const LOCK_SCREEN_SYSTEM_PREVIEW = {
+  surface: 'transparent',
+  surfaceBorder: 'transparent',
+  cellBorder: 'rgba(255,255,255,0.52)',
+  primary: '#F4F4F2',
+  secondary: '#A7A7AD',
+  tertiary: '#707076',
+  inactive: 'transparent',
+} as const;
+
 type WidgetPreviewTheme = {
   cardBackground: string;
   cardBorder: string;
   labelColor: string;
-  brandColor: string;
   titleColor: string;
   detailColor: string;
   neutralButtonBackground: string;
@@ -83,11 +119,13 @@ export default function WidgetsScreen() {
     () => buildPreviewHeatmapWidgets(colors),
     [colors]
   );
+  const lockScreenPreview = useMemo(() => buildPreviewLockScreenWidgets(colors), [colors]);
 
   return (
     <Screen title="위젯 미리보기" onBack={() => router.back()}>
       <Callout icon="info">
-        위젯은 휴대폰 홈 화면에 추가해서 사용해요. 미리보기는 예시 데이터로 표시돼요.{' '}
+        위젯은 휴대폰 홈 화면과 잠금화면에 추가해서 사용해요. 미리보기는 예시 데이터로
+        표시돼요.{' '}
         <Text
           accessibilityRole="button"
           onPress={() => setGuideVisible(true)}
@@ -97,92 +135,118 @@ export default function WidgetsScreen() {
       </Callout>
 
       <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: colors.tx3 }]}>운동 시작 / 종료 위젯</Text>
+        <SectionLabelWithRule
+          label="홈 화면 위젯"
+          labelColor={colors.tx3}
+          lineColor={colors.tx3}
+        />
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.controlScroller}
-        >
-          {/* PRE */}
-          <ControlActionPreview
-            accent={accent}
-            actionFg={colors.accentText}
-            actionLabel="운동 시작"
-            eyebrow="다음 운동"
-            previewTheme={previewTheme}
-            subtitle="등 · 이두"
-            title="Pull"
-          />
-
-          {/* DURING */}
-          <ControlActionPreview
-            accent={accent}
-            actionBg={previewTheme.neutralButtonBackground}
-            actionFg={previewTheme.neutralButtonText}
-            actionLabel="운동 종료"
-            eyebrow="운동 중"
-            eyebrowAccent={accent}
-            isTimer
-            previewTheme={previewTheme}
-            subtitle="등 · 이두"
-            title="42:10"
-          />
-
-          {/* POST */}
-          <ControlCompletedPreview
-            accent={accent}
-            detail="가슴 · 어깨 · 삼두"
-            duration="1시간 8분"
-            previewTheme={previewTheme}
-            range="오후 7:24 – 오후 8:32"
-            title="Push"
-          />
-        </ScrollView>
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: colors.tx3 }]}>히트맵 캘린더 위젯</Text>
-
-        <View style={styles.smallRow}>
-          <WidgetTypePreview
-            label="Type 1"
-            labelColor={previewTheme.typeLabelColor}
-            style={styles.smallSquare}
+        <View style={styles.previewGroup}>
+          <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+            운동 위젯 · Small
+          </Text>
+          <ScrollView
+            horizontal
+            style={styles.carouselBleed}
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.controlScroller}
           >
-            <HeatmapWidgetPreview
-              title={weekWidget.title}
-              variant="week"
-              widget={weekWidget}
-              style={styles.typeSquareWidget}
+            <ControlActionPreview
+              accent={accent}
+              actionFg={colors.accentText}
+              actionLabel="운동 시작"
+              eyebrow="다음 운동"
+              previewTheme={previewTheme}
+              subtitle="등 · 이두"
+              title="Pull"
             />
-          </WidgetTypePreview>
-          <WidgetTypePreview
-            label="Type 2"
-            labelColor={previewTheme.typeLabelColor}
-            style={styles.smallSquare}
-          >
+
+            <ControlActionPreview
+              accent={accent}
+              actionBg={previewTheme.neutralButtonBackground}
+              actionFg={previewTheme.neutralButtonText}
+              actionLabel="운동 종료"
+              eyebrow="운동 중"
+              eyebrowAccent={accent}
+              isTimer
+              previewTheme={previewTheme}
+              subtitle="등 · 이두"
+              title="42:10"
+            />
+
+            <ControlCompletedPreview
+              accent={accent}
+              detail="가슴 · 어깨 · 삼두"
+              duration="1시간 8분"
+              previewTheme={previewTheme}
+              range="오후 7:24 – 오후 8:32"
+              title="Push"
+            />
+          </ScrollView>
+        </View>
+
+        <View style={styles.previewGroup}>
+          <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+            히트맵 위젯
+          </Text>
+          <View style={styles.smallRow}>
+            <WidgetTypePreview
+              label="Small · 최근 7일"
+              labelColor={previewTheme.typeLabelColor}
+              style={styles.smallSquare}
+            >
+              <HeatmapWidgetPreview
+                title={weekWidget.title}
+                variant="week"
+                widget={weekWidget}
+                style={styles.typeSquareWidget}
+              />
+            </WidgetTypePreview>
+            <WidgetTypePreview
+              label="Small · 최근 30일"
+              labelColor={previewTheme.typeLabelColor}
+              style={styles.smallSquare}
+            >
+              <HeatmapWidgetPreview
+                title={monthWidget.title}
+                variant="month"
+                widget={monthWidget}
+                style={styles.typeSquareWidget}
+              />
+            </WidgetTypePreview>
+          </View>
+
+          <WidgetTypePreview label="Medium · 최근 6개월" labelColor={previewTheme.typeLabelColor}>
             <HeatmapWidgetPreview
-              title={monthWidget.title}
-              variant="month"
-              widget={monthWidget}
-              style={styles.typeSquareWidget}
+              title={yearWidget.title}
+              variant="year"
+              widget={yearWidget}
+              style={styles.mediumRect}
             />
           </WidgetTypePreview>
         </View>
-
-        <WidgetTypePreview label="Type 3" labelColor={previewTheme.typeLabelColor}>
-          <HeatmapWidgetPreview
-            title={yearWidget.title}
-            variant="year"
-            widget={yearWidget}
-            style={styles.mediumRect}
-          />
-        </WidgetTypePreview>
       </View>
 
       <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: colors.tx3 }]}>Live Activity</Text>
+        <SectionLabelWithRule
+          label="잠금화면 위젯"
+          labelColor={colors.tx3}
+          lineColor={colors.tx3}
+        />
+
+        <LockScreenWidgetsPreview
+          previewTheme={previewTheme}
+          summary={lockScreenPreview.summary}
+          states={lockScreenPreview.states}
+        />
+      </View>
+
+      <View style={styles.section}>
+        <SectionLabelWithRule
+          label="운동 중 표시"
+          labelColor={colors.tx3}
+          lineColor={colors.tx3}
+        />
 
         <LiveActivityBannerPreview
           accent={accent}
@@ -191,10 +255,6 @@ export default function WidgetsScreen() {
           previewTheme={previewTheme}
           title="하체 · 어깨"
         />
-      </View>
-
-      <View style={styles.section}>
-        <Text style={[styles.sectionLabel, { color: colors.tx3 }]}>Dynamic Island</Text>
 
         <DynamicIslandPreview
           accent={accent}
@@ -211,8 +271,8 @@ export default function WidgetsScreen() {
 }
 
 const WIDGET_GUIDE_STEPS = [
-  'iPhone 홈 화면의 빈 공간을 길게 누르기',
-  '왼쪽 위 + 버튼 선택',
+  '홈 화면 또는 잠금화면의 빈 공간을 길게 누르기',
+  '홈 화면은 + 버튼, 잠금화면은 사용자화 선택',
   `${BRAND.displayName} 검색`,
   '원하는 위젯을 선택하고 추가',
 ] as const;
@@ -223,7 +283,8 @@ function WidgetGuideSheet({ visible, onClose }: { visible: boolean; onClose: () 
   return (
     <BottomSheet visible={visible} title="위젯 추가 방법" onClose={onClose}>
       <AppText variant="body" tone="tertiary">
-        앱에서 바로 설치되지는 않고, iPhone 홈 화면 편집 모드에서 직접 추가할 수 있어요.
+        앱에서 바로 설치되지는 않고, iPhone 홈 화면 또는 잠금화면 편집 모드에서 직접
+        추가할 수 있어요.
       </AppText>
 
       <View style={styles.stepList}>
@@ -246,6 +307,23 @@ function WidgetGuideSheet({ visible, onClose }: { visible: boolean; onClose: () 
         디자인을 확인하기 위한 예시 데이터예요.
       </AppText>
     </BottomSheet>
+  );
+}
+
+function SectionLabelWithRule({
+  label,
+  labelColor,
+  lineColor,
+}: {
+  label: string;
+  labelColor: string;
+  lineColor: string;
+}) {
+  return (
+    <View style={styles.sectionLabelRow}>
+      <Text style={[styles.sectionLabel, { color: labelColor }]}>{label}</Text>
+      <View style={[styles.sectionRule, { backgroundColor: lineColor }]} />
+    </View>
   );
 }
 
@@ -274,7 +352,6 @@ function ControlCompletedPreview({
       ]}>
       <View style={styles.rowBetween}>
         <Text style={[styles.tinyLabel, { color: previewTheme.labelColor }]}>오늘 운동 완료</Text>
-        <Text style={[styles.brand, { color: previewTheme.brandColor }]}>{BRAND.displayName}</Text>
       </View>
 
       <View style={styles.controlContentSlot}>
@@ -342,7 +419,6 @@ function ControlActionPreview({
         ) : (
           <Text style={[styles.tinyLabel, { color: previewTheme.labelColor }]}>{eyebrow}</Text>
         )}
-        <Text style={[styles.brand, { color: previewTheme.brandColor }]}>{BRAND.displayName}</Text>
       </View>
 
       <View style={styles.controlContentSlot}>
@@ -367,6 +443,197 @@ function ControlActionPreview({
   );
 }
 
+function LockScreenWidgetsPreview({
+  previewTheme,
+  states,
+  summary,
+}: {
+  previewTheme: WidgetPreviewTheme;
+  states: {
+    idle: WorkoutLockScreenWidgetProps;
+    active: WorkoutLockScreenWidgetProps;
+    completed: WorkoutLockScreenWidgetProps;
+  };
+  summary: WorkoutLockScreenSummaryWidgetProps;
+}) {
+  return (
+    <View style={styles.lockScreenPreviewList}>
+      <View style={styles.previewGroup}>
+        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+          Inline · 한 줄
+        </Text>
+        <View style={styles.lockInlineWidget}>
+          <Text
+            style={[styles.lockInlineText, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
+            numberOfLines={1}>
+            {states.idle.inlineText}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.previewGroup}>
+        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+          Circular · 원형
+        </Text>
+        <View style={styles.lockCircularStateRow}>
+          <CircularStatePreview
+            accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
+            backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
+            borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
+            value={states.idle.circularValue}
+          />
+          <CircularStatePreview
+            accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
+            backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
+            borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
+            value={states.active.circularValue}
+          />
+          <CircularStatePreview
+            accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
+            backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
+            borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
+            value={states.completed.circularValue}
+          />
+        </View>
+      </View>
+
+      <View style={styles.previewGroup}>
+        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+          Rectangular Type A · 상태
+        </Text>
+        <ScrollView
+          horizontal
+          style={styles.carouselBleed}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.lockRectStateRow}>
+          <RectangularStatusPreview
+            title={states.idle.rectangularTitle}
+            detail={states.idle.rectangularDetail}
+          />
+          <RectangularStatusPreview
+            title={states.active.rectangularTitle}
+            detail={states.active.rectangularDetail}
+          />
+          <RectangularStatusPreview
+            title={states.completed.rectangularTitle}
+            detail={states.completed.rectangularDetail}
+          />
+        </ScrollView>
+      </View>
+
+      <View style={styles.previewGroup}>
+        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+          Rectangular Type B · 최근 7일
+        </Text>
+        <RectangularWeekSummaryPreview previewTheme={previewTheme} summary={summary} />
+      </View>
+    </View>
+  );
+}
+
+function RectangularStatusPreview({
+  detail,
+  title,
+}: {
+  detail: string;
+  title: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.lockRectangularWidget,
+        styles.lockRectangularStatusWidget,
+        {
+          backgroundColor: LOCK_SCREEN_SYSTEM_PREVIEW.surface,
+          borderColor: LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder,
+        },
+      ]}>
+      <Text
+        style={[styles.lockRectStatusTitle, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
+        numberOfLines={1}>
+        {title}
+      </Text>
+      <Text
+        style={[styles.lockRectStatusDetail, { color: LOCK_SCREEN_SYSTEM_PREVIEW.secondary }]}
+        numberOfLines={1}>
+        {detail}
+      </Text>
+    </View>
+  );
+}
+
+function RectangularWeekSummaryPreview({
+  previewTheme,
+  summary,
+}: {
+  previewTheme: WidgetPreviewTheme;
+  summary: WorkoutLockScreenSummaryWidgetProps;
+}) {
+  const cells = summary.streakFlags.split(',').map((flag) => flag === '1').slice(0, 7);
+
+  return (
+    <View
+      style={[
+        styles.lockRectangularWidget,
+        styles.lockRectangularSummaryWidget,
+        {
+          backgroundColor: LOCK_SCREEN_SYSTEM_PREVIEW.surface,
+          borderColor: LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder,
+        },
+      ]}>
+      <View style={styles.lockRectStreakRow}>
+        {cells.map((active, index) => (
+          <View
+            key={`${index}-${active}`}
+            style={[
+              styles.lockRectStreakCell,
+              {
+                backgroundColor: active
+                  ? LOCK_SCREEN_SYSTEM_PREVIEW.primary
+                  : LOCK_SCREEN_SYSTEM_PREVIEW.inactive,
+                borderColor: active
+                  ? LOCK_SCREEN_SYSTEM_PREVIEW.primary
+                  : LOCK_SCREEN_SYSTEM_PREVIEW.cellBorder,
+              },
+            ]}
+          />
+        ))}
+      </View>
+      <Text
+        style={[styles.lockRectSummaryText, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
+        numberOfLines={1}>
+        {summary.summaryText}
+      </Text>
+    </View>
+  );
+}
+
+function CircularStatePreview({
+  accent,
+  backgroundColor,
+  borderColor,
+  value,
+}: {
+  accent: string;
+  backgroundColor: string;
+  borderColor: string;
+  value: string;
+}) {
+  return (
+    <View style={styles.lockCircularStateItem}>
+      <View style={[styles.lockCircularWidget, { backgroundColor, borderColor }]}>
+        <Text
+          style={[styles.lockCircularValue, { color: accent }]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          minimumFontScale={0.65}>
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 function LiveActivityBannerPreview({
   accent,
   accentText,
@@ -384,7 +651,9 @@ function LiveActivityBannerPreview({
 
   return (
     <View style={styles.livePreviewItem}>
-      <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>잠금화면</Text>
+      <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+        Live Activity · 잠금화면
+      </Text>
       <View
         style={[
           styles.liveBanner,
@@ -429,14 +698,22 @@ function DynamicIslandPreview({
   return (
     <View style={styles.livePreviewItem}>
       <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-        compact / minimal / expanded
+        Dynamic Island · compact / minimal / expanded
       </Text>
       <ScrollView
         horizontal
+        style={styles.carouselBleed}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.liveIslandScroller}
       >
-        <View style={styles.liveIslandCompact}>
+        <View
+          style={[
+            styles.liveIslandCompact,
+            {
+              backgroundColor: DYNAMIC_ISLAND_PREVIEW.background,
+              borderColor: DYNAMIC_ISLAND_PREVIEW.border,
+            },
+          ]}>
           <Text
             style={[styles.liveCompactLeadingText, { color: accent }]}
             numberOfLines={1}
@@ -455,7 +732,14 @@ function DynamicIslandPreview({
           </Text>
         </View>
 
-        <View style={styles.liveIslandMinimal}>
+        <View
+          style={[
+            styles.liveIslandMinimal,
+            {
+              backgroundColor: DYNAMIC_ISLAND_PREVIEW.background,
+              borderColor: DYNAMIC_ISLAND_PREVIEW.border,
+            },
+          ]}>
           <Text
             style={[styles.liveMinimalText, { color: accent }]}
             numberOfLines={1}
@@ -466,7 +750,14 @@ function DynamicIslandPreview({
           </Text>
         </View>
 
-        <View style={styles.liveIslandExpanded}>
+        <View
+          style={[
+            styles.liveIslandExpanded,
+            {
+              backgroundColor: DYNAMIC_ISLAND_PREVIEW.background,
+              borderColor: DYNAMIC_ISLAND_PREVIEW.border,
+            },
+          ]}>
           <View style={styles.liveIslandExpandedRow}>
             <Text
               style={[
@@ -536,7 +827,6 @@ function buildWidgetPreviewTheme(colors: ThemeColors): WidgetPreviewTheme {
     cardBackground: colors.card,
     cardBorder: colors.border,
     labelColor: colors.tx3,
-    brandColor: colors.tx5,
     titleColor: colors.tx,
     detailColor: colors.tx3,
     neutralButtonBackground: colors.surface2,
@@ -577,6 +867,52 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
       variant: 'year',
       cells: yearCells,
       colors,
+    }),
+  };
+}
+
+function buildPreviewLockScreenWidgets(colors: ThemeColors): {
+  states: {
+    idle: WorkoutLockScreenWidgetProps;
+    active: WorkoutLockScreenWidgetProps;
+    completed: WorkoutLockScreenWidgetProps;
+  };
+  summary: WorkoutLockScreenSummaryWidgetProps;
+} {
+  const now = new Date();
+  const startedAt = new Date(now.getTime() - 42 * 60 * 1000).toISOString();
+  const theme = lockScreenThemeFromColors(colors);
+  const source = buildPreviewHeatmapSource(7);
+  const cells = buildPreviewHeatmapDays(source, 7);
+  const stats = rangeStatsFromCells(cells);
+
+  return {
+    states: {
+      idle: buildWorkoutLockScreenProps({
+        state: 'idle',
+        title: 'Pull',
+        detail: '등 · 이두',
+        ...theme,
+      }),
+      active: buildWorkoutLockScreenProps({
+        state: 'active',
+        title: '등 · 이두',
+        startedAt,
+        now,
+        ...theme,
+      }),
+      completed: buildWorkoutLockScreenProps({
+        state: 'completed',
+        title: 'Push',
+        durationLabel: '1시간 8분',
+        ...theme,
+      }),
+    },
+    summary: buildWorkoutLockScreenSummaryFromCells({
+      cells,
+      colors,
+      durationSeconds: stats.durationSeconds,
+      workoutCount: stats.workoutCount,
     }),
   };
 }
@@ -832,18 +1168,126 @@ const styles = StyleSheet.create({
   section: {
     gap: spacing.sm,
   },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
   sectionLabel: {
     fontSize: 12,
     lineHeight: 16,
     fontWeight: '800',
     letterSpacing: 0.5,
   },
+  sectionRule: {
+    flex: 1,
+    height: 1,
+  },
+  carouselBleed: {
+    marginHorizontal: -spacing.lg,
+  },
   controlScroller: {
     gap: spacing.sm,
-    paddingRight: spacing.lg,
+    paddingHorizontal: spacing.lg,
+  },
+  previewGroup: {
+    gap: 7,
   },
   livePreviewItem: {
     gap: 7,
+  },
+  lockScreenPreviewList: {
+    gap: spacing.md,
+  },
+  lockInlineWidget: {
+    height: LOCK_SCREEN_WIDGET_PREVIEW.inline.height,
+    borderRadius: LOCK_SCREEN_WIDGET_PREVIEW.inline.height / 2,
+    paddingHorizontal: spacing.sm,
+    justifyContent: 'center',
+  },
+  lockInlineText: {
+    fontSize: 13,
+    lineHeight: 17,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  lockCircularStateRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+  },
+  lockCircularStateItem: {
+    alignItems: 'center',
+  },
+  lockCircularWidget: {
+    width: LOCK_SCREEN_WIDGET_PREVIEW.circular.size,
+    height: LOCK_SCREEN_WIDGET_PREVIEW.circular.size,
+    borderRadius: LOCK_SCREEN_WIDGET_PREVIEW.circular.size / 2,
+    borderWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  lockCircularValue: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: '900',
+    fontVariant: ['tabular-nums'],
+  },
+  lockRectangularWidget: {
+    width: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.width,
+    height: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.height,
+    borderRadius: 0,
+    borderWidth: 0,
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    justifyContent: 'space-between',
+  },
+  lockRectangularStatusWidget: {
+    justifyContent: 'center',
+    gap: 1,
+  },
+  lockRectangularSummaryWidget: {
+    justifyContent: 'center',
+    gap: 6,
+  },
+  lockRectStateRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
+  },
+  lockRectStatusTitle: {
+    alignSelf: 'stretch',
+    fontSize: 30,
+    lineHeight: 33,
+    fontWeight: '900',
+    textAlign: 'center',
+  },
+  lockRectStatusDetail: {
+    alignSelf: 'stretch',
+    fontSize: 18,
+    lineHeight: 21,
+    fontWeight: '800',
+    textAlign: 'center',
+  },
+  lockRectStreakRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 3,
+  },
+  lockRectStreakCell: {
+    width: 18,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1,
+  },
+  lockRectSummaryText: {
+    alignSelf: 'stretch',
+    fontSize: 15,
+    lineHeight: 18,
+    fontWeight: '900',
+    textAlign: 'center',
   },
   liveBanner: {
     minHeight: 104,
@@ -909,7 +1353,7 @@ const styles = StyleSheet.create({
   liveIslandScroller: {
     alignItems: 'center',
     gap: spacing.sm,
-    paddingRight: spacing.lg,
+    paddingHorizontal: spacing.lg,
   },
   liveIslandCompact: {
     width: LIVE_ACTIVITY_PREVIEW.compact.width,
@@ -919,7 +1363,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#000000',
+    borderWidth: StyleSheet.hairlineWidth,
     gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
   },
   liveCompactLeadingText: {
@@ -942,7 +1386,7 @@ const styles = StyleSheet.create({
     borderRadius: LIVE_ACTIVITY_PREVIEW.minimal.size / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   liveMinimalText: {
     fontSize: 11,
@@ -955,7 +1399,7 @@ const styles = StyleSheet.create({
     borderRadius: LIVE_ACTIVITY_PREVIEW.expanded.height / 2,
     paddingHorizontal: LIVE_ACTIVITY_PREVIEW.expanded.horizontalPadding,
     justifyContent: 'center',
-    backgroundColor: '#000000',
+    borderWidth: StyleSheet.hairlineWidth,
   },
   liveIslandExpandedRow: {
     width: LIVE_ACTIVITY_PREVIEW.expanded.contentWidth,
@@ -1076,11 +1520,6 @@ const styles = StyleSheet.create({
     lineHeight: WIDGET_PREVIEW_SPEC.text.label.lineHeight,
     fontWeight: WIDGET_PREVIEW_SPEC.text.label.weight,
     letterSpacing: 0,
-  },
-  brand: {
-    fontSize: WIDGET_PREVIEW_SPEC.text.brand.size,
-    lineHeight: WIDGET_PREVIEW_SPEC.text.brand.lineHeight,
-    fontWeight: WIDGET_PREVIEW_SPEC.text.brand.weight,
   },
   partsStr: {
     fontSize: CONTROL.text.detail.size,

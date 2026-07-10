@@ -26,7 +26,6 @@ function WorkoutControlWidgetView(props: WorkoutControlWidgetProps) {
   const DEFAULT_BG = '#141418';
   const DEFAULT_TX = '#F4F4F2';
   const DEFAULT_TX3 = '#8A8A90';
-  const DEFAULT_TX4 = '#6B6B70';
   const DEFAULT_DARK_BUTTON = '#26262B';
   const CARD_PADDING = 16;
   const HEADER_HEIGHT = 14;
@@ -46,10 +45,8 @@ function WorkoutControlWidgetView(props: WorkoutControlWidgetProps) {
   const titleColor = props.titleColor || DEFAULT_TX;
   const detailColor = props.detailColor || DEFAULT_TX3;
   const labelColor = props.labelColor || DEFAULT_TX3;
-  const brandColor = props.brandColor || DEFAULT_TX4;
   const secondaryButtonBackground = props.secondaryButtonBackground || DEFAULT_DARK_BUTTON;
   const secondaryButtonText = props.secondaryButtonText || titleColor;
-  const brandName = props.brandName || '';
   const isActive = props.state === 'active';
   const isCompleted = props.state === 'completed';
   const startedAt = props.startedAt ? new Date(props.startedAt) : new Date();
@@ -125,9 +122,6 @@ function WorkoutControlWidgetView(props: WorkoutControlWidgetProps) {
       {[
         headerLeft,
         <Spacer key="spacer" />,
-        <Text key="brand" modifiers={[font({ size: 10, weight: 'bold' }), foregroundColor(brandColor)]}>
-          {brandName}
-        </Text>,
       ]}
     </HStack>
   );

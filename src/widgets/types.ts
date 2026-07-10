@@ -8,7 +8,7 @@ export type WorkoutControlWidgetProps = {
   detailColor?: string;
   secondaryButtonBackground?: string;
   secondaryButtonText?: string;
-  /** Big headline: next-day display name, active parts, or completed parts. */
+  /** Big headline: next workout, active workout, or completed workout display name. */
   title: string;
   /** Secondary part list shown under an alias title. */
   detail?: string;
@@ -78,4 +78,30 @@ export type WorkoutLiveActivityProps = {
   accentText?: string;
   background?: string;
   titleColor?: string;
+};
+
+export type WorkoutLockScreenWidgetProps = {
+  state: 'idle' | 'active' | 'completed';
+  brandName: string;
+  inlineText: string;
+  circularValue: string;
+  rectangularEyebrow: string;
+  rectangularTitle: string;
+  rectangularDetail: string;
+  startedAt?: string;
+  accent: string;
+  background: string;
+  titleColor: string;
+  detailColor: string;
+};
+
+export type WorkoutLockScreenSummaryWidgetProps = {
+  brandName: string;
+  title: string;
+  streakFlags: string;
+  summaryText: string;
+  accent: string;
+  background: string;
+  titleColor: string;
+  detailColor: string;
 };

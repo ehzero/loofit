@@ -20,6 +20,10 @@ import {
   formatHeatmapWidgetTitle,
   formatSixMonthHeatmapWidgetTitle,
 } from '@/src/widgets/heatmap-widget-model';
+import {
+  buildWorkoutLockScreenSummaryProps,
+  buildWorkoutLockScreenTimeline,
+} from '@/src/widgets/lock-screen-widget-model';
 
 import type { WorkoutControlWidgetProps, WorkoutLiveActivityProps } from './types';
 
@@ -37,10 +41,14 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
     { WorkoutControlWidget },
     { HeatmapWeekWidget, HeatmapMonthWidget, HeatmapYearWidget },
     { WorkoutLiveActivity },
+    { WorkoutLockScreenWidget },
+    { WorkoutLockScreenSummaryWidget },
   ] = await Promise.all([
     import('./WorkoutControlWidget'),
     import('./HeatmapCalendarWidget'),
     import('./WorkoutLiveActivity'),
+    import('./WorkoutLockScreenWidget'),
+    import('./WorkoutLockScreenSummaryWidget'),
   ]);
 
   const widgetColors = await getWidgetThemeColors();
@@ -88,6 +96,10 @@ export async function syncWidgetsFromOverview(overview: AppOverview): Promise<vo
       colors: widgetColors,
     })
   );
+  WorkoutLockScreenWidget.updateTimeline(buildWorkoutLockScreenTimeline(overview, widgetColors));
+  WorkoutLockScreenSummaryWidget.updateSnapshot(
+    buildWorkoutLockScreenSummaryProps(overview, widgetColors)
+  );
 
   await syncLiveActivity(overview, WorkoutLiveActivity, widgetColors);
 }
@@ -98,6 +110,22 @@ function areWidgetsEnabled(): boolean {
 
 function joinParts(session: WorkoutSession): string {
   return session.parts.map((part) => part.bodyPartName).join(' · ');
+}
+
+function sessionDisplay(
+  session: WorkoutSession,
+  routineDays: AppOverview['routineDays']
+): { title: string; detail: string; parts: string } {
+  const parts = joinParts(session);
+  const routineDay = session.routineDayId
+    ? routineDays.find((day) => day.id === session.routineDayId)
+    : null;
+  const title = routineDay ? routineDayDisplayName(routineDay) : parts;
+  return {
+    title,
+    detail: routineDay && hasRoutineDayAlias(routineDay) && title !== parts ? parts : '',
+    parts,
+  };
 }
 
 function routineSessionTitle(
@@ -190,14 +218,14 @@ function buildWorkoutControlProps(
 ): WorkoutControlWidgetProps {
   const themeProps = workoutControlThemeProps(colors);
   if (overview.activeSession) {
-    const parts = joinParts(overview.activeSession);
+    const display = sessionDisplay(overview.activeSession, overview.routineDays);
     return {
       state: 'active',
       brandName: BRAND.displayName,
       ...themeProps,
-      title: parts,
-      detail: '',
-      subtitle: parts,
+      title: display.title,
+      detail: display.detail,
+      subtitle: display.parts,
       durationLabel: '',
       startedAt: overview.activeSession.startedAt,
       accent: colors.accent,
@@ -271,8 +299,9 @@ async function syncLiveActivity(
   colors: ThemeColors
 ): Promise<void> {
   if (overview.activeSession) {
+    const display = sessionDisplay(overview.activeSession, overview.routineDays);
     const props: WorkoutLiveActivityProps = {
-      title: joinParts(overview.activeSession),
+      title: display.title,
       subtitle: `${BRAND.displayName} 운동 중`,
       startedAt: overview.activeSession.startedAt,
       accent: colors.accent,

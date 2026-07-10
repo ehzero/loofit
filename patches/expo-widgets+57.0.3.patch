@@ -1,5 +1,5 @@
 diff --git a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
-index 972fa4f..431f7c8 100644
+index 972fa4f..d3eac1b 100644
 --- a/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
 +++ b/node_modules/expo-widgets/ios/Widgets/AppIntent.swift
 @@ -1,4 +1,7 @@
@@ -52,7 +52,7 @@ index 972fa4f..431f7c8 100644
      WidgetsEvents.shared.sendNotification(type: .userEvent, data: [
        "source": source as Any,
        "target": target as Any,
-@@ -100,6 +113,1574 @@ struct WidgetUserInteraction: AppIntent {
+@@ -100,6 +113,1760 @@ struct WidgetUserInteraction: AppIntent {
    }
  }
 
@@ -62,6 +62,8 @@ index 972fa4f..431f7c8 100644
 +  private static let heatmapWeekWidgetName = "HeatmapWeekWidget"
 +  private static let heatmapMonthWidgetName = "HeatmapMonthWidget"
 +  private static let heatmapYearWidgetName = "HeatmapYearWidget"
++  private static let workoutLockScreenWidgetName = "WorkoutLockScreenWidget"
++  private static let workoutLockScreenSummaryWidgetName = "WorkoutLockScreenSummaryWidget"
 +  private static let liveActivityName = "WorkoutLiveActivity"
 +  private static let startTarget = "start-recommended"
 +  private static let endTarget = "end-active"
@@ -103,6 +105,7 @@ index 972fa4f..431f7c8 100644
 +        return timeline
 +      }
 +      await startLiveActivity(title: result.title, startedAt: result.startedAt, theme: theme)
++      syncWorkoutLockScreenWidgetAfterStart(result: result, theme: theme)
 +      return timelineAfterStart(timeline, entryIndex: entryIndex, result: result, theme: theme)
 +
 +    case endTarget:
@@ -110,6 +113,8 @@ index 972fa4f..431f7c8 100644
 +        return timeline
 +      }
 +      syncHeatmapWidgets(theme: theme)
++      syncWorkoutLockScreenWidgetAfterCompletion(result: result, theme: theme)
++      syncWorkoutLockScreenSummaryWidget(theme: theme)
 +      await endLiveActivities()
 +      return timelineAfterCompletion(timeline, entryIndex: entryIndex, result: result, theme: theme)
 +
@@ -134,6 +139,8 @@ index 972fa4f..431f7c8 100644
 +    }
 +
 +    syncHeatmapWidgets(theme: theme)
++    syncWorkoutLockScreenWidgetAfterCompletion(result: result, theme: theme)
++    syncWorkoutLockScreenSummaryWidget(theme: theme)
 +    let baseTimeline: [[String: Any]]
 +    if timeline.isEmpty {
 +      baseTimeline = [["timestamp": currentTimestamp(), "props": fallbackProps]]
@@ -268,7 +275,14 @@ index 972fa4f..431f7c8 100644
 +        return nil
 +      }
 +
-+      return StartedWorkout(title: joinPartNames(parts.map(\.name)), startedAt: nowString)
++      let partsTitle = joinPartNames(parts.map(\.name))
++      let display = workoutDisplayTitleAndDetail(
++        db,
++        routineDayId: routineDay.id,
++        partsTitle: partsTitle
++      )
++
++      return StartedWorkout(title: display.title, startedAt: nowString)
 +    }
 +  }
 +
@@ -498,6 +512,163 @@ index 972fa4f..431f7c8 100644
 +    WidgetCenter.shared.reloadTimelines(ofKind: kind)
 +  }
 +
++  private static func syncWorkoutLockScreenWidgetAfterStart(
++    result: StartedWorkout,
++    theme: WidgetTheme
++  ) {
++    updateLockScreenTimeline(
++      kind: workoutLockScreenWidgetName,
++      entries: [
++        [
++          "timestamp": currentTimestamp(),
++          "props": lockScreenWorkoutProps(
++            theme: theme,
++            stateProps: [
++              "state": "active",
++              "inlineText": "\(theme.brandName) · 운동 중 \(displayText(result.title))",
++              "circularValue": "0분",
++              "rectangularEyebrow": "운동 중",
++              "rectangularTitle": "0분",
++              "rectangularDetail": displayText(result.title),
++              "startedAt": result.startedAt
++            ]
++          )
++        ]
++      ]
++    )
++  }
++
++  private static func syncWorkoutLockScreenWidgetAfterCompletion(
++    result: CompletedWorkout,
++    theme: WidgetTheme
++  ) {
++    let completedTitle = displayText(result.title)
++    let completedDetail = [completedTitle, formatDuration(result.durationSeconds)]
++      .filter { !$0.isEmpty }
++      .joined(separator: " · ")
++    updateLockScreenTimeline(
++      kind: workoutLockScreenWidgetName,
++      entries: [
++        [
++          "timestamp": currentTimestamp(),
++          "props": lockScreenWorkoutProps(
++            theme: theme,
++            stateProps: [
++              "state": "completed",
++              "inlineText": "\(theme.brandName) · 오운완 \(completedTitle)",
++              "circularValue": "오운완",
++              "rectangularEyebrow": "오늘 완료",
++              "rectangularTitle": "오운완",
++              "rectangularDetail": completedDetail
++            ]
++          )
++        ],
++        [
++          "timestamp": timestamp(for: startOfTomorrow(from: result.completedAt)),
++          "props": lockScreenIdleProps(theme: theme)
++        ]
++      ]
++    )
++  }
++
++  private static func syncWorkoutLockScreenSummaryWidget(theme: WidgetTheme) {
++    guard let props = withDatabase({ db -> [String: Any]? in
++      let now = Date()
++      let calendar = Calendar.current
++      let today = calendar.startOfDay(for: now)
++      let weekSince = calendar.date(byAdding: .day, value: -6, to: today) ?? today
++      let stats = fetchCompletedRangeStats(db, since: weekSince)
++      let cells = buildHeatmapDays(db, days: 7, now: now)
++      let flags = cells.map { cell -> String in
++        let duration = cell["durationSeconds"] as? Int ?? 0
++        return duration > 0 ? "1" : "0"
++      }
++      return [
++        "brandName": theme.brandName,
++        "title": "최근 7일",
++        "streakFlags": flags.joined(separator: ","),
++        "summaryText": "\(stats.count)회 · 총 \(formatDuration(stats.durationSeconds))",
++        "accent": theme.accent,
++        "background": theme.secondaryButtonBackground,
++        "titleColor": theme.titleColor,
++        "detailColor": theme.detailColor
++      ]
++    }) else {
++      return
++    }
++
++    updateLockScreenTimeline(
++      kind: workoutLockScreenSummaryWidgetName,
++      entries: [
++        [
++          "timestamp": currentTimestamp(),
++          "props": props
++        ]
++      ]
++    )
++  }
++
++  private static func updateLockScreenTimeline(kind: String, entries: [[String: Any]]) {
++    WidgetsStorage.set(entries, forKey: "__expo_widgets_\(kind)_timeline")
++    WidgetCenter.shared.reloadTimelines(ofKind: kind)
++  }
++
++  private static func lockScreenIdleProps(theme: WidgetTheme) -> [String: Any] {
++    let fallback = lockScreenWorkoutProps(
++      theme: theme,
++      stateProps: [
++        "state": "idle",
++        "inlineText": "\(theme.brandName) · 루틴 설정 필요",
++        "circularValue": "운동",
++        "rectangularEyebrow": "다음 운동",
++        "rectangularTitle": "루틴 설정",
++        "rectangularDetail": "앱에서 첫 루틴을 설정하세요"
++      ]
++    )
++
++    return withDatabase { db in
++      guard let routineId = fetchActiveRoutineId(db),
++            let routineDay = fetchNextRoutineDay(db, activeRoutineId: routineId) else {
++        return fallback
++      }
++
++      let parts = fetchRoutineDayParts(db, routineDayId: routineDay.id)
++      let alias = routineDay.name.trimmingCharacters(in: .whitespacesAndNewlines)
++      let partNames = displayText(joinPartNames(parts.map(\.name)))
++      let title = alias.isEmpty ? partNames : alias
++      let detail = alias.isEmpty ? "" : partNames
++      let circularSource = detail.split(separator: " · ").first.map(String.init) ?? title
++      return lockScreenWorkoutProps(
++        theme: theme,
++        stateProps: [
++          "state": "idle",
++          "inlineText": "\(theme.brandName) · 다음 운동 \(title)",
++          "circularValue": compactLockScreenValue(circularSource),
++          "rectangularEyebrow": "다음 운동",
++          "rectangularTitle": title,
++          "rectangularDetail": detail
++        ]
++      )
++    } ?? fallback
++  }
++
++  private static func lockScreenWorkoutProps(
++    theme: WidgetTheme,
++    stateProps: [String: Any]
++  ) -> [String: Any] {
++    var props: [String: Any] = [
++      "brandName": theme.brandName,
++      "accent": theme.accent,
++      "background": theme.secondaryButtonBackground,
++      "titleColor": theme.titleColor,
++      "detailColor": theme.detailColor
++    ]
++    for (key, value) in stateProps {
++      props[key] = value
++    }
++    return props
++  }
++
 +  private static func startLiveActivity(title: String, startedAt: String, theme: WidgetTheme) async {
 +    guard #available(iOS 16.2, *),
 +          ActivityAuthorizationInfo().areActivitiesEnabled,
@@ -591,12 +762,19 @@ index 972fa4f..431f7c8 100644
 +
 +    let id = sqlite3_column_int64(statement, 0)
 +    let startedAt = columnString(statement, 3) ?? isoString(Date())
++    let routineDayId = columnInt64(statement, 2)
++    let partsTitle = fetchSessionTitle(db, sessionId: id)
++    let display = workoutDisplayTitleAndDetail(
++      db,
++      routineDayId: routineDayId,
++      partsTitle: partsTitle
++    )
 +    return ActiveSession(
 +      id: id,
 +      routineId: columnInt64(statement, 1),
-+      routineDayId: columnInt64(statement, 2),
++      routineDayId: routineDayId,
 +      startedAt: startedAt,
-+      title: fetchSessionTitle(db, sessionId: id)
++      title: display.title
 +    )
 +  }
 +
@@ -1466,6 +1644,14 @@ index 972fa4f..431f7c8 100644
 +    return names.joined(separator: " + ")
 +  }
 +
++  private static func displayText(_ value: String) -> String {
++    value.replacingOccurrences(of: " + ", with: " · ")
++  }
++
++  private static func compactLockScreenValue(_ value: String) -> String {
++    String(value.replacingOccurrences(of: " ", with: "").prefix(3))
++  }
++
 +  private enum HeatmapWidgetVariant {
 +    case week
 +    case month
@@ -1627,7 +1813,7 @@ index 972fa4f..431f7c8 100644
  @available(iOS 16.0, *)
  struct LiveActivityUserInteraction: LiveActivityIntent {
    // title is not used for non-discoverable intents, but it is required
-@@ -119,6 +1700,8 @@ struct LiveActivityUserInteraction: LiveActivityIntent {
+@@ -119,6 +1886,8 @@ struct LiveActivityUserInteraction: LiveActivityIntent {
    }
 
    func perform() async throws -> some IntentResult {

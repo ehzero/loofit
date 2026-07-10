@@ -11,6 +11,10 @@ function write(targetPath, contents) {
   fs.writeFileSync(targetPath, contents);
 }
 
+function readCurrentNativeWidget(name) {
+  return fs.readFileSync(path.join(__dirname, 'native-widgets', name), 'utf8');
+}
+
 const sharedIndex = String.raw`import WidgetKit
 import SwiftUI
 import Foundation
@@ -23,13 +27,14 @@ struct ExportWidgets0: WidgetBundle {
     HeatmapWeekWidget()
     HeatmapMonthWidget()
     HeatmapYearWidget()
+    WorkoutLockScreenWidget()
+    WorkoutLockScreenSummaryWidget()
     ExportWidgets1().body
   }
 }
 
 struct ExportWidgets1: WidgetBundle {
   var body: some Widget {
-    WorkoutLiveActivity()
     WidgetLiveActivity()
   }
 }
@@ -75,7 +80,7 @@ struct LoofitHeatmapWidgetView: View {
     )
     let horizontalGaps = props.cellGap * CGFloat(max(columnCount - 1, 0))
     let widthCellSize = max(0, (contentWidth - horizontalGaps) / widthUnits)
-    let titleHeight = max(displayTitleSize, props.brandSize) + 3
+    let titleHeight = displayTitleSize + 3
     let weekdayHeight = showsCalendarLabels ? props.weekdayLabelSize + 2 : 0
     let monthLabelHeight = showsMonthLabels ? props.monthLabelSize + 3 : 0
     let footerHeight = showsFooter ? props.footerHeight : 0
@@ -100,9 +105,6 @@ struct LoofitHeatmapWidgetView: View {
           .lineLimit(1)
           .minimumScaleFactor(0.75)
         Spacer(minLength: 0)
-        Text(props.brandName)
-          .font(.system(size: props.brandSize, weight: .bold))
-          .foregroundStyle(LoofitHeatmapColor(props.brandColor))
       }
 
       if showsMonthLabels {
@@ -557,6 +559,18 @@ module.exports = function withLoofitHeatmapWidgets(config) {
           description: 'Review your recent 6 months of workouts.',
           family: 'systemMedium',
         })
+      );
+      write(
+        path.join(targetDir, 'WorkoutControlWidget.swift'),
+        readCurrentNativeWidget('WorkoutControlWidget.swift')
+      );
+      write(
+        path.join(targetDir, 'WorkoutLockScreenWidget.swift'),
+        readCurrentNativeWidget('WorkoutLockScreenWidget.swift')
+      );
+      write(
+        path.join(targetDir, 'WorkoutLockScreenSummaryWidget.swift'),
+        readCurrentNativeWidget('WorkoutLockScreenSummaryWidget.swift')
       );
 
       return config;

@@ -57,18 +57,6 @@ export function HeatmapWidgetPreview({
         >
           {title}
         </Text>
-        <Text
-          style={[
-            styles.brand,
-            {
-              color: widget.brandColor,
-              fontSize: widget.brandSize,
-              lineHeight: WIDGET_PREVIEW_SPEC.text.brand.lineHeight,
-            },
-          ]}
-        >
-          {widget.brandName}
-        </Text>
       </View>
       <View style={[styles.body, hasFooter ? styles.bodyWithFooter : styles.bodyCentered]}>
         {variant === 'year' ? (
@@ -369,14 +357,9 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    marginRight: 8,
     fontWeight: '700',
     letterSpacing: 0,
     opacity: 0.72,
-  },
-  brand: {
-    fontWeight: WIDGET_PREVIEW_SPEC.text.brand.weight,
-    letterSpacing: 0,
   },
   body: {
     flex: 1,
