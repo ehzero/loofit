@@ -22,7 +22,11 @@ import type {
   WorkoutSessionPartSnapshot,
 } from '@/src/types';
 
-import { getDatabase, resetDatabaseForDevelopment } from './database';
+import {
+  getDatabase,
+  resetDatabaseForDevelopment,
+  withDatabaseReadTransaction,
+} from './database';
 import { DEFAULT_BODY_PARTS } from './schema';
 import { ROUTINE_TEMPLATES } from './templates';
 
@@ -79,6 +83,19 @@ type RoutineProgressRow = {
   active_routine_id: number | null;
   next_routine_day_id: number | null;
   updated_at: string;
+};
+
+type GetSessionsOptions = {
+  statuses?: SessionStatus[];
+  sessionId?: number;
+  limit?: number;
+  /** ISO timestamp; only sessions started at or after this instant. */
+  sinceStartedAt?: string;
+};
+
+export type RepositoryWorkoutResult = {
+  status: 'applied' | 'noop' | 'stale' | 'rejected';
+  session: WorkoutSession | null;
 };
 
 function mapBodyPart(row: BodyPartRow): BodyPart {
@@ -142,8 +159,10 @@ function mapSession(row: SessionRow, parts: WorkoutSessionPartSnapshot[]): Worko
   };
 }
 
-export async function getBodyParts(includeArchived = false): Promise<BodyPart[]> {
-  const db = await getDatabase();
+async function getBodyPartsFromDatabase(
+  db: SQLite.SQLiteDatabase,
+  includeArchived = false
+): Promise<BodyPart[]> {
   const rows = await db.getAllAsync<BodyPartRow>(
     `SELECT * FROM body_parts
      ${includeArchived ? '' : 'WHERE is_archived = 0'}
@@ -152,20 +171,31 @@ export async function getBodyParts(includeArchived = false): Promise<BodyPart[]>
   return rows.map(mapBodyPart);
 }
 
-export async function getActiveRoutine(): Promise<Routine | null> {
-  const db = await getDatabase();
+export async function getBodyParts(includeArchived = false): Promise<BodyPart[]> {
+  return getBodyPartsFromDatabase(await getDatabase(), includeArchived);
+}
+
+async function getActiveRoutineFromDatabase(
+  db: SQLite.SQLiteDatabase
+): Promise<Routine | null> {
   const row = await db.getFirstAsync<RoutineRow>(
     `SELECT * FROM routines WHERE is_active = 1 ORDER BY id DESC LIMIT 1`
   );
   return row ? mapRoutine(row) : null;
 }
 
-export async function getRoutineDays(routineId: number | null | undefined): Promise<RoutineDay[]> {
+export async function getActiveRoutine(): Promise<Routine | null> {
+  return getActiveRoutineFromDatabase(await getDatabase());
+}
+
+async function getRoutineDaysFromDatabase(
+  db: SQLite.SQLiteDatabase,
+  routineId: number | null | undefined
+): Promise<RoutineDay[]> {
   if (!routineId) {
     return [];
   }
 
-  const db = await getDatabase();
   const rows = await db.getAllAsync<RoutineDayRow>(
     `SELECT * FROM routine_days WHERE routine_id = ? ORDER BY sort_order ASC, id ASC`,
     routineId
@@ -192,8 +222,13 @@ export async function getRoutineDays(routineId: number | null | undefined): Prom
   );
 }
 
-export async function getRoutineProgress(): Promise<RoutineProgress | null> {
-  const db = await getDatabase();
+export async function getRoutineDays(routineId: number | null | undefined): Promise<RoutineDay[]> {
+  return getRoutineDaysFromDatabase(await getDatabase(), routineId);
+}
+
+async function getRoutineProgressFromDatabase(
+  db: SQLite.SQLiteDatabase
+): Promise<RoutineProgress | null> {
   const row = await db.getFirstAsync<RoutineProgressRow>(
     `SELECT active_routine_id, next_routine_day_id, updated_at FROM routine_progress WHERE id = 1`
   );
@@ -204,6 +239,10 @@ export async function getRoutineProgress(): Promise<RoutineProgress | null> {
         updatedAt: row.updated_at,
       }
     : null;
+}
+
+export async function getRoutineProgress(): Promise<RoutineProgress | null> {
+  return getRoutineProgressFromDatabase(await getDatabase());
 }
 
 async function upsertRoutineProgress(
@@ -224,10 +263,11 @@ async function upsertRoutineProgress(
   );
 }
 
-export async function setNextRoutineDay(routineDayId: number | null): Promise<void> {
+export async function setNextRoutineDay(routineDayId: number | null): Promise<boolean> {
   const db = await getDatabase();
-  const routine = await getActiveRoutine();
+  const routine = await getActiveRoutineFromDatabase(db);
   await upsertRoutineProgress(db, routine?.id ?? null, routineDayId);
+  return true;
 }
 
 export async function getAppSetting(key: string): Promise<string | null> {
@@ -251,7 +291,7 @@ export async function setAppSetting(key: string, value: string): Promise<void> {
   );
 }
 
-export async function createEmptyRoutine(): Promise<void> {
+export async function createEmptyRoutine(): Promise<boolean> {
   const db = await getDatabase();
   const now = new Date().toISOString();
 
@@ -284,9 +324,10 @@ export async function createEmptyRoutine(): Promise<void> {
       now
     );
   });
+  return true;
 }
 
-export async function createRoutineFromTemplate(template: RoutineTemplate): Promise<void> {
+export async function createRoutineFromTemplate(template: RoutineTemplate): Promise<boolean> {
   const db = await getDatabase();
   const now = new Date().toISOString();
   const config = ROUTINE_TEMPLATES[template];
@@ -345,12 +386,13 @@ export async function createRoutineFromTemplate(template: RoutineTemplate): Prom
       now
     );
   });
+  return true;
 }
 
-export async function addBodyPart(name: string): Promise<void> {
+export async function addBodyPart(name: string): Promise<boolean> {
   const trimmed = name.trim();
   if (!trimmed) {
-    return;
+    return false;
   }
 
   const db = await getDatabase();
@@ -369,27 +411,34 @@ export async function addBodyPart(name: string): Promise<void> {
     now,
     now
   );
+  return true;
 }
 
-export async function archiveBodyPart(id: number): Promise<void> {
+export async function archiveBodyPart(id: number): Promise<boolean> {
   const db = await getDatabase();
+  let archived = false;
   await db.withExclusiveTransactionAsync(async (tx) => {
-    await tx.runAsync(
+    const result = await tx.runAsync(
       `UPDATE body_parts SET is_archived = 1, updated_at = ? WHERE id = ?`,
       new Date().toISOString(),
       id
     );
+    archived = result.changes > 0;
+    if (!archived) {
+      return;
+    }
     // Archiving means "stop offering this part", so drop it from routine days
     // too. Past session snapshots keep their own copies and are unaffected.
     await tx.runAsync(`DELETE FROM routine_day_parts WHERE body_part_id = ?`, id);
   });
+  return archived;
 }
 
-export async function addRoutineDay(name: string, bodyPartIds: number[]): Promise<void> {
+export async function addRoutineDay(name: string, bodyPartIds: number[]): Promise<boolean> {
   const trimmed = name.trim();
   const routine = await getActiveRoutine();
   if (!routine || !trimmed || bodyPartIds.length === 0) {
-    return;
+    return false;
   }
 
   const db = await getDatabase();
@@ -420,12 +469,13 @@ export async function addRoutineDay(name: string, bodyPartIds: number[]): Promis
       );
     }
   });
+  return true;
 }
 
-export async function addEmptyRoutineDay(name: string): Promise<void> {
+export async function addEmptyRoutineDay(name: string): Promise<boolean> {
   const routine = await getActiveRoutine();
   if (!routine) {
-    return;
+    return false;
   }
   const db = await getDatabase();
   const now = new Date().toISOString();
@@ -442,23 +492,37 @@ export async function addEmptyRoutineDay(name: string): Promise<void> {
     now,
     now
   );
+  return true;
 }
 
-export async function renameRoutineDay(dayId: number, name: string): Promise<void> {
+export async function renameRoutineDay(dayId: number, name: string): Promise<boolean> {
   // The name is an optional alias; an empty string clears it and the UI
   // falls back to displaying the day's part list.
   const db = await getDatabase();
-  await db.runAsync(
+  const result = await db.runAsync(
     `UPDATE routine_days SET name = ?, updated_at = ? WHERE id = ?`,
     name.trim(),
     new Date().toISOString(),
     dayId
   );
+  return result.changes > 0;
 }
 
-export async function setRoutineDayParts(dayId: number, bodyPartIds: number[]): Promise<void> {
+export async function setRoutineDayParts(
+  dayId: number,
+  bodyPartIds: number[]
+): Promise<boolean> {
   const db = await getDatabase();
+  let updated = false;
   await db.withExclusiveTransactionAsync(async (tx) => {
+    const existing = await tx.getFirstAsync<{ id: number }>(
+      `SELECT id FROM routine_days WHERE id = ? LIMIT 1`,
+      dayId
+    );
+    if (!existing) {
+      return;
+    }
+
     await tx.runAsync(`DELETE FROM routine_day_parts WHERE routine_day_id = ?`, dayId);
     for (const [index, bodyPartId] of bodyPartIds.entries()) {
       await tx.runAsync(
@@ -469,22 +533,27 @@ export async function setRoutineDayParts(dayId: number, bodyPartIds: number[]): 
         index
       );
     }
-    await tx.runAsync(
+    const result = await tx.runAsync(
       `UPDATE routine_days SET updated_at = ? WHERE id = ?`,
       new Date().toISOString(),
       dayId
     );
+    updated = result.changes > 0;
   });
+  return updated;
 }
 
 /** Swaps a routine day with its neighbor in the given direction (-1 up, +1 down). */
-export async function moveRoutineDay(dayId: number, direction: -1 | 1): Promise<void> {
+export async function moveRoutineDay(dayId: number, direction: -1 | 1): Promise<boolean> {
+  if (direction !== -1 && direction !== 1) {
+    return false;
+  }
   const routine = await getActiveRoutine();
   const days = await getRoutineDays(routine?.id);
   const index = days.findIndex((day) => day.id === dayId);
   const targetIndex = index + direction;
   if (index < 0 || targetIndex < 0 || targetIndex >= days.length) {
-    return;
+    return false;
   }
 
   const current = days[index];
@@ -505,13 +574,20 @@ export async function moveRoutineDay(dayId: number, direction: -1 | 1): Promise<
       neighbor.id
     );
   });
+  return true;
 }
 
-export async function deleteRoutineDay(dayId: number): Promise<void> {
+export async function deleteRoutineDay(dayId: number): Promise<boolean> {
   const db = await getDatabase();
+  let deleted = false;
   await db.withExclusiveTransactionAsync(async (tx) => {
+    const result = await tx.runAsync(`DELETE FROM routine_days WHERE id = ?`, dayId);
+    deleted = result.changes > 0;
+    if (!deleted) {
+      return;
+    }
+
     await tx.runAsync(`DELETE FROM routine_day_parts WHERE routine_day_id = ?`, dayId);
-    await tx.runAsync(`DELETE FROM routine_days WHERE id = ?`, dayId);
     const progress = await tx.getFirstAsync<{ next_routine_day_id: number | null }>(
       `SELECT next_routine_day_id FROM routine_progress WHERE id = 1`
     );
@@ -526,26 +602,40 @@ export async function deleteRoutineDay(dayId: number): Promise<void> {
       );
     }
   });
+  return deleted;
 }
 
-async function getRoutineDayById(id: number): Promise<RoutineDay | null> {
-  const activeRoutine = await getActiveRoutine();
-  const routineDays = await getRoutineDays(activeRoutine?.id);
+async function getRoutineDayByIdFromDatabase(
+  db: SQLite.SQLiteDatabase,
+  id: number
+): Promise<RoutineDay | null> {
+  const activeRoutine = await getActiveRoutineFromDatabase(db);
+  const routineDays = await getRoutineDaysFromDatabase(db, activeRoutine?.id);
   return routineDays.find((day) => day.id === id) ?? null;
 }
 
-async function getActiveSession(): Promise<WorkoutSession | null> {
-  const sessions = await getSessions({
+async function getRoutineDayById(id: number): Promise<RoutineDay | null> {
+  return getRoutineDayByIdFromDatabase(await getDatabase(), id);
+}
+
+async function getActiveSessionFromDatabase(
+  db: SQLite.SQLiteDatabase
+): Promise<WorkoutSession | null> {
+  const sessions = await getSessionsFromDatabase(db, {
     statuses: ['active'],
     limit: 1,
   });
   return sessions[0] ?? null;
 }
 
+async function getActiveSession(): Promise<WorkoutSession | null> {
+  return getActiveSessionFromDatabase(await getDatabase());
+}
+
 async function insertSessionParts(
   db: SQLite.SQLiteDatabase,
   sessionId: number,
-  parts: Array<Pick<BodyPart, 'id' | 'name' | 'color'>>
+  parts: Array<{ id: number | null; name: string; color: string }>
 ): Promise<void> {
   for (const [index, part] of parts.entries()) {
     await db.runAsync(
@@ -561,51 +651,47 @@ async function insertSessionParts(
   }
 }
 
-export async function startWorkout(input: StartWorkoutInput): Promise<WorkoutSession | null> {
-  const existing = await getActiveSession();
-  if (existing) {
-    return existing;
-  }
-
+export async function startWorkout(input: StartWorkoutInput): Promise<RepositoryWorkoutResult> {
   const db = await getDatabase();
-  const now = new Date().toISOString();
-  let routineId: number | null = null;
-  let routineDayId: number | null = null;
-  let parts: BodyPart[] = [];
+  const outcome: { value?: RepositoryWorkoutResult } = {};
 
-  if (input.kind === 'routine') {
-    const routineDay = await getRoutineDayById(input.routineDayId);
-    if (!routineDay) {
-      return null;
-    }
-    routineId = routineDay.routineId;
-    routineDayId = routineDay.id;
-    parts = routineDay.parts;
-  } else {
-    const allParts = await getBodyParts(false);
-    parts = allParts.filter((part) => input.bodyPartIds.includes(part.id));
-    if (parts.length === 0 && input.label) {
-      parts = [
-        {
-          id: -1,
-          name: input.label,
-          color: '#6C757D',
-          sortOrder: 0,
-          isArchived: false,
-          createdAt: now,
-          updatedAt: now,
-        },
-      ];
-    }
-  }
-
-  if (parts.length === 0) {
-    return null;
-  }
-
-  let sessionId = 0;
   await db.withExclusiveTransactionAsync(async (tx) => {
-    const result = await tx.runAsync(
+    const transaction = tx as unknown as SQLite.SQLiteDatabase;
+    const existing = await getActiveSessionFromDatabase(transaction);
+    if (existing) {
+      outcome.value = { status: 'noop', session: existing };
+      return;
+    }
+
+    const now = new Date().toISOString();
+    let routineId: number | null = null;
+    let routineDayId: number | null = null;
+    let parts: Array<{ id: number | null; name: string; color: string }> = [];
+
+    if (input.kind === 'routine') {
+      const routineDay = await getRoutineDayByIdFromDatabase(transaction, input.routineDayId);
+      if (!routineDay) {
+        outcome.value = { status: 'rejected', session: null };
+        return;
+      }
+      routineId = routineDay.routineId;
+      routineDayId = routineDay.id;
+      parts = routineDay.parts;
+    } else {
+      const allParts = await getBodyPartsFromDatabase(transaction, false);
+      parts = allParts.filter((part) => input.bodyPartIds.includes(part.id));
+      const label = input.label?.trim();
+      if (parts.length === 0 && label) {
+        parts = [{ id: null, name: label, color: '#6C757D' }];
+      }
+    }
+
+    if (parts.length === 0) {
+      outcome.value = { status: 'rejected', session: null };
+      return;
+    }
+
+    const insert = await transaction.runAsync(
       `INSERT INTO workout_sessions
        (routine_id, routine_day_id, started_at, ended_at, duration_seconds, status, note, created_at, updated_at)
        VALUES (?, ?, ?, NULL, 0, 'active', NULL, ?, ?)`,
@@ -615,116 +701,168 @@ export async function startWorkout(input: StartWorkoutInput): Promise<WorkoutSes
       now,
       now
     );
-    sessionId = result.lastInsertRowId;
-    await insertSessionParts(tx as unknown as SQLite.SQLiteDatabase, sessionId, parts);
+    await insertSessionParts(transaction, insert.lastInsertRowId, parts);
+    outcome.value = {
+      status: 'applied',
+      session: await getSessionByIdFromDatabase(transaction, insert.lastInsertRowId),
+    };
   });
 
-  return getSessionById(sessionId);
+  return workoutTransactionOutcome(outcome);
 }
 
-export async function changeActiveWorkout(input: StartWorkoutInput): Promise<WorkoutSession | null> {
-  const active = await getActiveSession();
-  if (!active) {
-    return null;
-  }
-
+export async function changeActiveWorkout(
+  expectedSessionId: number,
+  input: StartWorkoutInput
+): Promise<RepositoryWorkoutResult> {
   const db = await getDatabase();
-  const now = new Date().toISOString();
-  let routineId: number | null = null;
-  let routineDayId: number | null = null;
-  let parts: BodyPart[] = [];
-
-  if (input.kind === 'routine') {
-    const routineDay = await getRoutineDayById(input.routineDayId);
-    if (!routineDay) {
-      return active;
-    }
-    routineId = routineDay.routineId;
-    routineDayId = routineDay.id;
-    parts = routineDay.parts;
-  } else {
-    const allParts = await getBodyParts(false);
-    parts = allParts.filter((part) => input.bodyPartIds.includes(part.id));
-  }
-
-  if (parts.length === 0) {
-    return active;
-  }
+  const outcome: { value?: RepositoryWorkoutResult } = {};
 
   await db.withExclusiveTransactionAsync(async (tx) => {
-    await tx.runAsync(
+    const transaction = tx as unknown as SQLite.SQLiteDatabase;
+    const active = await getActiveSessionFromDatabase(transaction);
+    if (!active) {
+      outcome.value = { status: 'stale', session: null };
+      return;
+    }
+    if (active.id !== expectedSessionId) {
+      outcome.value = { status: 'stale', session: active };
+      return;
+    }
+
+    let routineId: number | null = null;
+    let routineDayId: number | null = null;
+    let parts: Array<{ id: number | null; name: string; color: string }> = [];
+
+    if (input.kind === 'routine') {
+      const routineDay = await getRoutineDayByIdFromDatabase(transaction, input.routineDayId);
+      if (!routineDay) {
+        outcome.value = { status: 'rejected', session: active };
+        return;
+      }
+      routineId = routineDay.routineId;
+      routineDayId = routineDay.id;
+      parts = routineDay.parts;
+    } else {
+      const allParts = await getBodyPartsFromDatabase(transaction, false);
+      parts = allParts.filter((part) => input.bodyPartIds.includes(part.id));
+    }
+
+    if (parts.length === 0) {
+      outcome.value = { status: 'rejected', session: active };
+      return;
+    }
+
+    const updated = await transaction.runAsync(
       `UPDATE workout_sessions
        SET routine_id = ?, routine_day_id = ?, updated_at = ?
        WHERE id = ? AND status = 'active'`,
       routineId,
       routineDayId,
-      now,
+      new Date().toISOString(),
       active.id
     );
-    await tx.runAsync(`DELETE FROM workout_session_parts_snapshot WHERE workout_session_id = ?`, active.id);
-    await insertSessionParts(tx as unknown as SQLite.SQLiteDatabase, active.id, parts);
+    if (updated.changes !== 1) {
+      outcome.value = { status: 'stale', session: active };
+      return;
+    }
+    await transaction.runAsync(
+      `DELETE FROM workout_session_parts_snapshot WHERE workout_session_id = ?`,
+      active.id
+    );
+    await insertSessionParts(transaction, active.id, parts);
+    outcome.value = {
+      status: 'applied',
+      session: await getSessionByIdFromDatabase(transaction, active.id),
+    };
   });
 
-  return getSessionById(active.id);
+  return workoutTransactionOutcome(outcome);
 }
 
-export async function completeActiveWorkout(): Promise<WorkoutSession | null> {
-  const active = await getActiveSession();
-  if (!active) {
-    return null;
-  }
-
-  const db = await getDatabase();
-  const now = new Date();
-  const durationSeconds = Math.max(
-    0,
-    Math.floor((now.getTime() - new Date(active.startedAt).getTime()) / 1000)
-  );
-
-  await db.runAsync(
-    `UPDATE workout_sessions
-     SET status = 'completed', ended_at = ?, duration_seconds = ?, updated_at = ?
-     WHERE id = ?`,
-    now.toISOString(),
-    durationSeconds,
-    now.toISOString(),
-    active.id
-  );
-
-  if (active.routineDayId) {
-    const routine = await getActiveRoutine();
-    const routineDays = await getRoutineDays(routine?.id);
-    const nextDay = getRoutineDayAfterCompletion(routineDays, active.routineDayId);
-    await upsertRoutineProgress(db, routine?.id ?? null, nextDay?.id ?? null);
-  }
-
-  return getSessionById(active.id);
+export async function completeActiveWorkout(
+  expectedSessionId: number
+): Promise<RepositoryWorkoutResult> {
+  return finishActiveWorkout(expectedSessionId, 'completed');
 }
 
-export async function cancelActiveWorkout(): Promise<WorkoutSession | null> {
-  const active = await getActiveSession();
-  if (!active) {
-    return null;
-  }
+export async function cancelActiveWorkout(
+  expectedSessionId: number
+): Promise<RepositoryWorkoutResult> {
+  return finishActiveWorkout(expectedSessionId, 'canceled');
+}
 
+async function finishActiveWorkout(
+  expectedSessionId: number,
+  status: Extract<SessionStatus, 'completed' | 'canceled'>
+): Promise<RepositoryWorkoutResult> {
   const db = await getDatabase();
-  const now = new Date();
-  const durationSeconds = Math.max(
-    0,
-    Math.floor((now.getTime() - new Date(active.startedAt).getTime()) / 1000)
-  );
+  const outcome: { value?: RepositoryWorkoutResult } = {};
 
-  await db.runAsync(
-    `UPDATE workout_sessions
-     SET status = 'canceled', ended_at = ?, duration_seconds = ?, updated_at = ?
-     WHERE id = ?`,
-    now.toISOString(),
-    durationSeconds,
-    now.toISOString(),
-    active.id
-  );
+  await db.withExclusiveTransactionAsync(async (tx) => {
+    const transaction = tx as unknown as SQLite.SQLiteDatabase;
+    const active = await getActiveSessionFromDatabase(transaction);
+    if (!active) {
+      const prior = await transaction.getFirstAsync<Pick<SessionRow, 'status'>>(
+        `SELECT status FROM workout_sessions WHERE id = ? LIMIT 1`,
+        expectedSessionId
+      );
+      outcome.value = {
+        status:
+          prior?.status === 'completed' || prior?.status === 'canceled' ? 'noop' : 'stale',
+        session: null,
+      };
+      return;
+    }
+    if (active.id !== expectedSessionId) {
+      outcome.value = { status: 'stale', session: active };
+      return;
+    }
 
-  return getSessionById(active.id);
+    const now = new Date();
+    const durationSeconds = Math.max(
+      0,
+      Math.floor((now.getTime() - new Date(active.startedAt).getTime()) / 1000)
+    );
+    const nowIso = now.toISOString();
+    const updated = await transaction.runAsync(
+      `UPDATE workout_sessions
+       SET status = ?, ended_at = ?, duration_seconds = ?, updated_at = ?
+       WHERE id = ? AND status = 'active'`,
+      status,
+      nowIso,
+      durationSeconds,
+      nowIso,
+      active.id
+    );
+    if (updated.changes !== 1) {
+      outcome.value = { status: 'stale', session: active };
+      return;
+    }
+
+    if (status === 'completed' && active.routineDayId) {
+      const routine = await getActiveRoutineFromDatabase(transaction);
+      const routineDays = await getRoutineDaysFromDatabase(transaction, routine?.id);
+      const nextDay = getRoutineDayAfterCompletion(routineDays, active.routineDayId);
+      await upsertRoutineProgress(transaction, routine?.id ?? null, nextDay?.id ?? null);
+    }
+
+    outcome.value = {
+      status: 'applied',
+      session: await getSessionByIdFromDatabase(transaction, active.id),
+    };
+  });
+
+  return workoutTransactionOutcome(outcome);
+}
+
+function workoutTransactionOutcome(outcome: {
+  value?: RepositoryWorkoutResult;
+}): RepositoryWorkoutResult {
+  if (!outcome.value) {
+    throw new Error('Workout transaction completed without a result.');
+  }
+  return outcome.value;
 }
 
 export async function updateSession(
@@ -737,10 +875,10 @@ export async function updateSession(
     routineDayId?: number | null;
     bodyPartIds?: number[];
   }
-): Promise<void> {
+): Promise<boolean> {
   const current = await getSessionById(id);
   if (!current) {
-    return;
+    return false;
   }
 
   // Only one active session may exist at a time — the home screen and widgets
@@ -761,6 +899,7 @@ export async function updateSession(
       : 0;
   const status = updates.status ?? current.status;
   const now = new Date().toISOString();
+  let updated = false;
 
   await db.withExclusiveTransactionAsync(async (tx) => {
     let routineId = current.routineId;
@@ -785,7 +924,7 @@ export async function updateSession(
       }
     }
 
-    await tx.runAsync(
+    const result = await tx.runAsync(
       `UPDATE workout_sessions
        SET status = ?, routine_id = ?, routine_day_id = ?, started_at = ?, ended_at = ?,
            duration_seconds = ?, note = ?, updated_at = ?
@@ -800,38 +939,51 @@ export async function updateSession(
       now,
       id
     );
+    updated = result.changes > 0;
 
-    if (parts) {
+    if (updated && parts) {
       await tx.runAsync(`DELETE FROM workout_session_parts_snapshot WHERE workout_session_id = ?`, id);
       await insertSessionParts(tx as unknown as SQLite.SQLiteDatabase, id, parts);
     }
   });
+  return updated;
 }
 
-export async function deleteSession(id: number): Promise<void> {
+export async function deleteSession(id: number): Promise<boolean> {
   const db = await getDatabase();
+  let deleted = false;
   await db.withExclusiveTransactionAsync(async (tx) => {
-    await tx.runAsync(`DELETE FROM workout_session_parts_snapshot WHERE workout_session_id = ?`, id);
-    await tx.runAsync(`DELETE FROM workout_sessions WHERE id = ?`, id);
+    const result = await tx.runAsync(`DELETE FROM workout_sessions WHERE id = ?`, id);
+    deleted = result.changes > 0;
+    if (deleted) {
+      await tx.runAsync(
+        `DELETE FROM workout_session_parts_snapshot WHERE workout_session_id = ?`,
+        id
+      );
+    }
   });
+  return deleted;
 }
 
 export async function getSessionById(id: number): Promise<WorkoutSession | null> {
-  const sessions = await getSessions({
+  return getSessionByIdFromDatabase(await getDatabase(), id);
+}
+
+async function getSessionByIdFromDatabase(
+  db: SQLite.SQLiteDatabase,
+  id: number
+): Promise<WorkoutSession | null> {
+  const sessions = await getSessionsFromDatabase(db, {
     sessionId: id,
     limit: 1,
   });
   return sessions[0] ?? null;
 }
 
-export async function getSessions(options?: {
-  statuses?: SessionStatus[];
-  sessionId?: number;
-  limit?: number;
-  /** ISO timestamp; only sessions started at or after this instant. */
-  sinceStartedAt?: string;
-}): Promise<WorkoutSession[]> {
-  const db = await getDatabase();
+async function getSessionsFromDatabase(
+  db: SQLite.SQLiteDatabase,
+  options?: GetSessionsOptions
+): Promise<WorkoutSession[]> {
   const clauses: string[] = [];
   const params: Array<string | number> = [];
 
@@ -877,12 +1029,16 @@ export async function getSessions(options?: {
   );
 }
 
+export async function getSessions(options?: GetSessionsOptions): Promise<WorkoutSession[]> {
+  return getSessionsFromDatabase(await getDatabase(), options);
+}
+
 /** Completed-session count, total duration, and split totals since the given instant. */
 async function getCompletedRangeStats(
+  db: SQLite.SQLiteDatabase,
   sinceIso: string,
   routineDays: RoutineDay[]
 ): Promise<RangeStats> {
-  const db = await getDatabase();
   const row = await db.getFirstAsync<{ count: number; total: number | null }>(
     `SELECT COUNT(*) AS count, SUM(duration_seconds) AS total
      FROM workout_sessions
@@ -924,8 +1080,10 @@ async function getCompletedRangeStats(
  * regardless of how many sessions exist (the overview's session list is
  * capped for recency, which must not cap the totals).
  */
-async function getDashboardStats(now: Date): Promise<DashboardStats> {
-  const db = await getDatabase();
+async function getDashboardStats(
+  db: SQLite.SQLiteDatabase,
+  now: Date
+): Promise<DashboardStats> {
   const weekStart = getWeekStart(now);
   const weekEnd = addLocalDays(weekStart, 7);
 
@@ -963,23 +1121,19 @@ function splitDisplayName(
   return fallback || '삭제된 분할';
 }
 
-export async function getOverview(now = new Date()): Promise<AppOverview> {
-  const bodyParts = await getBodyParts(false);
-  const activeRoutine = await getActiveRoutine();
-  const routineDays = await getRoutineDays(activeRoutine?.id);
-  let progress = await getRoutineProgress();
-  const db = await getDatabase();
-
-  if (activeRoutine && !progress) {
-    const firstDay = getNextRoutineDay(routineDays, null);
-    await upsertRoutineProgress(db, activeRoutine.id, firstDay?.id ?? null);
-    progress = await getRoutineProgress();
-  }
-
-  const sessions = await getSessions({ limit: 50 });
+async function buildOverviewFromDatabase(
+  db: SQLite.SQLiteDatabase,
+  now: Date
+): Promise<AppOverview> {
+  const bodyParts = await getBodyPartsFromDatabase(db, false);
+  const activeRoutine = await getActiveRoutineFromDatabase(db);
+  const routineDays = await getRoutineDaysFromDatabase(db, activeRoutine?.id);
+  const progress = await getRoutineProgressFromDatabase(db);
+  const sessions = await getSessionsFromDatabase(db, { limit: 50 });
   // Query the active session directly: it may have started long ago (sessions
   // are never auto-closed) and must be found regardless of the recency cap.
-  const activeSession = (await getSessions({ statuses: ['active'], limit: 1 }))[0] ?? null;
+  const activeSession =
+    (await getSessionsFromDatabase(db, { statuses: ['active'], limit: 1 }))[0] ?? null;
   const todayKey = toLocalDateKey(now);
   const todaySessions = sessions.filter(
     (session) =>
@@ -991,7 +1145,7 @@ export async function getOverview(now = new Date()): Promise<AppOverview> {
   // superset); a count cap would silently truncate long histories.
   const today = startOfLocalDay(now);
   const sixMonthRangeStart = new Date(today.getFullYear(), today.getMonth() - 5, 1);
-  const heatmapSessions = await getSessions({
+  const heatmapSessions = await getSessionsFromDatabase(db, {
     statuses: ['completed'],
     sinceStartedAt: addLocalDays(today, -364).toISOString(),
   });
@@ -1010,16 +1164,37 @@ export async function getOverview(now = new Date()): Promise<AppOverview> {
     heatmap30: buildHeatmap(heatmapSessions, 30, now),
     heatmapGrid: buildHeatmapGrid(heatmapSessions, 30, now),
     heatmapYear: buildHeatmapGrid(heatmapSessions, 365, now),
-    dashboard: await getDashboardStats(now),
+    dashboard: await getDashboardStats(db, now),
     rangeStats: {
-      last7: await getCompletedRangeStats(addLocalDays(today, -6).toISOString(), routineDays),
-      last30: await getCompletedRangeStats(addLocalDays(today, -29).toISOString(), routineDays),
-      last6Months: await getCompletedRangeStats(sixMonthRangeStart.toISOString(), routineDays),
-      last365: await getCompletedRangeStats(addLocalDays(today, -364).toISOString(), routineDays),
+      last7: await getCompletedRangeStats(
+        db,
+        addLocalDays(today, -6).toISOString(),
+        routineDays
+      ),
+      last30: await getCompletedRangeStats(
+        db,
+        addLocalDays(today, -29).toISOString(),
+        routineDays
+      ),
+      last6Months: await getCompletedRangeStats(
+        db,
+        sixMonthRangeStart.toISOString(),
+        routineDays
+      ),
+      last365: await getCompletedRangeStats(
+        db,
+        addLocalDays(today, -364).toISOString(),
+        routineDays
+      ),
     },
   };
 }
 
-export async function resetAllData(): Promise<void> {
+export async function getOverview(now = new Date()): Promise<AppOverview> {
+  return withDatabaseReadTransaction((db) => buildOverviewFromDatabase(db, now));
+}
+
+export async function resetAllData(): Promise<boolean> {
   await resetDatabaseForDevelopment();
+  return true;
 }

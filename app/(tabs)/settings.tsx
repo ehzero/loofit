@@ -11,7 +11,11 @@ import { ListRow } from '@/src/components/ListRow';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
 import { BRAND } from '@/src/config/brand';
-import { useAppStore } from '@/src/store/app-store';
+import {
+  isActionSuccessful,
+  shouldDismissAfterAction,
+  useAppStore,
+} from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import {
@@ -116,7 +120,13 @@ export default function SettingsScreen() {
                 description: '모든 운동 기록과 루틴이 삭제되고 첫 사용 화면으로 돌아가요.',
                 confirmLabel: '초기화',
                 danger: true,
-                onConfirm: () => resetDevData().then(() => showToast('데이터를 초기화했어요')),
+                onConfirm: async () => {
+                  const result = await resetDevData();
+                  if (isActionSuccessful(result)) {
+                    showToast('데이터를 초기화했어요');
+                  }
+                  return shouldDismissAfterAction(result);
+                },
               })
             }
             style={styles.resetRow}>

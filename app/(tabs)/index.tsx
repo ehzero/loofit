@@ -27,7 +27,11 @@ import {
 } from '@/src/domain/date';
 import { getHomeMessage } from '@/src/domain/home-messages';
 import { hasRoutineDayAlias, joinPartNames, routineDayDisplayName } from '@/src/domain/routine';
-import { useAppStore } from '@/src/store/app-store';
+import {
+  isActionSuccessful,
+  shouldDismissAfterAction,
+  useAppStore,
+} from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import { radius, spacing } from '@/src/theme/tokens';
@@ -48,6 +52,8 @@ export default function HomeScreen() {
   const overview = useAppStore((state) => state.overview);
   const isReady = useAppStore((state) => state.isReady);
   const isBusy = useAppStore((state) => state.isBusy);
+  const error = useAppStore((state) => state.error);
+  const refresh = useAppStore((state) => state.refresh);
   const createTemplate = useAppStore((state) => state.createTemplate);
   const createCustom = useAppStore((state) => state.createCustom);
   const start = useAppStore((state) => state.start);
@@ -89,7 +95,17 @@ export default function HomeScreen() {
   }, [active, now]);
 
   if (!overview) {
-    return <Screen title={BRAND.displayName} isLoading={!isReady} />;
+    return (
+      <Screen title={BRAND.displayName} isLoading={!isReady}>
+        <EmptyState
+          title="운동 정보를 불러오지 못했어요"
+          description={error ?? '잠시 후 다시 시도해 주세요.'}
+        />
+        <Button disabled={isBusy} onPress={refresh}>
+          다시 시도
+        </Button>
+      </Screen>
+    );
   }
 
   // ---- Onboarding: no routine yet ----
@@ -114,11 +130,12 @@ export default function HomeScreen() {
               chevron
               title={template.name}
               subtitle={template.desc}
-              onPress={() =>
-                createTemplate(template.key).then(() =>
-                  showToast(`${template.name} 루틴을 만들었어요`)
-                )
-              }
+              onPress={async () => {
+                const result = await createTemplate(template.key);
+                if (isActionSuccessful(result)) {
+                  showToast(`${template.name} 루틴을 만들었어요`);
+                }
+              }}
             />
           ))}
           <ListRow
@@ -127,7 +144,12 @@ export default function HomeScreen() {
             chevron
             title="직접 만들기"
             subtitle="빈 루틴에서 시작"
-            onPress={() => createCustom().then(() => router.push('/routine'))}
+            onPress={async () => {
+              const result = await createCustom();
+              if (shouldDismissAfterAction(result)) {
+                router.push('/routine');
+              }
+            }}
           />
         </View>
       </Screen>
@@ -143,8 +165,14 @@ export default function HomeScreen() {
     const partStr = joinPartNames(active.parts.map((part) => ({ name: part.bodyPartName })));
 
     async function finish() {
-      await completeActive();
-      showToast('운동이 기록되었어요');
+      const result = await completeActive();
+      if (isActionSuccessful(result)) {
+        showToast(
+          result.publicationStatus === 'pending'
+            ? '운동은 기록됐어요. 위젯 반영을 재시도할게요.'
+            : '운동이 기록되었어요'
+        );
+      }
     }
 
     return (
@@ -187,7 +215,17 @@ export default function HomeScreen() {
                     '취소한 운동은 기록에는 남지만 다음 운동 계산에는 반영되지 않아요.',
                   confirmLabel: '운동 취소',
                   danger: true,
-                  onConfirm: () => cancelActive().then(() => showToast('운동이 취소되었어요')),
+                  onConfirm: async () => {
+                    const result = await cancelActive();
+                    if (isActionSuccessful(result)) {
+                      showToast(
+                        result.publicationStatus === 'pending'
+                          ? '운동은 취소됐어요. 위젯 반영을 재시도할게요.'
+                          : '운동이 취소되었어요'
+                      );
+                    }
+                    return shouldDismissAfterAction(result);
+                  },
                 })
               }>
               운동 취소
@@ -200,9 +238,11 @@ export default function HomeScreen() {
           bodyParts={overview.bodyParts.map((part) => ({ id: part.id, name: part.name }))}
           activeIds={active.parts.map((part) => part.bodyPartId).filter((id): id is number => !!id)}
           onClose={() => setSheet(null)}
-          onPick={(id) => {
-            changeActive({ kind: 'free', bodyPartIds: [id] });
-            setSheet(null);
+          onPick={async (id) => {
+            const result = await changeActive({ kind: 'free', bodyPartIds: [id] });
+            if (shouldDismissAfterAction(result)) {
+              setSheet(null);
+            }
           }}
         />
         <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
@@ -414,13 +454,17 @@ export default function HomeScreen() {
         visible={sheet === 'start'}
         overview={overview}
         onClose={() => setSheet(null)}
-        onStartRoutine={(routineDayId) => {
-          start({ kind: 'routine', routineDayId });
-          setSheet(null);
+        onStartRoutine={async (routineDayId) => {
+          const result = await start({ kind: 'routine', routineDayId });
+          if (shouldDismissAfterAction(result)) {
+            setSheet(null);
+          }
         }}
-        onStartFree={(bodyPartId) => {
-          start({ kind: 'free', bodyPartIds: [bodyPartId] });
-          setSheet(null);
+        onStartFree={async (bodyPartId) => {
+          const result = await start({ kind: 'free', bodyPartIds: [bodyPartId] });
+          if (shouldDismissAfterAction(result)) {
+            setSheet(null);
+          }
         }}
       />
     </>
@@ -441,8 +485,8 @@ function StartSheet({
   visible: boolean;
   overview: NonNullable<ReturnType<typeof useAppStore.getState>['overview']>;
   onClose: () => void;
-  onStartRoutine: (routineDayId: number) => void;
-  onStartFree: (bodyPartId: number) => void;
+  onStartRoutine: (routineDayId: number) => void | Promise<void>;
+  onStartFree: (bodyPartId: number) => void | Promise<void>;
 }) {
   return (
     <BottomSheet visible={visible} title="운동 선택" onClose={onClose}>
@@ -499,7 +543,7 @@ function ChangePartSheet({
   bodyParts: Array<{ id: number; name: string }>;
   activeIds: number[];
   onClose: () => void;
-  onPick: (id: number) => void;
+  onPick: (id: number) => void | Promise<void>;
 }) {
   return (
     <BottomSheet visible={visible} title="운동 부위 변경" onClose={onClose}>

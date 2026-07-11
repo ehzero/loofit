@@ -18,22 +18,34 @@ public enum LoofitWorkoutCommandStatus: String, Codable, Sendable {
   case rejected
 }
 
+public enum LoofitWorkoutPublicationStatus: String, Codable, Sendable {
+  case published
+  case pending
+  case skipped
+}
+
 public struct LoofitWorkoutCommandResult: Codable, Sendable {
   public let status: LoofitWorkoutCommandStatus
   public let sessionId: Int64?
   public let desiredRevision: Int64
   public let publishedRevision: Int64
+  public let publicationStatus: LoofitWorkoutPublicationStatus
+  public let publicationError: String?
 
   public init(
     status: LoofitWorkoutCommandStatus,
     sessionId: Int64?,
     desiredRevision: Int64,
-    publishedRevision: Int64
+    publishedRevision: Int64,
+    publicationStatus: LoofitWorkoutPublicationStatus,
+    publicationError: String? = nil
   ) {
     self.status = status
     self.sessionId = sessionId
     self.desiredRevision = desiredRevision
     self.publishedRevision = publishedRevision
+    self.publicationStatus = publicationStatus
+    self.publicationError = publicationError
   }
 }
 

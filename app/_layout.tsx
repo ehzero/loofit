@@ -14,7 +14,7 @@ import 'react-native-reanimated';
 
 import { useAppStore } from '@/src/store/app-store';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
-import { ToastProvider } from '@/src/theme/ToastProvider';
+import { ToastProvider, useToast } from '@/src/theme/ToastProvider';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -76,10 +76,24 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <ToastProvider>
+        <StoreErrorPresenter />
         <RootLayoutNav />
       </ToastProvider>
     </ThemeProvider>
   );
+}
+
+function StoreErrorPresenter() {
+  const error = useAppStore((state) => state.error);
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    if (error) {
+      showToast(error);
+    }
+  }, [error, showToast]);
+
+  return null;
 }
 
 function RootLayoutNav() {

@@ -105,6 +105,9 @@
 - iOS에서 앱과 위젯은 App Group의 `widgetsDirectory`에 있는 SQLite DB를 공유한다. 기존 기본 DB는 공유 DB가 비어 있을 때 한 번 이전한다.
 - 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 App Group 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity를 조정한다.
 - 앱, 홈 위젯, Live Activity의 시작·종료 진입점은 모두 같은 Core pipeline을 호출한다. 앱 초기화·foreground와 루틴·기록·테마 변경 후 reconcile이 미완료 revision을 복구한다.
+- Core 명령 결과의 `status`는 DB 변경 결과(`applied`, `noop`, `stale`, `rejected`)이고 `publicationStatus`는 surface 발행 결과(`published`, `pending`, `skipped`)다. DB commit 뒤 발행이 실패해도 명령 성공을 실패로 바꾸지 않고 `pending`과 dirty revision을 반환해 다음 reconcile에서 복구한다.
+- 앱 Store의 모든 mutation은 결과와 관계없이 SQLite에서 `getOverview()`를 다시 읽는다. `getOverview()`는 하나의 read transaction에서 완성해 서로 다른 revision의 값을 섞지 않으며, mutation coordinator는 쓰기를 직렬화하고 이전 foreground 조회가 최신 mutation 결과를 덮지 못하게 한다.
+- UI는 Store의 typed action result를 기준으로 성공 안내, 화면 이동, sheet·dialog 닫기를 결정한다. `pending`과 앱 전용 빌드의 `skipped`는 DB 변경 성공으로 취급하고, `rejected`, 실행 오류, overview 갱신 실패는 성공으로 표시하지 않는다.
 - 완료·취소·운동 대상 변경은 `expectedSessionId`가 현재 active 세션과 일치할 때만 적용해 오래된 위젯 액션이 새 세션을 변경하지 못하게 한다.
 - `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`는 앱 내 미리보기용으로 유지하며 실제 native runtime 동기화 코드로 사용하지 않는다.
 - `LOOFIT_APP_ONLY=1`은 `expo-widgets` plugin과 공유 DB 사용을 끄되 iOS 앱의 운동 명령은 같은 Core를 사용하고 surface 발행만 생략한다.

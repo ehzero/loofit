@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Modal, StyleSheet, View } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
@@ -11,7 +12,8 @@ export type ConfirmConfig = {
   description: string;
   confirmLabel: string;
   danger?: boolean;
-  onConfirm: () => void;
+  /** Return false when the action failed and the dialog should stay open. */
+  onConfirm: () => boolean | void | Promise<boolean | void>;
 };
 
 export function ConfirmDialog({
@@ -22,9 +24,39 @@ export function ConfirmDialog({
   onClose: () => void;
 }) {
   const { colors } = useTheme();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    setIsSubmitting(false);
+  }, [config]);
+
+  async function confirm() {
+    if (!config || isSubmitting) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const shouldClose = await config.onConfirm();
+      if (shouldClose !== false) {
+        onClose();
+      }
+    } catch {
+      // The action layer presents the error. Keep the destructive choice open
+      // so the user can retry or explicitly cancel it.
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const close = () => {
+    if (!isSubmitting) {
+      onClose();
+    }
+  };
 
   return (
-    <Modal visible={!!config} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal visible={!!config} transparent animationType="fade" onRequestClose={close}>
       <View style={styles.backdrop}>
         <View style={[styles.dialog, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
           <AppText variant="title">{config?.title}</AppText>
@@ -32,17 +64,20 @@ export function ConfirmDialog({
             {config?.description}
           </AppText>
           <View style={styles.actions}>
-            <Button size="md" variant="neutral" style={styles.action} onPress={onClose}>
+            <Button
+              size="md"
+              variant="neutral"
+              style={styles.action}
+              disabled={isSubmitting}
+              onPress={close}>
               닫기
             </Button>
             <Button
               size="md"
               variant={config?.danger ? 'dangerSolid' : 'accent'}
               style={styles.action}
-              onPress={() => {
-                config?.onConfirm();
-                onClose();
-              }}>
+              disabled={isSubmitting}
+              onPress={confirm}>
               {config?.confirmLabel}
             </Button>
           </View>

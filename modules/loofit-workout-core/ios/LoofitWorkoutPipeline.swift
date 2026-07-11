@@ -68,12 +68,15 @@ private enum LoofitWorkoutPipelineCoordinator {
       let outcome = try LoofitWorkoutMetrics.measure("DatabaseTransaction") {
         try LoofitWorkoutCommandEngine.execute(command, database: database)
       }
-      return try await publish(
+      guard widgetsEnabled else {
+        return resultWithoutPublication(outcome: outcome, database: database)
+      }
+      return await publish(
         outcome: outcome,
         database: database,
         databaseDirectory: directory,
-        reloadWidgets: widgetsEnabled,
-        updateLiveActivity: widgetsEnabled
+        reloadWidgets: true,
+        updateLiveActivity: true
       )
     }
   }
@@ -89,8 +92,12 @@ private enum LoofitWorkoutPipelineCoordinator {
       defer { processLock.unlock() }
       let database = try LoofitSQLiteDatabase(databaseDirectory: directory)
       try database.ensureWidgetSyncSchema()
-      return try await publish(
-        outcome: .init(status: .noop, sessionId: nil),
+      let outcome = LoofitWorkoutMutationOutcome(status: .noop, sessionId: nil)
+      guard reloadWidgets || updateLiveActivity else {
+        return resultWithoutPublication(outcome: outcome, database: database)
+      }
+      return await publish(
+        outcome: outcome,
         database: database,
         databaseDirectory: directory,
         reloadWidgets: reloadWidgets,
@@ -129,14 +136,32 @@ private enum LoofitWorkoutPipelineCoordinator {
           )
         }
       }
-      return try await publish(
-        outcome: .init(status: .applied, sessionId: nil),
+      let outcome = LoofitWorkoutMutationOutcome(status: .applied, sessionId: nil)
+      guard widgetsEnabled else {
+        return resultWithoutPublication(outcome: outcome, database: database)
+      }
+      return await publish(
+        outcome: outcome,
         database: database,
         databaseDirectory: directory,
-        reloadWidgets: widgetsEnabled,
-        updateLiveActivity: widgetsEnabled
+        reloadWidgets: true,
+        updateLiveActivity: true
       )
     }
+  }
+
+  private static func resultWithoutPublication(
+    outcome: LoofitWorkoutMutationOutcome,
+    database: LoofitSQLiteDatabase
+  ) -> LoofitWorkoutCommandResult {
+    let revisions = (try? database.revisions()) ?? (desired: 0, published: 0)
+    return .init(
+      status: outcome.status,
+      sessionId: outcome.sessionId,
+      desiredRevision: revisions.desired,
+      publishedRevision: revisions.published,
+      publicationStatus: .skipped
+    )
   }
 
   private static func publish(
@@ -145,7 +170,10 @@ private enum LoofitWorkoutPipelineCoordinator {
     databaseDirectory: String,
     reloadWidgets: Bool,
     updateLiveActivity: Bool
-  ) async throws -> LoofitWorkoutCommandResult {
+  ) async -> LoofitWorkoutCommandResult {
+    let revisionsBeforePublication =
+      (try? database.revisions()) ?? (desired: 0, published: 0)
+    var resolvedSessionId = outcome.sessionId
     do {
       let previous = try? LoofitWorkoutSnapshotStore.load(from: databaseDirectory)
       let snapshot = try LoofitWorkoutMetrics.measure("Projection") {
@@ -164,18 +192,46 @@ private enum LoofitWorkoutPipelineCoordinator {
           try await reconcileLiveActivity(snapshot: snapshot)
         }
       }
+      resolvedSessionId = outcome.sessionId ?? snapshot.activeSession?.id
       try database.markPublished(revision: snapshot.revision)
       let revisions = try database.revisions()
+      guard revisions.desired == revisions.published else {
+        let error = LoofitWorkoutCoreError.projection(
+          "Workout surfaces changed while revision \(snapshot.revision) was being published"
+        )
+        database.markPublicationError(error)
+        return .init(
+          status: outcome.status,
+          sessionId: resolvedSessionId,
+          desiredRevision: revisions.desired,
+          publishedRevision: revisions.published,
+          publicationStatus: .pending,
+          publicationError: publicationErrorMessage(error)
+        )
+      }
       return .init(
         status: outcome.status,
-        sessionId: outcome.sessionId ?? snapshot.activeSession?.id,
+        sessionId: resolvedSessionId,
         desiredRevision: revisions.desired,
-        publishedRevision: revisions.published
+        publishedRevision: revisions.published,
+        publicationStatus: .published
       )
     } catch {
       database.markPublicationError(error)
-      throw error
+      let revisions = (try? database.revisions()) ?? revisionsBeforePublication
+      return .init(
+        status: outcome.status,
+        sessionId: resolvedSessionId,
+        desiredRevision: revisions.desired,
+        publishedRevision: revisions.published,
+        publicationStatus: .pending,
+        publicationError: publicationErrorMessage(error)
+      )
     }
+  }
+
+  private static func publicationErrorMessage(_ error: Error) -> String {
+    String(error.localizedDescription.prefix(1_000))
   }
 
   private static func reloadChangedWidgets(

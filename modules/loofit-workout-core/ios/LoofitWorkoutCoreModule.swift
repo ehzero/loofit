@@ -205,6 +205,8 @@ struct LoofitWorkoutCommandResultRecord: Record {
   @Field var sessionId: Int64?
   @Field var desiredRevision: Int64 = 0
   @Field var publishedRevision: Int64 = 0
+  @Field var publicationStatus: String = LoofitWorkoutPublicationStatus.skipped.rawValue
+  @Field var publicationError: String?
 
   init() {}
 
@@ -213,5 +215,7 @@ struct LoofitWorkoutCommandResultRecord: Record {
     sessionId = result.sessionId
     desiredRevision = result.desiredRevision
     publishedRevision = result.publishedRevision
+    publicationStatus = result.publicationStatus.rawValue
+    publicationError = result.publicationError
   }
 }

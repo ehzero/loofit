@@ -10,7 +10,11 @@ import { IconButton } from '@/src/components/IconButton';
 import { Input } from '@/src/components/Input';
 import { Screen } from '@/src/components/Screen';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
-import { useAppStore } from '@/src/store/app-store';
+import {
+  isActionSuccessful,
+  shouldDismissAfterAction,
+  useAppStore,
+} from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import { radius, spacing } from '@/src/theme/tokens';
@@ -46,8 +50,10 @@ export default function RoutineScreen() {
     if (!trimmed) {
       return;
     }
-    setNewPart('');
-    await addPart(trimmed);
+    const result = await addPart(trimmed);
+    if (shouldDismissAfterAction(result)) {
+      setNewPart('');
+    }
   }
 
   return (
@@ -74,15 +80,18 @@ export default function RoutineScreen() {
             bodyParts={overview.bodyParts}
             onUp={() => moveDay(day.id, -1)}
             onDown={() => moveDay(day.id, 1)}
-            onDelete={() => {
-              if (editingId === day.id) {
+            onDelete={async () => {
+              const result = await deleteDay(day.id);
+              if (editingId === day.id && shouldDismissAfterAction(result)) {
                 setEditingId(null);
               }
-              deleteDay(day.id);
             }}
-            onSetNext={() =>
-              chooseNextDay(day.id).then(() => showToast('다음 운동 시작점을 바꿨어요'))
-            }
+            onSetNext={async () => {
+              const result = await chooseNextDay(day.id);
+              if (isActionSuccessful(result)) {
+                showToast('다음 운동 시작점을 바꿨어요');
+              }
+            }}
             onToggleEdit={() => setEditingId((current) => (current === day.id ? null : day.id))}
           />
         ))}
@@ -146,7 +155,7 @@ function SplitCard({
   bodyParts: BodyPart[];
   onUp: () => void;
   onDown: () => void;
-  onDelete: () => void;
+  onDelete: () => void | Promise<void>;
   onSetNext: () => void;
   onToggleEdit: () => void;
 }) {
@@ -163,9 +172,12 @@ function SplitCard({
 
   const partIds = day.parts.map((part) => part.id);
 
-  function commitNameAndToggle() {
+  async function commitNameAndToggle() {
     if (isEditing) {
-      renameDay(day.id, name);
+      const result = await renameDay(day.id, name);
+      if (!shouldDismissAfterAction(result)) {
+        return;
+      }
     }
     onToggleEdit();
   }

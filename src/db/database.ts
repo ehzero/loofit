@@ -17,6 +17,7 @@ export async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
 async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   const sharedDirectory = getSharedDatabaseDirectory();
   const db = await SQLite.openDatabaseAsync(DATABASE_NAME, undefined, sharedDirectory);
+  await db.execAsync('PRAGMA busy_timeout = 500');
   if (sharedDirectory) {
     await migrateDefaultDatabaseToSharedDirectory(db);
   }
@@ -30,6 +31,37 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   });
   await seedDefaultBodyParts(db);
   return db;
+}
+
+/**
+ * Runs a read projection against one SQLite connection and one transaction.
+ * Native platforms use expo-sqlite's dedicated transaction connection so
+ * unrelated queries cannot join the transaction. Web does not support that
+ * API, so it uses the database's regular transaction on its single connection.
+ */
+export async function withDatabaseReadTransaction<T>(
+  task: (db: SQLite.SQLiteDatabase) => Promise<T>
+): Promise<T> {
+  const db = await getDatabase();
+  const result: { value?: T } = {};
+
+  if (Platform.OS === 'web') {
+    await db.withTransactionAsync(async () => {
+      result.value = await task(db);
+    });
+  } else {
+    await db.withExclusiveTransactionAsync(async (tx) => {
+      // withExclusiveTransactionAsync opens a dedicated connection, and this
+      // connection-local pragma is therefore set explicitly as well.
+      await tx.execAsync('PRAGMA busy_timeout = 500');
+      result.value = await task(tx);
+    });
+  }
+
+  if (!('value' in result)) {
+    throw new Error('Database read transaction completed without a result.');
+  }
+  return result.value as T;
 }
 
 function getSharedDatabaseDirectory(): string | undefined {

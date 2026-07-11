@@ -20,6 +20,7 @@ import {
   setNextRoutineDay,
   setRoutineDayParts,
   startWorkout,
+  type RepositoryWorkoutResult,
   updateSession,
 } from '@/src/db/repository';
 import {
@@ -27,10 +28,41 @@ import {
   reconcileAppWorkoutSurfaces,
   usesNativeWorkoutPipeline,
 } from '@/src/widgets/pipeline';
-import type { AppOverview, RoutineTemplate, SessionStatus, StartWorkoutInput } from '@/src/types';
-import type { WorkoutCommand } from '@/modules/loofit-workout-core';
+import type {
+  AppOverview,
+  RoutineTemplate,
+  SessionStatus,
+  StartWorkoutInput,
+} from '@/src/types';
+import type {
+  CommandResult,
+  CommandStatus,
+  PublicationStatus,
+  WorkoutCommand,
+} from '@/modules/loofit-workout-core';
+
+import {
+  AppOperationCoordinator,
+  type RefreshTicket,
+} from './app-operation-coordinator';
 
 let initializationPromise: Promise<void> | null = null;
+let pendingBusyOperations = 0;
+const operationCoordinator = new AppOperationCoordinator();
+
+export type AppActionStatus = CommandStatus | 'error';
+export type OverviewStatus = 'refreshed' | 'superseded' | 'failed';
+
+export type AppActionResult = {
+  status: AppActionStatus;
+  sessionId: number | null;
+  desiredRevision: number;
+  publishedRevision: number;
+  publicationStatus: PublicationStatus;
+  publicationError: string | null;
+  overviewStatus: OverviewStatus;
+  error: string | null;
+};
 
 type AppState = {
   isReady: boolean;
@@ -39,21 +71,21 @@ type AppState = {
   overview: AppOverview | null;
   initialize: () => Promise<void>;
   refresh: () => Promise<void>;
-  createTemplate: (template: RoutineTemplate) => Promise<void>;
-  start: (input: StartWorkoutInput) => Promise<void>;
-  completeActive: () => Promise<void>;
-  cancelActive: () => Promise<void>;
-  changeActive: (input: StartWorkoutInput) => Promise<void>;
-  createCustom: () => Promise<void>;
-  addPart: (name: string) => Promise<void>;
-  archivePart: (id: number) => Promise<void>;
-  addDay: (name: string, bodyPartIds: number[]) => Promise<void>;
-  addEmptyDay: (name: string) => Promise<void>;
-  renameDay: (dayId: number, name: string) => Promise<void>;
-  setDayParts: (dayId: number, bodyPartIds: number[]) => Promise<void>;
-  moveDay: (dayId: number, direction: -1 | 1) => Promise<void>;
-  deleteDay: (dayId: number) => Promise<void>;
-  chooseNextDay: (routineDayId: number | null) => Promise<void>;
+  createTemplate: (template: RoutineTemplate) => Promise<AppActionResult>;
+  start: (input: StartWorkoutInput) => Promise<AppActionResult>;
+  completeActive: () => Promise<AppActionResult>;
+  cancelActive: () => Promise<AppActionResult>;
+  changeActive: (input: StartWorkoutInput) => Promise<AppActionResult>;
+  createCustom: () => Promise<AppActionResult>;
+  addPart: (name: string) => Promise<AppActionResult>;
+  archivePart: (id: number) => Promise<AppActionResult>;
+  addDay: (name: string, bodyPartIds: number[]) => Promise<AppActionResult>;
+  addEmptyDay: (name: string) => Promise<AppActionResult>;
+  renameDay: (dayId: number, name: string) => Promise<AppActionResult>;
+  setDayParts: (dayId: number, bodyPartIds: number[]) => Promise<AppActionResult>;
+  moveDay: (dayId: number, direction: -1 | 1) => Promise<AppActionResult>;
+  deleteDay: (dayId: number) => Promise<AppActionResult>;
+  chooseNextDay: (routineDayId: number | null) => Promise<AppActionResult>;
   updateRecord: (
     id: number,
     updates: {
@@ -64,17 +96,20 @@ type AppState = {
       routineDayId?: number | null;
       bodyPartIds?: number[];
     }
-  ) => Promise<void>;
-  deleteRecord: (id: number) => Promise<void>;
-  resetDevData: () => Promise<void>;
+  ) => Promise<AppActionResult>;
+  deleteRecord: (id: number) => Promise<AppActionResult>;
+  resetDevData: () => Promise<AppActionResult>;
 };
 
-async function loadAndReconcile(): Promise<AppOverview> {
-  const overview = await getOverview();
-  await reconcileAppWorkoutSurfaces().catch((error) => {
-    console.warn(`[${BRAND.displayName}] Workout surface reconcile skipped`, error);
-  });
-  return overview;
+export function isActionSuccessful(result: AppActionResult): boolean {
+  return result.status === 'applied' && result.overviewStatus !== 'failed';
+}
+
+export function shouldDismissAfterAction(result: AppActionResult): boolean {
+  return (
+    result.overviewStatus !== 'failed' &&
+    (result.status === 'applied' || result.status === 'noop' || result.status === 'stale')
+  );
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -91,32 +126,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       return initializationPromise;
     }
 
-    set({ isBusy: true, error: null });
-    initializationPromise = (async () => {
-      try {
-        const overview = await loadAndReconcile();
-        set({ overview, isReady: true, isBusy: false });
-      } catch (error) {
-        set({
-          error: error instanceof Error ? error.message : '초기화에 실패했어요.',
-          isReady: true,
-          isBusy: false,
-        });
-      } finally {
+    const ticket = operationCoordinator.beginRefresh();
+    beginBusyOperation(set);
+    initializationPromise = runRefreshAction(set, ticket, '초기화에 실패했어요.').finally(
+      () => {
+        finishBusyOperation(set);
         initializationPromise = null;
       }
-    })();
+    );
 
     return initializationPromise;
   },
 
   refresh: async () => {
-    try {
-      const overview = await loadAndReconcile();
-      set({ overview, isReady: true, error: null });
-    } catch (error) {
-      set({ error: error instanceof Error ? error.message : '새로고침에 실패했어요.' });
-    }
+    set({ error: null });
+    const ticket = operationCoordinator.beginRefresh();
+    await runRefreshAction(set, ticket, '새로고침에 실패했어요.');
   },
 
   createTemplate: async (template) =>
@@ -129,7 +154,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return runWorkoutAction(
       set,
       sessionId ? { type: 'complete', expectedSessionId: sessionId } : null,
-      completeActiveWorkout
+      sessionId
+        ? async () => completeActiveWorkout(sessionId)
+        : async () => ({ status: 'noop', session: null })
     );
   },
   cancelActive: async () => {
@@ -137,7 +164,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return runWorkoutAction(
       set,
       sessionId ? { type: 'cancel', expectedSessionId: sessionId } : null,
-      cancelActiveWorkout
+      sessionId
+        ? async () => cancelActiveWorkout(sessionId)
+        : async () => ({ status: 'noop', session: null })
     );
   },
   changeActive: async (input) => {
@@ -145,7 +174,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     return runWorkoutAction(
       set,
       sessionId ? changeCommand(input, sessionId) : null,
-      async () => changeActiveWorkout(input)
+      sessionId
+        ? async () => changeActiveWorkout(sessionId, input)
+        : async () => ({ status: 'stale', session: null })
     );
   },
   addPart: async (name) => runMutationAction(set, async () => addBodyPart(name)),
@@ -170,55 +201,204 @@ export const useAppStore = create<AppState>((set, get) => ({
 
 async function runMutationAction(
   set: (state: Partial<AppState>) => void,
-  action: () => Promise<unknown>
-): Promise<void> {
-  set({ isBusy: true, error: null });
-  try {
-    await action();
-    await reconcileAppWorkoutSurfaces().catch((error) => {
-      // The mutation is already committed. Keep the app responsive and leave
-      // the dirty revision for the next foreground reconcile to recover.
-      console.warn(`[${BRAND.displayName}] Workout surface reconcile deferred`, error);
-    });
-    const overview = await getOverview();
-    set({ overview, isReady: true, isBusy: false });
-  } catch (error) {
-    set({
-      error: error instanceof Error ? error.message : '작업을 완료하지 못했어요.',
-      isBusy: false,
-    });
-  }
+  action: () => Promise<boolean>
+): Promise<AppActionResult> {
+  operationCoordinator.beginMutation();
+  beginBusyOperation(set);
+
+  return operationCoordinator
+    .runInPipeline(async () => {
+      let result = localCommandResult('applied');
+      let actionError: string | null = null;
+
+      try {
+        const applied = await action();
+        result = localCommandResult(applied ? 'applied' : 'noop');
+      } catch (error) {
+        actionError = errorMessage(error, '작업을 완료하지 못했어요.');
+        result = localCommandResult('error');
+      }
+
+      if (result.status === 'applied') {
+        try {
+          const publication = await reconcileAppWorkoutSurfaces();
+          result = publication
+            ? combineMutationAndPublication(result, publication)
+            : { ...result, publicationStatus: 'skipped' };
+        } catch (error) {
+          const publicationError = errorMessage(error, '위젯 반영을 완료하지 못했어요.');
+          console.warn(`[${BRAND.displayName}] Workout surface reconcile deferred`, error);
+          result = {
+            ...result,
+            publicationStatus: 'pending',
+            publicationError,
+          };
+        }
+      }
+
+      return refreshOverviewAfterAction(set, result, actionError);
+    })
+    .finally(() => finishBusyOperation(set));
 }
 
 async function runWorkoutAction(
   set: (state: Partial<AppState>) => void,
   command: WorkoutCommand | null,
-  fallback: () => Promise<unknown>
-): Promise<void> {
-  set({ isBusy: true, error: null });
-  try {
-    if (usesNativeWorkoutPipeline()) {
-      if (command) {
-        const result = await executeAppWorkoutCommand(command);
-        if (result.status === 'rejected') {
-          throw new Error('운동 상태를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
-        }
-      }
-    } else {
-      await fallback();
-    }
+  fallback: () => Promise<RepositoryWorkoutResult>
+): Promise<AppActionResult> {
+  operationCoordinator.beginMutation();
+  beginBusyOperation(set);
 
-    // The native command has already projected the committed state to every
-    // surface. Only reload the app cache here; a second reconcile would add
-    // latency to the start/end critical path.
+  return operationCoordinator
+    .runInPipeline(async () => {
+      let result: AppActionResult;
+      let actionError: string | null = null;
+
+      try {
+        if (!command) {
+          result = localCommandResult('noop');
+        } else if (usesNativeWorkoutPipeline()) {
+          result = commandResultToAppResult(await executeAppWorkoutCommand(command));
+        } else {
+          result = fallbackCommandResult(await fallback());
+        }
+
+        if (result.status === 'rejected') {
+          actionError = '운동 상태를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.';
+        }
+      } catch (error) {
+        actionError = errorMessage(error, '작업을 완료하지 못했어요.');
+        result = localCommandResult('error');
+      }
+
+      // Native workout commands already publish the committed revision. The
+      // app cache is deliberately the only read performed after that command.
+      return refreshOverviewAfterAction(set, result, actionError);
+    })
+    .finally(() => finishBusyOperation(set));
+}
+
+async function runRefreshAction(
+  set: (state: Partial<AppState>) => void,
+  ticket: RefreshTicket,
+  failureMessage: string
+): Promise<void> {
+  await operationCoordinator.waitForPipeline();
+
+  try {
     const overview = await getOverview();
-    set({ overview, isReady: true, isBusy: false });
+    if (!operationCoordinator.acceptRefreshSuccess(ticket)) {
+      return;
+    }
+    set({ overview, isReady: true, error: null });
   } catch (error) {
-    set({
-      error: error instanceof Error ? error.message : '작업을 완료하지 못했어요.',
-      isBusy: false,
-    });
+    if (operationCoordinator.isCurrent(ticket)) {
+      set({ error: errorMessage(error, failureMessage), isReady: true });
+    }
+    return;
   }
+
+  // Reconciliation shares the mutation pipeline so an older foreground pass
+  // cannot overwrite a snapshot produced by a newer workout command.
+  await operationCoordinator.runInPipeline(async () => {
+    if (!operationCoordinator.isLatestSuccessfulRefresh(ticket)) {
+      return;
+    }
+    try {
+      const result = await reconcileAppWorkoutSurfaces();
+      if (result?.publicationStatus === 'pending') {
+        console.warn(
+          `[${BRAND.displayName}] Workout surface reconcile remains pending`,
+          result.publicationError
+        );
+      }
+    } catch (error) {
+      console.warn(`[${BRAND.displayName}] Workout surface reconcile skipped`, error);
+    }
+  });
+}
+
+async function refreshOverviewAfterAction(
+  set: (state: Partial<AppState>) => void,
+  result: AppActionResult,
+  actionError: string | null
+): Promise<AppActionResult> {
+  let overview: AppOverview;
+
+  try {
+    overview = await getOverview();
+  } catch (error) {
+    const overviewError =
+      actionError ??
+      (result.status === 'applied'
+        ? '작업은 저장됐지만 화면을 새로고침하지 못했어요.'
+        : errorMessage(error, '최신 운동 상태를 불러오지 못했어요.'));
+    set({ error: overviewError, isReady: true });
+    return { ...result, overviewStatus: 'failed', error: overviewError };
+  }
+
+  set({ overview, isReady: true, error: actionError });
+  return { ...result, overviewStatus: 'refreshed', error: actionError };
+}
+
+function localCommandResult(status: AppActionStatus): AppActionResult {
+  return {
+    status,
+    sessionId: null,
+    desiredRevision: 0,
+    publishedRevision: 0,
+    publicationStatus: 'skipped',
+    publicationError: null,
+    overviewStatus: 'superseded',
+    error: null,
+  };
+}
+
+function commandResultToAppResult(result: CommandResult): AppActionResult {
+  return {
+    ...result,
+    overviewStatus: 'superseded',
+    error: null,
+  };
+}
+
+function combineMutationAndPublication(
+  mutation: AppActionResult,
+  publication: CommandResult
+): AppActionResult {
+  return {
+    ...mutation,
+    sessionId: publication.sessionId,
+    desiredRevision: publication.desiredRevision,
+    publishedRevision: publication.publishedRevision,
+    publicationStatus: publication.publicationStatus,
+    publicationError: publication.publicationError,
+  };
+}
+
+function fallbackCommandResult(
+  result: RepositoryWorkoutResult
+): AppActionResult {
+  return {
+    ...localCommandResult(result.status),
+    sessionId: result.session?.id ?? null,
+  };
+}
+
+function beginBusyOperation(set: (state: Partial<AppState>) => void): void {
+  pendingBusyOperations += 1;
+  set({ isBusy: true, error: null });
+}
+
+function finishBusyOperation(set: (state: Partial<AppState>) => void): void {
+  pendingBusyOperations = Math.max(0, pendingBusyOperations - 1);
+  if (pendingBusyOperations === 0) {
+    set({ isBusy: false });
+  }
+}
+
+function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
 
 function startCommand(input: StartWorkoutInput): WorkoutCommand {

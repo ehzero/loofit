@@ -14,7 +14,11 @@ import { Segmented } from '@/src/components/Segmented';
 import { getSessionById } from '@/src/db/repository';
 import { formatClock, formatDateK, formatDuration } from '@/src/domain/date';
 import { routineDayDisplayName } from '@/src/domain/routine';
-import { useAppStore } from '@/src/store/app-store';
+import {
+  isActionSuccessful,
+  shouldDismissAfterAction,
+  useAppStore,
+} from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import { radius, spacing } from '@/src/theme/tokens';
@@ -102,7 +106,7 @@ export default function RecordDetailScreen() {
   }
 
   async function save() {
-    await updateRecord(id, {
+    const result = await updateRecord(id, {
       status,
       startedAt: startAt.toISOString(),
       endedAt: status === 'active' ? null : effectiveEndAt.toISOString(),
@@ -110,8 +114,12 @@ export default function RecordDetailScreen() {
       routineDayId: isFree ? null : routineDayId,
       bodyPartIds: isFree ? freePartIds : undefined,
     });
-    showToast('기록이 수정되었어요');
-    router.back();
+    if (isActionSuccessful(result)) {
+      showToast('기록이 수정되었어요');
+    }
+    if (shouldDismissAfterAction(result)) {
+      router.back();
+    }
   }
 
   const durationLabel = status === 'canceled' ? '취소됨' : formatDuration(durationSeconds);
@@ -255,9 +263,15 @@ export default function RecordDetailScreen() {
                 confirmLabel: '삭제',
                 danger: true,
                 onConfirm: async () => {
-                  await deleteRecord(id);
-                  showToast('기록이 삭제되었어요');
-                  router.replace('/records');
+                  const result = await deleteRecord(id);
+                  if (isActionSuccessful(result)) {
+                    showToast('기록이 삭제되었어요');
+                  }
+                  const shouldDismiss = shouldDismissAfterAction(result);
+                  if (shouldDismiss) {
+                    router.replace('/records');
+                  }
+                  return shouldDismiss;
                 },
               })
             }>

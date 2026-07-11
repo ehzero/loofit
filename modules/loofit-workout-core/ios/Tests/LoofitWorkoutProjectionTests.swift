@@ -26,10 +26,11 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     let dirty = try database.revisions()
     XCTAssertGreaterThan(dirty.desired, dirty.published)
 
-    let first = try await LoofitWorkoutPipeline.reconcile(
-      databaseDirectory: databaseDirectory,
-      widgetsEnabled: false
+    let first = try await LoofitWorkoutPipeline.reconcileWidgetTimeline(
+      databaseDirectory: databaseDirectory
     )
+    XCTAssertEqual(first.publicationStatus, .published)
+    XCTAssertNil(first.publicationError)
     XCTAssertEqual(first.desiredRevision, first.publishedRevision)
     let firstSnapshot = try XCTUnwrap(
       LoofitWorkoutSnapshotStore.load(from: databaseDirectory)
@@ -46,10 +47,11 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     XCTAssertGreaterThan(changed.desired, oldRevision)
     XCTAssertEqual(changed.published, oldRevision)
 
-    let second = try await LoofitWorkoutPipeline.reconcile(
-      databaseDirectory: databaseDirectory,
-      widgetsEnabled: false
+    let second = try await LoofitWorkoutPipeline.reconcileWidgetTimeline(
+      databaseDirectory: databaseDirectory
     )
+    XCTAssertEqual(second.publicationStatus, .published)
+    XCTAssertNil(second.publicationError)
     XCTAssertEqual(second.desiredRevision, second.publishedRevision)
     XCTAssertGreaterThan(second.publishedRevision, oldRevision)
     let secondSnapshot = try XCTUnwrap(
@@ -57,6 +59,68 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     )
     XCTAssertEqual(secondSnapshot.revision, second.publishedRevision)
     XCTAssertEqual(secondSnapshot.nextWorkout?.parts.map(\.name), ["푸시"])
+  }
+
+  func testDisabledReconcileSkipsProjectionAndKeepsDirtyRevision() async throws {
+    try seedRoutine()
+
+    let result = try await LoofitWorkoutPipeline.reconcile(
+      databaseDirectory: databaseDirectory,
+      widgetsEnabled: false
+    )
+
+    XCTAssertEqual(result.status, .noop)
+    XCTAssertEqual(result.publicationStatus, .skipped)
+    XCTAssertNil(result.publicationError)
+    XCTAssertGreaterThan(result.desiredRevision, result.publishedRevision)
+    XCTAssertNil(try LoofitWorkoutSnapshotStore.load(from: databaseDirectory))
+  }
+
+  func testDisabledExecuteCommitsCommandWithoutPublishingSurfaces() async throws {
+    try seedRoutine()
+
+    let result = try await LoofitWorkoutPipeline.execute(
+      .startNext,
+      databaseDirectory: databaseDirectory,
+      widgetsEnabled: false
+    )
+
+    XCTAssertEqual(result.status, .applied)
+    XCTAssertEqual(result.publicationStatus, .skipped)
+    XCTAssertNil(result.publicationError)
+    XCTAssertNotNil(result.sessionId)
+    XCTAssertEqual(try database.firstInt64(
+      "SELECT COUNT(*) FROM workout_sessions WHERE status = 'active'"
+    ), 1)
+    XCTAssertGreaterThan(result.desiredRevision, result.publishedRevision)
+    XCTAssertNil(try LoofitWorkoutSnapshotStore.load(from: databaseDirectory))
+  }
+
+  func testPublicationFailureReturnsPendingAfterCommandCommit() async throws {
+    try seedRoutine()
+    let snapshotURL = LoofitWorkoutSnapshotStore.snapshotURL(in: databaseDirectory)
+    try FileManager.default.createDirectory(
+      at: snapshotURL,
+      withIntermediateDirectories: false
+    )
+
+    let result = try await LoofitWorkoutPipeline.execute(
+      .startNext,
+      databaseDirectory: databaseDirectory,
+      widgetsEnabled: true
+    )
+
+    XCTAssertEqual(result.status, .applied)
+    XCTAssertEqual(result.publicationStatus, .pending)
+    XCTAssertNotNil(result.publicationError)
+    XCTAssertNotNil(result.sessionId)
+    XCTAssertEqual(try database.firstInt64(
+      "SELECT COUNT(*) FROM workout_sessions WHERE status = 'active'"
+    ), 1)
+    XCTAssertGreaterThan(result.desiredRevision, result.publishedRevision)
+    XCTAssertNotNil(try database.firstString(
+      "SELECT last_error FROM widget_sync_state WHERE id = 1"
+    ))
   }
 
   func testProjectionAggregatesCompletedSessionsAndLimitsToSixCalendarMonths() throws {

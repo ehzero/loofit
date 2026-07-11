@@ -10,12 +10,15 @@ export type WorkoutCommand =
   | { type: 'cancel'; expectedSessionId: number };
 
 export type CommandStatus = 'applied' | 'noop' | 'stale' | 'rejected';
+export type PublicationStatus = 'published' | 'pending' | 'skipped';
 
 export type CommandResult = {
   status: CommandStatus;
   sessionId: number | null;
   desiredRevision: number;
   publishedRevision: number;
+  publicationStatus: PublicationStatus;
+  publicationError: string | null;
 };
 
 export type WidgetThemeSnapshot = {
@@ -65,6 +68,8 @@ const unsupportedResult: CommandResult = {
   sessionId: null,
   desiredRevision: 0,
   publishedRevision: 0,
+  publicationStatus: 'skipped',
+  publicationError: null,
 };
 
 export function executeWorkoutCommand(
