@@ -321,7 +321,7 @@ struct LoofitHeatmapWidgetView: View {
 
   var body: some View {
     GeometryReader { geometry in
-      VStack(alignment: .leading, spacing: variant == .week ? 8 : 8) {
+      VStack(alignment: .leading, spacing: variant == .week ? 0 : 8) {
         if variant != .week {
           Text(headerTitle)
             .font(.system(size: variant == .sixMonths ? 10 : 11, weight: .semibold))
@@ -339,7 +339,11 @@ struct LoofitHeatmapWidgetView: View {
 
         if variant == .week {
           Spacer(minLength: 0)
-          weekFooter
+          weekStatsTop
+          Spacer(minLength: 0)
+          stat(label: "평균", value: LoofitFormat.duration(count > 0 ? duration / count : 0))
+          Spacer(minLength: 0)
+          weekRecent
         } else {
           Spacer(minLength: 0)
         }
@@ -436,27 +440,38 @@ struct LoofitHeatmapWidgetView: View {
     }
   }
 
-  private var weekFooter: some View {
-    VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 4) {
-        stat(label: "횟수", value: "\(count)회")
-        stat(label: "총 시간", value: LoofitFormat.duration(duration))
-        stat(label: "평균", value: LoofitFormat.duration(count > 0 ? duration / count : 0))
-      }
-      let recent = Array((entry.snapshot?.recentCompleted ?? []).filter {
-        guard let started = $0.startedDate else { return false }
-        return started >= Calendar.current.date(byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: entry.date)) ?? .distantFuture
-      }.prefix(2))
+  private var weekStatsTop: some View {
+    HStack(alignment: .firstTextBaseline, spacing: 8) {
+      stat(label: "횟수", value: "\(count)회")
+        .fixedSize(horizontal: true, vertical: false)
+      stat(label: "총 시간", value: LoofitFormat.duration(duration))
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+  }
+
+  private var recentWeekWorkouts: [LoofitWorkoutSessionSnapshot] {
+    Array((entry.snapshot?.recentCompleted ?? []).filter {
+      guard let started = $0.startedDate else { return false }
+      return started >= Calendar.current.date(
+        byAdding: .day,
+        value: -6,
+        to: Calendar.current.startOfDay(for: entry.date)
+      ) ?? .distantFuture
+    }.prefix(2))
+  }
+
+  private var weekRecent: some View {
+    VStack(alignment: .leading, spacing: 2) {
       Text("최근 운동")
         .font(.system(size: 8, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx5))
-      if recent.isEmpty {
+      if recentWeekWorkouts.isEmpty {
         Text("아직 기록 없음")
           .font(.system(size: 10, weight: .heavy))
           .foregroundStyle(LoofitColor(entry.palette.tx2))
           .lineLimit(1)
       } else {
-        ForEach(Array(recent), id: \.id) { session in
+        ForEach(recentWeekWorkouts, id: \.id) { session in
           HStack(spacing: 4) {
             Text("\(session.title) · \(LoofitFormat.duration(session.durationSeconds))")
               .font(.system(size: 10, weight: .heavy))
@@ -475,18 +490,17 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private func stat(label: String, value: String) -> some View {
-    VStack(alignment: .leading, spacing: 1) {
+    HStack(alignment: .firstTextBaseline, spacing: 4) {
       Text(label)
         .font(.system(size: 8, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx5))
       Text(value)
-        .font(.system(size: 12, weight: .heavy))
+        .font(.system(size: 14, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx2))
         .lineLimit(1)
         .allowsTightening(true)
-        .minimumScaleFactor(0.6)
+        .minimumScaleFactor(0.88)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private func color(for day: LoofitHeatmapDay) -> Color {

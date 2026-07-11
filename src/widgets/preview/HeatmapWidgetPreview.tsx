@@ -119,7 +119,7 @@ export function HeatmapWidgetPreview({
         )}
 
         {hasFooter ? (
-          <View style={styles.footerGroup}>
+          <>
             {footerSummary ? (
               <Text
                 numberOfLines={1}
@@ -136,35 +136,21 @@ export function HeatmapWidgetPreview({
               </Text>
             ) : null}
             {resolvedFooterStats.length ? (
-              <View style={styles.footerStats}>
-                {resolvedFooterStats.map((stat) => (
-                  <View key={stat.label} style={styles.footerStat}>
-                    <Text
-                      style={[
-                        styles.footerStatLabel,
-                        {
-                          color: widget.brandColor,
-                        },
-                      ]}
-                    >
-                      {stat.label}
-                    </Text>
-                    <Text
-                      numberOfLines={1}
-                      adjustsFontSizeToFit
-                      minimumFontScale={0.6}
-                      style={[
-                        styles.footerStatValue,
-                        {
-                          color: widget.footerValueColor,
-                        },
-                      ]}
-                    >
-                      {stat.value}
-                    </Text>
-                  </View>
+              <View style={styles.footerStatsTopRow}>
+                {resolvedFooterStats.slice(0, 2).map((stat, index) => (
+                  <HeatmapFooterStat
+                    key={stat.label}
+                    stat={stat}
+                    widget={widget}
+                    style={
+                      index === 0 ? styles.footerStatCountItem : styles.footerStatDurationItem
+                    }
+                  />
                 ))}
               </View>
+            ) : null}
+            {resolvedFooterStats[2] ? (
+              <HeatmapFooterStat stat={resolvedFooterStats[2]} widget={widget} />
             ) : null}
             {widget.recentWorkoutLabel || resolvedFooterRecords.length ? (
               <View style={styles.footerRecords}>
@@ -226,9 +212,33 @@ export function HeatmapWidgetPreview({
                 )}
               </View>
             ) : null}
-          </View>
+          </>
         ) : null}
       </View>
+    </View>
+  );
+}
+
+function HeatmapFooterStat({
+  stat,
+  widget,
+  style,
+}: {
+  stat: { label: string; value: string };
+  widget: HeatmapWidgetProps;
+  style?: StyleProp<ViewStyle>;
+}) {
+  return (
+    <View style={[styles.footerStat, style]}>
+      <Text style={[styles.footerStatLabel, { color: widget.brandColor }]}>{stat.label}</Text>
+      <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.88}
+        style={[styles.footerStatValue, { color: widget.footerValueColor }]}
+      >
+        {stat.value}
+      </Text>
     </View>
   );
 }
@@ -428,9 +438,6 @@ const styles = StyleSheet.create({
   yearCell: {
     aspectRatio: 1,
   },
-  footerGroup: {
-    gap: 4,
-  },
   footerSummary: {
     fontSize: 11,
     lineHeight: 14,
@@ -466,15 +473,20 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0,
   },
-  footerStats: {
+  footerStatsTopRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
     gap: 4,
   },
   footerStat: {
-    flex: 1,
-    gap: 1,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  footerStatCountItem: {
+    flex: 0.7,
+  },
+  footerStatDurationItem: {
+    flex: 1.3,
   },
   footerStatLabel: {
     fontSize: 8,
@@ -483,8 +495,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
   footerStatValue: {
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 14,
+    lineHeight: 17,
     fontWeight: '800',
     letterSpacing: 0,
   },
