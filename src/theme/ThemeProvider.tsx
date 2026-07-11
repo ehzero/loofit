@@ -10,6 +10,7 @@ import {
 import { useColorScheme } from 'react-native';
 
 import { getAppSetting, setAppSetting } from '@/src/db/repository';
+import { updateAppWidgetTheme } from '@/src/widgets/pipeline';
 
 import {
   DEFAULT_ACCENT,
@@ -37,6 +38,7 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const deviceScheme = useColorScheme();
   const [mode, setModeState] = useState<ThemeMode>('system');
   const [accent, setAccentState] = useState<string>(DEFAULT_ACCENT);
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -54,8 +56,12 @@ export function ThemeProvider({ children }: PropsWithChildren) {
       if (savedAccent) {
         setAccentState(savedAccent);
       }
+      setIsHydrated(true);
     })().catch(() => {
       /* fall back to defaults if settings can't be read */
+      if (!cancelled) {
+        setIsHydrated(true);
+      }
     });
     return () => {
       cancelled = true;
@@ -76,6 +82,17 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     mode === 'system' ? (deviceScheme === 'light' ? 'light' : 'dark') : mode;
 
   const colors = useMemo(() => makeColors(scheme, accent), [scheme, accent]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+    updateAppWidgetTheme(colors).catch((error) => {
+      // Theme persistence in app_settings already succeeded (or is using the
+      // saved value). A later foreground reconcile will retry surface output.
+      console.warn('Widget theme update deferred', error);
+    });
+  }, [colors, isHydrated]);
 
   const value = useMemo<ThemeContextValue>(
     () => ({ mode, scheme, accent, colors, setMode, setAccent }),

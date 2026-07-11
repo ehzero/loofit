@@ -1,7 +1,6 @@
 import { BRAND } from '@/src/config/brand';
 import { formatDuration } from '@/src/domain/date';
-import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
-import type { AppOverview, HeatmapDay, WorkoutSession } from '@/src/types';
+import type { HeatmapDay } from '@/src/types';
 import type { ThemeColors } from '@/src/theme/tokens';
 
 import type { WorkoutLockScreenSummaryWidgetProps, WorkoutLockScreenWidgetProps } from './types';
@@ -71,90 +70,6 @@ export function buildWorkoutLockScreenProps(
   };
 }
 
-export function buildWorkoutLockScreenTimeline(
-  overview: AppOverview,
-  colors: ThemeColors
-): Array<{ date: Date; props: WorkoutLockScreenWidgetProps }> {
-  const current = buildWorkoutLockScreenPropsFromOverview(overview, colors);
-  const entries = [{ date: new Date(), props: current }];
-
-  if (current.state === 'completed') {
-    entries.push({
-      date: getTomorrowStart(),
-      props: buildIdleWorkoutLockScreenProps(overview, colors),
-    });
-  }
-
-  return entries;
-}
-
-export function buildWorkoutLockScreenPropsFromOverview(
-  overview: AppOverview,
-  colors: ThemeColors
-): WorkoutLockScreenWidgetProps {
-  const theme = lockScreenThemeFromColors(colors);
-
-  if (overview.activeSession) {
-    const display = sessionDisplay(overview.activeSession, overview.routineDays);
-    return buildWorkoutLockScreenProps({
-      state: 'active',
-      title: display.title,
-      detail: display.detail,
-      startedAt: overview.activeSession.startedAt,
-      ...theme,
-    });
-  }
-
-  if (overview.todaySessions.length > 0) {
-    const title = uniqueJoined(
-      overview.todaySessions.map((session) => sessionRoutineTitle(session, overview.routineDays))
-    );
-    const totalSeconds = overview.todaySessions.reduce(
-      (sum, session) => sum + session.durationSeconds,
-      0
-    );
-
-    return buildWorkoutLockScreenProps({
-      state: 'completed',
-      title,
-      durationLabel: formatDuration(totalSeconds),
-      ...theme,
-    });
-  }
-
-  return buildIdleWorkoutLockScreenProps(overview, colors);
-}
-
-export function buildIdleWorkoutLockScreenProps(
-  overview: AppOverview,
-  colors: ThemeColors
-): WorkoutLockScreenWidgetProps {
-  const nextDay = overview.nextRoutineDay;
-  const title = nextDay ? routineDayDisplayName(nextDay) : '루틴 설정 필요';
-  const detail = nextDay && hasRoutineDayAlias(nextDay)
-    ? nextDay.parts.map((part) => part.name).join(' · ')
-    : '';
-
-  return buildWorkoutLockScreenProps({
-    state: 'idle',
-    title,
-    detail,
-    ...lockScreenThemeFromColors(colors),
-  });
-}
-
-export function buildWorkoutLockScreenSummaryProps(
-  overview: AppOverview,
-  colors: ThemeColors
-): WorkoutLockScreenSummaryWidgetProps {
-  return buildWorkoutLockScreenSummaryFromCells({
-    workoutCount: overview.rangeStats.last7.workoutCount,
-    durationSeconds: overview.rangeStats.last7.durationSeconds,
-    cells: overview.heatmap7,
-    colors,
-  });
-}
-
 export function buildWorkoutLockScreenSummaryFromCells({
   cells,
   colors,
@@ -202,40 +117,6 @@ function lockScreenThemeProps(input: LockScreenThemeProps): LockScreenThemeProps
   };
 }
 
-function sessionRoutineTitle(
-  session: WorkoutSession,
-  routineDays: AppOverview['routineDays']
-): string {
-  const routineDay = session.routineDayId
-    ? routineDays.find((day) => day.id === session.routineDayId)
-    : null;
-  return routineDay ? routineDayDisplayName(routineDay) : joinSessionParts(session);
-}
-
-function sessionDisplay(
-  session: WorkoutSession,
-  routineDays: AppOverview['routineDays']
-): { title: string; detail: string; parts: string } {
-  const parts = joinSessionParts(session);
-  const routineDay = session.routineDayId
-    ? routineDays.find((day) => day.id === session.routineDayId)
-    : null;
-  const title = routineDay ? routineDayDisplayName(routineDay) : parts;
-  return {
-    title,
-    detail: routineDay && hasRoutineDayAlias(routineDay) && title !== parts ? parts : '',
-    parts,
-  };
-}
-
-function joinSessionParts(session: WorkoutSession): string {
-  return session.parts.map((part) => part.bodyPartName).join(' · ');
-}
-
-function uniqueJoined(values: string[]): string {
-  return [...new Set(values.filter(Boolean))].join(' · ');
-}
-
 function compactAccessoryValue(value: string): string {
   return [...value.replace(/\s+/g, '')].slice(0, 3).join('');
 }
@@ -245,7 +126,7 @@ function firstPartName(value: string): string {
 }
 
 function normalizeText(value: string): string {
-  return value.trim().split(' + ').join(' · ');
+  return value.trim();
 }
 
 function formatElapsedMinuteLabel(startedAt: string, now: Date): string {
@@ -255,11 +136,4 @@ function formatElapsedMinuteLabel(startedAt: string, now: Date): string {
   }
   const minutes = Math.max(0, Math.floor((now.getTime() - started.getTime()) / 60000));
   return `${minutes}분`;
-}
-
-function getTomorrowStart(): Date {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(0, 0, 0, 0);
-  return tomorrow;
 }

@@ -1,0 +1,24 @@
+diff --git a/node_modules/expo-sqlite/ios/ExpoSQLite.podspec b/node_modules/expo-sqlite/ios/ExpoSQLite.podspec
+index 4633866..6c2e95a 100644
+--- a/node_modules/expo-sqlite/ios/ExpoSQLite.podspec
++++ b/node_modules/expo-sqlite/ios/ExpoSQLite.podspec
+@@ -35,6 +35,10 @@ Pod::Spec.new do |s|
+       destination = File.join(__dir__, '..', 'ios', file)
+       FileUtils.cp(source, destination)
+     end
++    FileUtils.cp(
++      File.join(__dir__, '..', 'vendor', vendor_src, 'sqlite3.h'),
++      File.join(__dir__, 'ExpoSQLite3.h')
++    )
+   end
+ 
+   sqlite_cflags = '-DHAVE_USLEEP=1 -DSQLITE_ENABLE_LOCKING_STYLE=0 -DSQLITE_ENABLE_BYTECODE_VTAB=1 -DSQLITE_TEMP_STORE=2'
+@@ -73,6 +77,8 @@ Pod::Spec.new do |s|
+     'OTHER_SWIFT_FLAGS' => '$(inherited) ' + swift_flags,
+   }
+   s.source_files = "**/*.{c,h,m,swift}"
++  s.public_header_files = 'ExpoSQLite3.h'
++  s.private_header_files = 'sqlite3.h'
+ 
+   vendored_frameworks = []
+   if podfile_properties['expo.sqlite.useLibSQL'] == 'true'

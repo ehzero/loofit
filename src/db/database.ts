@@ -1,8 +1,8 @@
 import * as SQLite from 'expo-sqlite';
 import Constants from 'expo-constants';
 import { Platform } from 'react-native';
-import { widgetsDirectory } from 'expo-widgets';
 
+import { workoutCoreWidgetsDirectory } from '@/modules/loofit-workout-core';
 import { DATABASE_NAME, DATABASE_VERSION, DEFAULT_BODY_PARTS, MIGRATION_SQL } from './schema';
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
@@ -36,7 +36,7 @@ function getSharedDatabaseDirectory(): string | undefined {
   if (Platform.OS !== 'ios' || Constants.expoConfig?.extra?.widgetsEnabled !== true) {
     return undefined;
   }
-  return widgetsDirectory || undefined;
+  return workoutCoreWidgetsDirectory || undefined;
 }
 
 async function migrateDefaultDatabaseToSharedDirectory(

@@ -1,27 +1,3 @@
-export type WorkoutControlWidgetProps = {
-  state: 'idle' | 'active' | 'completed';
-  brandName: string;
-  background?: string;
-  labelColor?: string;
-  brandColor?: string;
-  titleColor?: string;
-  detailColor?: string;
-  secondaryButtonBackground?: string;
-  secondaryButtonText?: string;
-  /** Big headline: next workout, active workout, or completed workout display name. */
-  title: string;
-  /** Secondary part list shown under an alias title. */
-  detail?: string;
-  /** Secondary line (part list); empty string hides it. */
-  subtitle: string;
-  /** Completed state: formatted total duration. */
-  durationLabel: string;
-  startedAt?: string;
-  accent: string;
-  /** Contrast color for text on the accent CTA (custom-drawn button). */
-  accentText: string;
-};
-
 export type HeatmapWidgetProps = {
   /** Display title shown in the heatmap widget header. */
   title: string;
@@ -68,16 +44,6 @@ export type HeatmapWidgetProps = {
   headerGap: number;
   columns: number;
   monthGapColumns: number;
-};
-
-export type WorkoutLiveActivityProps = {
-  title: string;
-  subtitle: string;
-  startedAt: string;
-  accent: string;
-  accentText?: string;
-  background?: string;
-  titleColor?: string;
 };
 
 export type WorkoutLockScreenWidgetProps = {

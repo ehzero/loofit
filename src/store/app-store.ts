@@ -22,8 +22,13 @@ import {
   startWorkout,
   updateSession,
 } from '@/src/db/repository';
-import { syncWidgetsFromOverview } from '@/src/widgets/sync';
+import {
+  executeAppWorkoutCommand,
+  reconcileAppWorkoutSurfaces,
+  usesNativeWorkoutPipeline,
+} from '@/src/widgets/pipeline';
 import type { AppOverview, RoutineTemplate, SessionStatus, StartWorkoutInput } from '@/src/types';
+import type { WorkoutCommand } from '@/modules/loofit-workout-core';
 
 let initializationPromise: Promise<void> | null = null;
 
@@ -64,10 +69,10 @@ type AppState = {
   resetDevData: () => Promise<void>;
 };
 
-async function loadAndSync(): Promise<AppOverview> {
+async function loadAndReconcile(): Promise<AppOverview> {
   const overview = await getOverview();
-  await syncWidgetsFromOverview(overview).catch((error) => {
-    console.warn(`[${BRAND.displayName}] Widget sync skipped`, error);
+  await reconcileAppWorkoutSurfaces().catch((error) => {
+    console.warn(`[${BRAND.displayName}] Workout surface reconcile skipped`, error);
   });
   return overview;
 }
@@ -89,7 +94,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ isBusy: true, error: null });
     initializationPromise = (async () => {
       try {
-        const overview = await loadAndSync();
+        const overview = await loadAndReconcile();
         set({ overview, isReady: true, isBusy: false });
       } catch (error) {
         set({
@@ -107,41 +112,75 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   refresh: async () => {
     try {
-      const overview = await loadAndSync();
+      const overview = await loadAndReconcile();
       set({ overview, isReady: true, error: null });
     } catch (error) {
       set({ error: error instanceof Error ? error.message : '새로고침에 실패했어요.' });
     }
   },
 
-  createTemplate: async (template) => runAction(set, async () => createRoutineFromTemplate(template)),
-  createCustom: async () => runAction(set, createEmptyRoutine),
-  start: async (input) => runAction(set, async () => startWorkout(input)),
-  completeActive: async () => runAction(set, completeActiveWorkout),
-  cancelActive: async () => runAction(set, cancelActiveWorkout),
-  changeActive: async (input) => runAction(set, async () => changeActiveWorkout(input)),
-  addPart: async (name) => runAction(set, async () => addBodyPart(name)),
-  archivePart: async (id) => runAction(set, async () => archiveBodyPart(id)),
-  addDay: async (name, bodyPartIds) => runAction(set, async () => addRoutineDay(name, bodyPartIds)),
-  addEmptyDay: async (name) => runAction(set, async () => addEmptyRoutineDay(name)),
-  renameDay: async (dayId, name) => runAction(set, async () => renameRoutineDay(dayId, name)),
-  setDayParts: async (dayId, bodyPartIds) => runAction(set, async () => setRoutineDayParts(dayId, bodyPartIds)),
-  moveDay: async (dayId, direction) => runAction(set, async () => moveRoutineDay(dayId, direction)),
-  deleteDay: async (dayId) => runAction(set, async () => deleteRoutineDay(dayId)),
-  chooseNextDay: async (routineDayId) => runAction(set, async () => setNextRoutineDay(routineDayId)),
-  updateRecord: async (id, updates) => runAction(set, async () => updateSession(id, updates)),
-  deleteRecord: async (id) => runAction(set, async () => deleteSession(id)),
-  resetDevData: async () => runAction(set, resetAllData),
+  createTemplate: async (template) =>
+    runMutationAction(set, async () => createRoutineFromTemplate(template)),
+  createCustom: async () => runMutationAction(set, createEmptyRoutine),
+  start: async (input) =>
+    runWorkoutAction(set, startCommand(input), async () => startWorkout(input)),
+  completeActive: async () => {
+    const sessionId = get().overview?.activeSession?.id;
+    return runWorkoutAction(
+      set,
+      sessionId ? { type: 'complete', expectedSessionId: sessionId } : null,
+      completeActiveWorkout
+    );
+  },
+  cancelActive: async () => {
+    const sessionId = get().overview?.activeSession?.id;
+    return runWorkoutAction(
+      set,
+      sessionId ? { type: 'cancel', expectedSessionId: sessionId } : null,
+      cancelActiveWorkout
+    );
+  },
+  changeActive: async (input) => {
+    const sessionId = get().overview?.activeSession?.id;
+    return runWorkoutAction(
+      set,
+      sessionId ? changeCommand(input, sessionId) : null,
+      async () => changeActiveWorkout(input)
+    );
+  },
+  addPart: async (name) => runMutationAction(set, async () => addBodyPart(name)),
+  archivePart: async (id) => runMutationAction(set, async () => archiveBodyPart(id)),
+  addDay: async (name, bodyPartIds) =>
+    runMutationAction(set, async () => addRoutineDay(name, bodyPartIds)),
+  addEmptyDay: async (name) => runMutationAction(set, async () => addEmptyRoutineDay(name)),
+  renameDay: async (dayId, name) =>
+    runMutationAction(set, async () => renameRoutineDay(dayId, name)),
+  setDayParts: async (dayId, bodyPartIds) =>
+    runMutationAction(set, async () => setRoutineDayParts(dayId, bodyPartIds)),
+  moveDay: async (dayId, direction) =>
+    runMutationAction(set, async () => moveRoutineDay(dayId, direction)),
+  deleteDay: async (dayId) => runMutationAction(set, async () => deleteRoutineDay(dayId)),
+  chooseNextDay: async (routineDayId) =>
+    runMutationAction(set, async () => setNextRoutineDay(routineDayId)),
+  updateRecord: async (id, updates) =>
+    runMutationAction(set, async () => updateSession(id, updates)),
+  deleteRecord: async (id) => runMutationAction(set, async () => deleteSession(id)),
+  resetDevData: async () => runMutationAction(set, resetAllData),
 }));
 
-async function runAction(
+async function runMutationAction(
   set: (state: Partial<AppState>) => void,
   action: () => Promise<unknown>
 ): Promise<void> {
   set({ isBusy: true, error: null });
   try {
     await action();
-    const overview = await loadAndSync();
+    await reconcileAppWorkoutSurfaces().catch((error) => {
+      // The mutation is already committed. Keep the app responsive and leave
+      // the dirty revision for the next foreground reconcile to recover.
+      console.warn(`[${BRAND.displayName}] Workout surface reconcile deferred`, error);
+    });
+    const overview = await getOverview();
     set({ overview, isReady: true, isBusy: false });
   } catch (error) {
     set({
@@ -149,4 +188,47 @@ async function runAction(
       isBusy: false,
     });
   }
+}
+
+async function runWorkoutAction(
+  set: (state: Partial<AppState>) => void,
+  command: WorkoutCommand | null,
+  fallback: () => Promise<unknown>
+): Promise<void> {
+  set({ isBusy: true, error: null });
+  try {
+    if (usesNativeWorkoutPipeline()) {
+      if (command) {
+        const result = await executeAppWorkoutCommand(command);
+        if (result.status === 'rejected') {
+          throw new Error('운동 상태를 변경하지 못했어요. 잠시 후 다시 시도해 주세요.');
+        }
+      }
+    } else {
+      await fallback();
+    }
+
+    // The native command has already projected the committed state to every
+    // surface. Only reload the app cache here; a second reconcile would add
+    // latency to the start/end critical path.
+    const overview = await getOverview();
+    set({ overview, isReady: true, isBusy: false });
+  } catch (error) {
+    set({
+      error: error instanceof Error ? error.message : '작업을 완료하지 못했어요.',
+      isBusy: false,
+    });
+  }
+}
+
+function startCommand(input: StartWorkoutInput): WorkoutCommand {
+  return input.kind === 'routine'
+    ? { type: 'startRoutine', routineDayId: input.routineDayId }
+    : { type: 'startFree', bodyPartIds: input.bodyPartIds, label: input.label };
+}
+
+function changeCommand(input: StartWorkoutInput, expectedSessionId: number): WorkoutCommand {
+  return input.kind === 'routine'
+    ? { type: 'changeRoutine', expectedSessionId, routineDayId: input.routineDayId }
+    : { type: 'changeFree', expectedSessionId, bodyPartIds: input.bodyPartIds };
 }

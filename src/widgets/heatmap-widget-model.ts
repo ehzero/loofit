@@ -1,8 +1,7 @@
 import { BRAND } from '@/src/config/brand';
-import { addLocalDays, formatDuration, startOfLocalDay } from '@/src/domain/date';
-import { joinPartNames, routineDayDisplayName } from '@/src/domain/routine';
+import { formatDuration } from '@/src/domain/date';
 import { heatColor, type ThemeColors } from '@/src/theme/tokens';
-import type { HeatmapDay, RangeStats, RoutineDay, WorkoutSession } from '@/src/types';
+import type { HeatmapDay, RangeStats } from '@/src/types';
 
 import type { HeatmapWidgetProps } from './types';
 import { WIDGET_PREVIEW_SPEC, type HeatmapWidgetVariant } from './widget-spec';
@@ -99,36 +98,6 @@ export function formatSixMonthHeatmapWidgetTitle(stats: RangeStats): string {
   )} · 평균 ${formatDuration(averageDurationSeconds(stats))}`;
 }
 
-export function buildWeekHeatmapFooterProps({
-  stats,
-  recentSessions,
-  routineDays,
-  now = new Date(),
-}: {
-  stats: RangeStats;
-  recentSessions: WorkoutSession[];
-  routineDays: RoutineDay[];
-  now?: Date;
-}): HeatmapWidgetFooterProps {
-  const records = recentSessions
-    .filter((session) => isRecentCompletedSession(session, now))
-    .slice(0, 2)
-    .map((session) => ({
-      title: `${workoutRecordTitle(session, routineDays)} · ${formatDuration(session.durationSeconds)}`,
-      meta: relativeWorkoutDayLabel(session.startedAt, now),
-    }));
-
-  return {
-    footerStatLabels: '총 시간,평균',
-    footerStatValues: `${formatDuration(stats.durationSeconds)},${formatDuration(
-      averageDurationSeconds(stats)
-    )}`,
-    recentWorkoutLabel: '최근 운동',
-    recentWorkoutTitles: records.map((record) => record.title).join(','),
-    recentWorkoutMetas: records.map((record) => record.meta).join(','),
-  };
-}
-
 function averageDurationSeconds(stats: RangeStats): number {
   return stats.workoutCount ? Math.round(stats.durationSeconds / stats.workoutCount) : 0;
 }
@@ -214,43 +183,6 @@ function heatmapCellColor(colors: ThemeColors, cell: HeatmapCellInput): string {
 
 function heatmapCellLabelColor(colors: ThemeColors, cell: HeatmapCellInput): string {
   return cell.isGap ? colors.tx3 : heatmapLabelColor(colors, cell.bucket);
-}
-
-function isRecentCompletedSession(session: WorkoutSession, now: Date): boolean {
-  if (session.status !== 'completed') {
-    return false;
-  }
-
-  const today = startOfLocalDay(now);
-  return new Date(session.startedAt).getTime() >= addLocalDays(today, -6).getTime();
-}
-
-function relativeWorkoutDayLabel(startedAt: string, now: Date): string {
-  const today = startOfLocalDay(now);
-  const startedDay = startOfLocalDay(new Date(startedAt));
-  const diffDays = Math.max(
-    0,
-    Math.floor((today.getTime() - startedDay.getTime()) / (24 * 60 * 60 * 1000))
-  );
-
-  if (diffDays === 0) {
-    return '오늘';
-  }
-  if (diffDays === 1) {
-    return '어제';
-  }
-  return `${diffDays}일 전`;
-}
-
-function workoutRecordTitle(session: WorkoutSession, routineDays: RoutineDay[]): string {
-  if (session.routineDayId) {
-    const routineDay = routineDays.find((day) => day.id === session.routineDayId);
-    if (routineDay) {
-      return routineDayDisplayName(routineDay);
-    }
-  }
-
-  return joinPartNames(session.parts.map((part) => ({ name: part.bodyPartName })));
 }
 
 function buildRecentMonthCells(cells: HeatmapCellInput[], months: number): HeatmapCellInput[] {

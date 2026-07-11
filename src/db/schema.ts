@@ -1,5 +1,30 @@
 export const DATABASE_NAME = 'loofit.db';
-export const DATABASE_VERSION = 1;
+export const DATABASE_VERSION = 2;
+
+const WIDGET_SYNC_TRACKED_TABLES = [
+  'body_parts',
+  'routines',
+  'routine_days',
+  'routine_day_parts',
+  'workout_sessions',
+  'workout_session_parts_snapshot',
+  'routine_progress',
+  'app_settings',
+] as const;
+
+const WIDGET_SYNC_TRIGGER_SQL = WIDGET_SYNC_TRACKED_TABLES.flatMap((table) =>
+  (['INSERT', 'UPDATE', 'DELETE'] as const).map(
+    (operation) => `
+CREATE TRIGGER IF NOT EXISTS widget_sync_${table}_${operation.toLowerCase()}
+AFTER ${operation} ON ${table}
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;`
+  )
+).join('\n');
 
 export const MIGRATION_SQL = `
 CREATE TABLE IF NOT EXISTS body_parts (
@@ -71,11 +96,50 @@ CREATE TABLE IF NOT EXISTS app_settings (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS widget_sync_state (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  desired_revision INTEGER NOT NULL DEFAULT 1,
+  published_revision INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT,
+  updated_at TEXT NOT NULL
+);
+
+INSERT OR IGNORE INTO widget_sync_state
+  (id, desired_revision, published_revision, last_error, updated_at)
+VALUES
+  (1, 1, 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+
 CREATE INDEX IF NOT EXISTS idx_sessions_status_started_at
   ON workout_sessions(status, started_at);
 
 CREATE INDEX IF NOT EXISTS idx_session_parts_session_id
   ON workout_session_parts_snapshot(workout_session_id);
+
+-- Older experimental builds could create more than one active row because
+-- the single-active rule only lived in application code. Preserve the newest
+-- session and turn the rest into canceled history before adding the invariant.
+UPDATE workout_sessions
+SET status = 'canceled',
+    ended_at = COALESCE(ended_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+    duration_seconds = CAST(MAX(
+      0,
+      (julianday('now') - COALESCE(julianday(started_at), julianday('now'))) * 86400
+    ) AS INTEGER),
+    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+WHERE status = 'active'
+  AND id NOT IN (
+    SELECT id
+    FROM workout_sessions
+    WHERE status = 'active'
+    ORDER BY started_at DESC, id DESC
+    LIMIT 1
+  );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_single_active
+  ON workout_sessions(status)
+  WHERE status = 'active';
+
+${WIDGET_SYNC_TRIGGER_SQL}
 `;
 
 export const DEFAULT_BODY_PARTS = [

@@ -1,19 +1,12 @@
 # AGENTS.md
 
-이 repo에서 작업하는 에이전트는 먼저 제품 맥락을 확인한 뒤 구현한다.
-
-## 먼저 읽을 문서
-
-- MVP 정책과 구현 기준: [docs/mvp-plan.md](docs/mvp-plan.md)
-- 디자이너 전달용 제품 맥락: [docs/design-brief.md](docs/design-brief.md)
-
-두 문서의 내용이 충돌하면 `docs/mvp-plan.md`를 우선한다.
+이 문서는 제품 정책과 구현 기준의 기준 문서다. 구현 전에 관련 항목을 먼저 확인하고, 제품 동작을 바꾸는 경우 코드와 함께 이 문서를 갱신한다.
 
 ## 제품 요약
 
 핏로그는 세트, 중량, 반복 횟수를 기록하는 앱이 아니다.
 
-사용자가 자신의 루틴을 설정하면 앱이 다음 운동을 안내하고, 사용자는 앱 또는 위젯에서 운동을 시작/종료한다. 기록은 운동 시간, 운동 부위, 상태를 중심으로 쌓이고 7일/30일 히트맵과 대시보드로 확인한다.
+사용자가 자신의 루틴을 설정하면 앱이 다음 운동을 안내하고, 사용자는 앱 또는 위젯에서 운동을 시작/종료한다. 기록은 운동 시간, 운동 부위, 상태를 중심으로 쌓이고 히트맵과 대시보드로 확인한다.
 
 핵심 문구:
 
@@ -40,7 +33,18 @@
 - 하루에 여러 개의 루틴 운동을 완료하면 완료 횟수만큼 루틴이 진행된다.
 - 기록 수정/삭제는 다음 운동을 자동 재계산하지 않는다.
 - 다음 운동이 어긋났다면 사용자가 루틴 설정에서 다음 운동 시작점을 직접 조정한다.
+- 운동 중 운동 대상을 변경해도 같은 세션과 경과 시간을 유지하고 최종 운동 대상만 바꾼다.
 - active 세션은 앱 종료, 백그라운드, 장시간 방치와 관계없이 유지하고 앱 재실행 시 복구한다.
+- 과거 기록은 저장 시점의 운동 부위 스냅샷으로 표시하며, 이후 루틴이나 운동 부위 이름 변경의 영향을 받지 않는다.
+
+## 제품 경험 기준
+
+- 홈은 앱의 중심 화면이며 운동 전, 운동 중, 운동 후 상태를 한 화면 흐름 안에서 처리한다.
+- 운동 전에는 다음 운동과 시작 액션, 운동 중에는 현재 운동과 경과 시간 및 종료 액션, 운동 후에는 완료 기록과 다음 운동을 우선한다.
+- 사용자는 첫 실행에서 루틴이 없음을 이해하고, 루틴을 만든 뒤 첫 운동 시작까지 막힘없이 도달할 수 있어야 한다.
+- 다음 운동 시작은 가장 짧은 경로로 제공하되, 루틴 안의 다른 분할과 자유 운동 선택은 앱 안에서 제공한다.
+- 운동 종료 후에는 기록, 히트맵, 다음 운동 반영을 통해 저장 완료를 명확히 확인할 수 있어야 한다.
+- 위젯은 빠른 확인과 시작/종료에 집중하고, 루틴 선택·자유 운동·설정·기록 수정 같은 복잡한 조작은 앱에서 수행한다.
 
 ## MVP 범위
 
@@ -53,7 +57,7 @@
 - 루틴 안의 다른 분할 선택
 - 루틴 밖 자유 운동
 - 기록 목록, 기록 상세, 수정, 삭제
-- 7일/30일 히트맵
+- 7일/30일/6개월 히트맵
 - 운동 기록 대시보드
 - iOS 위젯과 Live Activity 우선 검증
 
@@ -66,7 +70,6 @@
 - 커뮤니티, 친구 공유
 - 로그인, 백엔드, 클라우드 동기화
 - 구독 결제
-- 1년 히트맵
 - 운동 일시정지
 
 ## 구현 기준
@@ -74,22 +77,47 @@
 - React Native + Expo + TypeScript + Expo Router 기반이다.
 - 패키지 매니저는 `npm`을 사용한다.
 - SQLite를 영속 데이터의 원천으로 사용하고, Zustand는 현재 세션과 화면 상태 캐시로 사용한다.
+- 로그인과 백엔드 동기화 없이 Local-first로 동작한다.
 - 날짜 계산과 히트맵 귀속은 기기 로컬 시간 기준으로 처리한다.
 - 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build 기준으로 검증한다.
 - Android 위젯과 고정 알림은 iOS MVP 반응 확인 후 확장한다.
 
-## 위젯 구현 참고
+## 위젯 아키텍처
 
-- `/ios`와 `/android`는 생성 산출물로 ignore되어 있으므로, 유지해야 하는 네이티브 위젯 변경은 config plugin으로 남긴다.
-- 히트맵 iOS 위젯은 `plugins/with-loofit-heatmap-widgets.js`가 생성하는 SwiftUI `GeometryReader` 렌더러가 실제 화면을 그린다.
-- `src/widgets/HeatmapCalendarWidget.tsx`는 히트맵을 그리는 원천이 아니라, `expo-widgets` timeline snapshot props를 업데이트하기 위한 핸들이다.
-- 앱 내 히트맵 위젯 미리보기와 실제 위젯은 `src/widgets/widget-spec.ts`와 `src/widgets/heatmap-widget-model.ts`의 값을 공유한다.
-- 히트맵 셀 크기는 고정값이 아니라 `cellSize = (contentWidth - gap * (columns - 1)) / columns` 규칙으로 계산한다.
+### 제공 범위
+
+- 홈 화면 운동 위젯: 다음 운동 시작, 운동 중 경과 시간과 종료, 당일 완료 상태를 제공한다.
+- 홈 화면 히트맵 위젯: 최근 7일, 30일, 6개월 기록을 제공한다. 코드의 `year` variant와 `HeatmapYearWidget` 이름은 6개월 위젯 구현에 사용되는 내부 명칭이다.
+- 잠금 화면 위젯: 다음 운동, 운동 중, 당일 완료 상태와 최근 7일 요약을 제공한다.
+- Live Activity: 운동 중 상태, 경과 시간, 종료 액션을 제공한다.
+- 운동 완료 상태는 당일 자정까지 유지하고 다음 날 다음 운동 상태로 돌아간다.
+
+### 구현 원칙
+
+- `/ios`와 `/android`는 생성 산출물로 ignore되어 있다. 유지해야 하는 네이티브 변경은 config plugin, `plugins/native-widgets`, 로컬 Expo 모듈, patch-package 중 해당 원천에 남긴다.
+- `modules/loofit-workout-core`가 iOS 앱, 홈·잠금 화면 위젯, Live Activity가 공유하는 운동 명령과 surface 동기화의 단일 원천이다. 시작, 운동 대상 변경, 종료, 취소 정책은 이 모듈에서 SQLite 트랜잭션으로 처리한다.
+- `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
+- 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
+- 앱 내 위젯 미리보기와 실제 위젯은 `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`의 표시 모델과 값을 공유한다. RN과 SwiftUI 렌더러는 분리되어 있으므로 한쪽만 변경하지 않는다.
+- 히트맵 셀 크기는 고정값이 아니라 컨테이너 너비, padding, gap, 열 수를 기준으로 동적 계산한다.
+- iOS에서 앱과 위젯은 App Group의 `widgetsDirectory`에 있는 SQLite DB를 공유한다. 기존 기본 DB는 공유 DB가 비어 있을 때 한 번 이전한다.
+- 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 App Group 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity를 조정한다.
+- 앱, 홈 위젯, Live Activity의 시작·종료 진입점은 모두 같은 Core pipeline을 호출한다. 앱 초기화·foreground와 루틴·기록·테마 변경 후 reconcile이 미완료 revision을 복구한다.
+- 완료·취소·운동 대상 변경은 `expectedSessionId`가 현재 active 세션과 일치할 때만 적용해 오래된 위젯 액션이 새 세션을 변경하지 못하게 한다.
+- `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`는 앱 내 미리보기용으로 유지하며 실제 native runtime 동기화 코드로 사용하지 않는다.
+- `LOOFIT_APP_ONLY=1`은 `expo-widgets` plugin과 공유 DB 사용을 끄되 iOS 앱의 운동 명령은 같은 Core를 사용하고 surface 발행만 생략한다.
+
+### 위젯 검증
+
+- 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build에서 검증한다.
+- JS/TS 표시 모델은 앱 미리보기로 빠르게 확인할 수 있지만, 실제 크기·폰트·타이머·AppIntent·자정 전환은 설치된 iOS 위젯에서 확인한다.
+- config plugin, `plugins/native-widgets`, `modules/loofit-workout-core`, `app.config.js`, `app.json` 변경 후에는 `npm run ios`로 네이티브 앱을 다시 생성·빌드한다.
 
 ## 자주 쓰는 명령
 
 - `npm run typecheck`
 - `npm test`
+- `npm run test:ios-core`
 - `npm run ios`
 - `npm run start`
 
@@ -189,6 +217,6 @@ TestFlight 제출:
 
 Patch 관리:
 
-- `patches/expo-widgets+57.0.3.patch`는 위젯 AppIntent 동작을 위해 유지한다.
-- `patches/expo-modules-jsi+57.0.1.patch`는 삭제했다. 해당 파일은 실제 소스 수정뿐 아니라 `DerivedData`, xcframework 산출물, LICENSE 삭제 등이 섞인 잘못된 patch-package 파일이었고 `npm install`의 `postinstall`을 실패시켰다.
-- `expo-modules-jsi` 패치가 다시 필요하면 빌드 산출물이 섞이지 않게 `node_modules/expo-modules-jsi/apple/Sources/**` 같은 실제 소스 변경만 남긴 뒤 `npx patch-package expo-modules-jsi`로 새로 만든다.
+- 위젯 도메인 동작은 repo 소유 Core와 native widget source로 이동했으므로 `expo-widgets` patch를 다시 만들지 않는다.
+- `patches/expo-modules-jsi+57.0.1.patch`는 Swift 6 호환을 위한 `apple/Sources/**` 실제 소스 변경만 포함한다. DerivedData, xcframework, LICENSE 같은 산출물을 포함하지 않는다.
+- `patches/expo-sqlite+57.0.0.patch`는 Expo 접두사 SQLite 헤더가 시스템 `sqlite3.h`와 충돌하지 않도록 CocoaPods 공개 헤더명을 분리한다.

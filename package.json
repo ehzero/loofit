@@ -2,6 +2,13 @@
   "name": "loofit",
   "main": "expo-router/entry",
   "version": "1.0.0",
+  "expo": {
+    "autolinking": {
+      "exclude": [
+        "expo-widgets"
+      ]
+    }
+  },
   "dependencies": {
     "@expo/vector-icons": "^15.0.2",
     "expo": "~57.0.4",
@@ -41,6 +48,7 @@
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && npm run lint:tokens",
+    "test:ios-core": "./scripts/test-ios-workout-core.sh",
     "postinstall": "patch-package",
     "lint:tokens": "./scripts/check-style-tokens.sh"
   },
