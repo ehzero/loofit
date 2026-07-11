@@ -41,23 +41,25 @@ export function HeatmapWidgetPreview({
         { backgroundColor: widget.background, gap: widget.headerGap, padding: widget.contentPadding },
         style,
       ]}>
-      <View style={styles.header}>
-        <Text
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.75}
-          style={[
-            styles.title,
-            {
-              color: widget.titleColor,
-              fontSize: Math.max(widget.titleSize - 1, 9),
-              lineHeight: Math.max(WIDGET_PREVIEW_SPEC.text.label.lineHeight - 1, 12),
-            },
-          ]}
-        >
-          {title}
-        </Text>
-      </View>
+      {variant !== 'week' ? (
+        <View style={styles.header}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.75}
+            style={[
+              styles.title,
+              {
+                color: widget.titleColor,
+                fontSize: Math.max(widget.titleSize - 1, 9),
+                lineHeight: Math.max(WIDGET_PREVIEW_SPEC.text.label.lineHeight - 1, 12),
+              },
+            ]}
+          >
+            {title}
+          </Text>
+        </View>
+      ) : null}
       <View style={[styles.body, hasFooter ? styles.bodyWithFooter : styles.bodyCentered]}>
         {variant === 'year' ? (
           <YearHeatmapPreview rows={rows} widget={widget} />
@@ -150,7 +152,7 @@ export function HeatmapWidgetPreview({
                     <Text
                       numberOfLines={1}
                       adjustsFontSizeToFit
-                      minimumFontScale={0.8}
+                      minimumFontScale={0.6}
                       style={[
                         styles.footerStatValue,
                         {
@@ -468,7 +470,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 4,
   },
   footerStat: {
     flex: 1,

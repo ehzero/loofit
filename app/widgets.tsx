@@ -918,14 +918,16 @@ function buildPreviewLockScreenWidgets(colors: ThemeColors): {
 }
 
 function buildPreviewWeekFooter(stats: RangeStats): HeatmapWidgetFooterProps {
+  const hasRecentWorkout = stats.workoutCount > 0;
+
   return {
-    footerStatLabels: '총 시간,평균',
-    footerStatValues: `${formatDuration(stats.durationSeconds)},${formatDuration(
+    footerStatLabels: '횟수,총 시간,평균',
+    footerStatValues: `${stats.workoutCount}회,${formatDuration(stats.durationSeconds)},${formatDuration(
       averageDurationSeconds(stats)
     )}`,
     recentWorkoutLabel: '최근 운동',
-    recentWorkoutTitles: 'Push · 1시간 8분,Pull · 48분',
-    recentWorkoutMetas: '오늘,어제',
+    recentWorkoutTitles: hasRecentWorkout ? 'Push · 1시간 8분,Pull · 48분' : '',
+    recentWorkoutMetas: hasRecentWorkout ? '오늘,어제' : '',
   };
 }
 

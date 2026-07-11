@@ -295,87 +295,6 @@ enum LoofitHeatmapVariant {
   case sixMonths
 }
 
-struct LoofitHeatmapDay: Identifiable {
-  let date: Date
-  let dateKey: String
-  let workoutCount: Int
-  let durationSeconds: Int
-  let inRange: Bool
-
-  var id: String { dateKey }
-}
-
-enum LoofitHeatmapProjection {
-  static func days(
-    snapshot: LoofitWorkoutSnapshot?,
-    endingAt date: Date,
-    count: Int
-  ) -> [LoofitHeatmapDay] {
-    let calendar = Calendar.current
-    let end = calendar.startOfDay(for: date)
-    let start = calendar.date(byAdding: .day, value: -(count - 1), to: end) ?? end
-    return range(snapshot: snapshot, start: start, end: end, inRangeStart: start)
-  }
-
-  static func month(snapshot: LoofitWorkoutSnapshot?, endingAt date: Date) -> [LoofitHeatmapDay] {
-    let calendar = Calendar.current
-    let end = calendar.startOfDay(for: date)
-    let rangeStart = calendar.date(byAdding: .day, value: -29, to: end) ?? end
-    let weekday = calendar.component(.weekday, from: rangeStart)
-    let gridStart = calendar.date(byAdding: .day, value: -(weekday - 1), to: rangeStart) ?? rangeStart
-    return range(snapshot: snapshot, start: gridStart, end: end, inRangeStart: rangeStart)
-  }
-
-  static func sixMonths(snapshot: LoofitWorkoutSnapshot?, endingAt date: Date) -> [LoofitHeatmapDay] {
-    let calendar = Calendar.current
-    let end = calendar.startOfDay(for: date)
-    let currentMonth = calendar.date(from: calendar.dateComponents([.year, .month], from: end)) ?? end
-    let rangeStart = calendar.date(byAdding: .month, value: -5, to: currentMonth) ?? currentMonth
-    let weekday = calendar.component(.weekday, from: rangeStart)
-    let gridStart = calendar.date(byAdding: .day, value: -(weekday - 1), to: rangeStart) ?? rangeStart
-    return range(snapshot: snapshot, start: gridStart, end: end, inRangeStart: rangeStart)
-  }
-
-  private static func range(
-    snapshot: LoofitWorkoutSnapshot?,
-    start: Date,
-    end: Date,
-    inRangeStart: Date
-  ) -> [LoofitHeatmapDay] {
-    let values = Dictionary(
-      uniqueKeysWithValues: (snapshot?.dailyCompleted ?? []).map { ($0.dateKey, $0) }
-    )
-    let calendar = Calendar.current
-    var result: [LoofitHeatmapDay] = []
-    var cursor = start
-    while cursor <= end {
-      let key = dateKey(cursor)
-      let aggregate = values[key]
-      result.append(
-        LoofitHeatmapDay(
-          date: cursor,
-          dateKey: key,
-          workoutCount: aggregate?.workoutCount ?? 0,
-          durationSeconds: aggregate?.durationSeconds ?? 0,
-          inRange: cursor >= inRangeStart
-        )
-      )
-      cursor = calendar.date(byAdding: .day, value: 1, to: cursor) ?? end.addingTimeInterval(1)
-    }
-    return result
-  }
-
-  static func dateKey(_ date: Date) -> String {
-    let components = Calendar.current.dateComponents([.year, .month, .day], from: date)
-    return String(
-      format: "%04d-%02d-%02d",
-      components.year ?? 0,
-      components.month ?? 0,
-      components.day ?? 0
-    )
-  }
-}
-
 struct LoofitHeatmapWidgetView: View {
   let entry: LoofitWidgetEntry
   let title: String
@@ -392,18 +311,25 @@ struct LoofitHeatmapWidgetView: View {
     }
   }
 
-  private var count: Int { days.reduce(0) { $0 + $1.workoutCount } }
-  private var duration: Int { days.reduce(0) { $0 + $1.durationSeconds } }
+  private var count: Int {
+    days.filter(\.inRange).reduce(0) { $0 + $1.workoutCount }
+  }
+
+  private var duration: Int {
+    days.filter(\.inRange).reduce(0) { $0 + $1.durationSeconds }
+  }
 
   var body: some View {
     GeometryReader { geometry in
       VStack(alignment: .leading, spacing: variant == .week ? 8 : 8) {
-        Text(headerTitle)
-          .font(.system(size: variant == .sixMonths ? 10 : 11, weight: .semibold))
-          .foregroundStyle(LoofitColor(entry.palette.tx3))
-          .opacity(0.82)
-          .lineLimit(1)
-          .minimumScaleFactor(0.68)
+        if variant != .week {
+          Text(headerTitle)
+            .font(.system(size: variant == .sixMonths ? 10 : 11, weight: .semibold))
+            .foregroundStyle(LoofitColor(entry.palette.tx3))
+            .opacity(0.82)
+            .lineLimit(1)
+            .minimumScaleFactor(0.68)
+        }
 
         if variant == .sixMonths {
           sixMonthGrid(available: geometry.size)
@@ -437,8 +363,9 @@ struct LoofitHeatmapWidgetView: View {
     let rows = days.chunked(into: 7)
     let gap: CGFloat = variant == .week ? 4 : 3
     let reservedFooter: CGFloat = variant == .week ? 63 : 0
+    let reservedHeader: CGFloat = variant == .week ? 0 : 22
     let width = max(0, available.width - 32 - gap * 6)
-    let height = max(0, available.height - 32 - 22 - reservedFooter - gap * CGFloat(max(rows.count - 1, 0)))
+    let height = max(0, available.height - 32 - reservedHeader - reservedFooter - gap * CGFloat(max(rows.count - 1, 0)))
     let cell = max(0, min(width / 7, height / CGFloat(max(rows.count, 1))))
     return VStack(alignment: .leading, spacing: gap) {
       HStack(spacing: gap) {
@@ -455,7 +382,7 @@ struct LoofitHeatmapWidgetView: View {
             ZStack {
               RoundedRectangle(cornerRadius: variant == .week ? 4 : 3)
                 .fill(color(for: day))
-              if day.inRange {
+              if day.inRange || variant == .month {
                 Text("\(Calendar.current.component(.day, from: day.date))")
                   .font(.system(size: variant == .week ? 8 : 7, weight: .heavy))
                   .foregroundStyle(day.durationSeconds >= 90 * 60 ? LoofitColor(entry.palette.accentText) : LoofitColor(entry.palette.tx3))
@@ -475,27 +402,32 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private func sixMonthGrid(available: CGSize) -> some View {
-    let weeks = days.chunked(into: 7)
+    let columns = LoofitHeatmapProjection.sixMonthColumns(from: days)
     let gap: CGFloat = 2
-    let width = max(0, available.width - 32 - gap * CGFloat(max(weeks.count - 1, 0)))
+    let width = max(0, available.width - 32 - gap * CGFloat(max(columns.count - 1, 0)))
     let height = max(0, available.height - 32 - 22 - gap * 6 - 12)
-    let cell = max(0, min(width / CGFloat(max(weeks.count, 1)), height / 7))
+    let cell = max(0, min(width / CGFloat(max(columns.count, 1)), height / 7))
     return HStack(alignment: .top, spacing: gap) {
-      ForEach(Array(weeks.enumerated()), id: \.offset) { index, week in
+      ForEach(columns) { column in
         VStack(alignment: .leading, spacing: gap) {
-          Text(monthLabel(for: index, weeks: weeks))
+          Text(column.monthLabel)
             .font(.system(size: 9, weight: .heavy))
             .foregroundStyle(LoofitColor(entry.palette.tx4))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
             .frame(width: cell, height: 12, alignment: .leading)
-          ForEach(week) { day in
-            RoundedRectangle(cornerRadius: 2)
-              .fill(color(for: day))
-              .frame(width: cell, height: cell)
+          ForEach(column.slots) { slot in
+            switch slot {
+            case .day(let day):
+              RoundedRectangle(cornerRadius: 2)
+                .fill(color(for: day))
+                .frame(width: cell, height: cell)
+            case .gap:
+              Color.clear.frame(width: cell, height: cell)
+            }
           }
-          if week.count < 7 {
-            ForEach(week.count..<7, id: \.self) { _ in
+          if column.slots.count < 7 {
+            ForEach(column.slots.count..<7, id: \.self) { _ in
               Color.clear.frame(width: cell, height: cell)
             }
           }
@@ -504,28 +436,26 @@ struct LoofitHeatmapWidgetView: View {
     }
   }
 
-  private func monthLabel(for index: Int, weeks: [[LoofitHeatmapDay]]) -> String {
-    guard let first = weeks[index].first(where: { $0.inRange }) else { return "" }
-    let month = Calendar.current.component(.month, from: first.date)
-    if index == 0 { return "\(month)월" }
-    let previousMonth = weeks[index - 1].compactMap { $0.inRange ? Calendar.current.component(.month, from: $0.date) : nil }.last
-    return previousMonth == month ? "" : "\(month)월"
-  }
-
   private var weekFooter: some View {
     VStack(alignment: .leading, spacing: 4) {
-      HStack(spacing: 8) {
+      HStack(spacing: 4) {
+        stat(label: "횟수", value: "\(count)회")
         stat(label: "총 시간", value: LoofitFormat.duration(duration))
         stat(label: "평균", value: LoofitFormat.duration(count > 0 ? duration / count : 0))
       }
-      let recent = (entry.snapshot?.recentCompleted ?? []).filter {
+      let recent = Array((entry.snapshot?.recentCompleted ?? []).filter {
         guard let started = $0.startedDate else { return false }
         return started >= Calendar.current.date(byAdding: .day, value: -6, to: Calendar.current.startOfDay(for: entry.date)) ?? .distantFuture
-      }.prefix(2)
-      if !recent.isEmpty {
-        Text("최근 운동")
-          .font(.system(size: 8, weight: .heavy))
-          .foregroundStyle(LoofitColor(entry.palette.tx5))
+      }.prefix(2))
+      Text("최근 운동")
+        .font(.system(size: 8, weight: .heavy))
+        .foregroundStyle(LoofitColor(entry.palette.tx5))
+      if recent.isEmpty {
+        Text("아직 기록 없음")
+          .font(.system(size: 10, weight: .heavy))
+          .foregroundStyle(LoofitColor(entry.palette.tx2))
+          .lineLimit(1)
+      } else {
         ForEach(Array(recent), id: \.id) { session in
           HStack(spacing: 4) {
             Text("\(session.title) · \(LoofitFormat.duration(session.durationSeconds))")
@@ -553,12 +483,18 @@ struct LoofitHeatmapWidgetView: View {
         .font(.system(size: 12, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx2))
         .lineLimit(1)
+        .allowsTightening(true)
+        .minimumScaleFactor(0.6)
     }
     .frame(maxWidth: .infinity, alignment: .leading)
   }
 
   private func color(for day: LoofitHeatmapDay) -> Color {
-    guard day.inRange else { return LoofitColor(entry.palette.heatmapGap) }
+    guard day.inRange else {
+      return variant == .month || variant == .sixMonths
+        ? LoofitColor(entry.palette.heatmapEmpty)
+        : LoofitColor(entry.palette.heatmapGap)
+    }
     switch day.durationSeconds {
     case ...0:
       return LoofitColor(entry.palette.heatmapEmpty)

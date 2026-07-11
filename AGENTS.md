@@ -99,6 +99,8 @@
 - `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
 - 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
 - 앱 내 위젯 미리보기와 실제 위젯은 `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`의 표시 모델과 값을 공유한다. RN과 SwiftUI 렌더러는 분리되어 있으므로 한쪽만 변경하지 않는다.
+- 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 30일 선행 달력 칸은 빈 셀로 표시하되 통계에서 제외하고, 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
+- 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고, 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
 - 히트맵 셀 크기는 고정값이 아니라 컨테이너 너비, padding, gap, 열 수를 기준으로 동적 계산한다.
 - iOS에서 앱과 위젯은 App Group의 `widgetsDirectory`에 있는 SQLite DB를 공유한다. 기존 기본 DB는 공유 DB가 비어 있을 때 한 번 이전한다.
 - 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 App Group 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity를 조정한다.
