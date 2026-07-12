@@ -1,48 +1,6 @@
 {
   "screenshots": [
     {
-      "input": "store-assets/captures/iphone/01_next.png",
-      "output": "fastlane/screenshots/ko/01_iphone69_next.png",
-      "kicker": "내 루틴대로",
-      "headline": "다음 운동을\n한눈에"
-    },
-    {
-      "input": "store-assets/captures/iphone/02_widgets.png",
-      "output": "fastlane/screenshots/ko/02_iphone69_widgets.png",
-      "kicker": "홈 화면에서도",
-      "headline": "우아한 위젯으로\n운동을 더 가볍게"
-    },
-    {
-      "input": "store-assets/captures/iphone/03_active.png",
-      "output": "fastlane/screenshots/ko/03_iphone69_active.png",
-      "kicker": "운동 중에는",
-      "headline": "시간에만\n집중하세요"
-    },
-    {
-      "input": "store-assets/captures/iphone/04_complete.png",
-      "output": "fastlane/screenshots/ko/04_iphone69_complete.png",
-      "kicker": "완료하는 순간",
-      "headline": "기록되고,\n다음 운동까지"
-    },
-    {
-      "input": "store-assets/captures/iphone/05_dashboard.png",
-      "output": "fastlane/screenshots/ko/05_iphone69_dashboard.png",
-      "kicker": "매일의 흐름",
-      "headline": "쌓인 운동을\n히트맵으로 한눈에"
-    },
-    {
-      "input": "store-assets/captures/iphone/06_routine.png",
-      "output": "fastlane/screenshots/ko/06_iphone69_routine.png",
-      "kicker": "나만의 순서",
-      "headline": "분할도 루틴도\n내 방식대로"
-    },
-    {
-      "input": "store-assets/captures/iphone/07_free.png",
-      "output": "fastlane/screenshots/ko/07_iphone69_free.png",
-      "kicker": "루틴 밖에서도",
-      "headline": "자유 운동까지\n놓치지 않게"
-    },
-    {
       "input": "store-assets/captures/ipad/01_next.png",
       "output": "fastlane/screenshots/ko/01_ipad13_next.png",
       "kicker": "내 루틴대로",

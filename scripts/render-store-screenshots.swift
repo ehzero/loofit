@@ -134,12 +134,12 @@ func render(_ spec: ScreenshotSpec, root: String) throws {
       pixelsWide: canvasWidth,
       pixelsHigh: canvasHeight,
       bitsPerSample: 8,
-      samplesPerPixel: 4,
+      samplesPerPixel: 3,
       hasAlpha: false,
       isPlanar: false,
       colorSpaceName: .deviceRGB,
-      bytesPerRow: 0,
-      bitsPerPixel: 0
+      bytesPerRow: canvasWidth * 4,
+      bitsPerPixel: 32
     ),
     let graphics = NSGraphicsContext(bitmapImageRep: canvas)
   else {
