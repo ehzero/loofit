@@ -32,6 +32,17 @@ yarn-error.*
 
 # local env files
 .env*.local
+/fastlane/.env
+/fastlane/.env.*
+!/fastlane/.env.example
+
+# Fastlane local output
+/fastlane/Preview.html
+/fastlane/report.xml
+/fastlane/test_output/
+
+# Raw simulator captures used to render App Store screenshots
+/store-assets/captures/
 
 # typescript
 *.tsbuildinfo

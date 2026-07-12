@@ -4,12 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 import { makeColors } from '@/src/theme/tokens';
 
-import { buildHeatmapWidgetProps, parseHeatmapWidgetList } from './heatmap-widget-model';
+import {
+  buildHeatmapWidgetProps,
+  buildHeatmapWidgetRows,
+  parseHeatmapWidgetList,
+} from './heatmap-widget-model';
 import { buildWorkoutLockScreenSummaryFromCells } from './lock-screen-widget-model';
 import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from './widget-spec';
 
 describe('widget renderer contract', () => {
-  it('keeps the 7/30/6-month surface policies explicit', () => {
+  it('keeps the 7-day/5-week/6-month surface policies explicit', () => {
     const { variants } = WIDGET_RENDERER_CONTRACT.heatmap;
 
     expect(Object.keys(variants)).toEqual(['week', 'month', 'year']);
@@ -21,13 +25,15 @@ describe('widget renderer contract', () => {
       family: 'systemSmall',
     });
     expect(variants.month).toMatchObject({
-      rangeDays: 30,
+      title: '지난 5주',
+      rangeDays: 0,
+      rangeWeeks: 5,
       contentPadding: 12,
       headerVisible: false,
       headerSummary: 'none',
       reservedHeaderHeight: 0,
-      calendarAlignment: 'weekContainingRangeStart',
-      showLeadingCalendarCells: true,
+      calendarAlignment: 'calendarWeeks',
+      showLeadingCalendarCells: false,
     });
     expect(variants.year).toMatchObject({
       nativeCase: 'sixMonths',
@@ -57,6 +63,33 @@ describe('widget renderer contract', () => {
       WIDGET_RENDERER_CONTRACT.heatmap.weekFooter.recentLabel
     );
     expect(props.recentWorkoutTitles).toBe('');
+  });
+
+  it('uses high-contrast date labels on filled heatmap cells', () => {
+    const dark = makeColors('dark', '#CFF56A');
+    const light = makeColors('light', '#CFF56A');
+    const cells = [0, 1, 2, 3, 4].map((bucket, index) => ({
+      bucket: bucket as 0 | 1 | 2 | 3 | 4,
+      dateKey: `2026-07-${String(index + 1).padStart(2, '0')}`,
+    }));
+
+    const darkProps = buildHeatmapWidgetProps({ variant: 'week', cells, colors: dark });
+    const lightProps = buildHeatmapWidgetProps({ variant: 'week', cells, colors: light });
+
+    expect(parseHeatmapWidgetList(darkProps.labelColors)).toEqual([
+      dark.tx3,
+      dark.tx,
+      dark.tx,
+      dark.accentText,
+      dark.accentText,
+    ]);
+    expect(parseHeatmapWidgetList(lightProps.labelColors)).toEqual([
+      light.tx3,
+      light.tx,
+      light.tx,
+      light.accentText,
+      light.accentText,
+    ]);
   });
 
   it('keeps compact Live Activity content balanced at the system preview size', () => {
@@ -126,6 +159,20 @@ describe('widget renderer contract', () => {
     expect(props.weekdayLabels).toBe('월,화,수,목,금,토,일');
   });
 
+  it('pads every in-progress five-week window to exactly five rows', () => {
+    for (let dayCount = 29; dayCount <= 35; dayCount += 1) {
+      const props = buildHeatmapWidgetProps({
+        variant: 'month',
+        cells: dailyCells(new Date(2026, 5, 14), new Date(2026, 5, 13 + dayCount)),
+        colors: makeColors('dark', '#CFF56A'),
+      });
+
+      const rows = buildHeatmapWidgetRows(props, 'month');
+      expect(rows).toHaveLength(5);
+      expect(rows.every((row) => row.length === 7)).toBe(true);
+    }
+  });
+
   it('materializes one seven-slot gap at every six-month boundary', () => {
     const cells = dailyCells(new Date(2026, 1, 1), new Date(2026, 6, 11));
     const props = buildHeatmapWidgetProps({
@@ -189,10 +236,15 @@ describe('widget renderer contract', () => {
       'static let statOrder: [LoofitHeatmapStat] = [.count, .totalDuration, .averageDuration]'
     );
     expect(extensionContract).toContain('static let alwaysShowRecent = true');
+    expect(extensionContract).toContain(
+      'static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .title'
+    );
+    expect(extensionContract).toContain('strongCellLabelMinimumDurationSeconds = 3600');
     expect(coreContract).toContain('weekHeaderSummary: HeaderSummary = .none');
     expect(coreContract).toContain(
-      'monthCalendarAlignment: CalendarAlignment = .weekContainingRangeStart'
+      'monthCalendarAlignment: CalendarAlignment = .calendarWeeks'
     );
+    expect(coreContract).toContain('monthRangeWeeks = 5');
     expect(coreContract).toContain(
       'weekStatOrder: [HeatmapStat] = [.count, .totalDuration, .averageDuration]'
     );
@@ -201,6 +253,8 @@ describe('widget renderer contract', () => {
     expect(renderer).toContain('switch rendererSpec.calendarAlignment');
     expect(renderer).toContain('WeekFooter.statOrder');
     expect(renderer).toContain('WeekFooter.alwaysShowRecent');
+    expect(renderer).toContain('.foregroundStyle(labelColor(for: day))');
+    expect(renderer).toContain('return LoofitColor(entry.palette.tx)');
   });
 
   it('verifies the App Group identifier in both generated Info.plists', () => {

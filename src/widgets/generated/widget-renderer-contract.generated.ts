@@ -125,6 +125,13 @@ export const WIDGET_RENDERER_CONTRACT = {
       "금",
       "토"
     ],
+    "cellLabelColorPolicy": {
+      "empty": "detail",
+      "filled": "title",
+      "strongFilled": "accentText",
+      "strongMinimumBucket": 3,
+      "strongMinimumDurationSeconds": 3600
+    },
     "variants": {
       "week": {
         "nativeCase": "week",
@@ -132,6 +139,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "title": "지난 7일",
         "family": "systemSmall",
         "rangeDays": 7,
+        "rangeWeeks": 0,
         "rangeMonths": 0,
         "columns": 7,
         "contentPadding": 16,
@@ -151,9 +159,10 @@ export const WIDGET_RENDERER_CONTRACT = {
       "month": {
         "nativeCase": "month",
         "kindAccessor": "heatmapMonth",
-        "title": "지난 30일",
+        "title": "지난 5주",
         "family": "systemSmall",
-        "rangeDays": 30,
+        "rangeDays": 0,
+        "rangeWeeks": 5,
         "rangeMonths": 0,
         "columns": 7,
         "contentPadding": 12,
@@ -164,8 +173,8 @@ export const WIDGET_RENDERER_CONTRACT = {
         "headerVisible": false,
         "headerFontSize": 11,
         "headerSummary": "none",
-        "calendarAlignment": "weekContainingRangeStart",
-        "showLeadingCalendarCells": true,
+        "calendarAlignment": "calendarWeeks",
+        "showLeadingCalendarCells": false,
         "monthBoundaryGapSlots": 0,
         "reservedHeaderHeight": 0,
         "reservedFooterHeight": 0
@@ -176,6 +185,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "title": "지난 6개월",
         "family": "systemMedium",
         "rangeDays": 0,
+        "rangeWeeks": 0,
         "rangeMonths": 6,
         "columns": 0,
         "contentPadding": 16,
@@ -230,7 +240,7 @@ export const WIDGET_RENDERER_CONTRACT = {
       "completedBadge": "오운완",
       "idle": "다음 운동",
       "routineRequired": "루틴 설정 필요",
-      "summaryTitle": "최근 7일"
+      "summaryTitle": "지난 7일"
     },
     "compactCharacterLimit": 3,
     "summaryDays": 7,

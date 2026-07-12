@@ -181,7 +181,7 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     XCTAssertEqual(completed.detail, "가슴")
   }
 
-  func testSurfaceHashesRespectSevenAndThirtyDayWindows() throws {
+  func testSurfaceHashesRespectSevenDayAndFiveWeekWindows() throws {
     let today = localDate(daysFromToday: 0)
     for offset in 0..<12 {
       try insertCompletedSession(
@@ -202,22 +202,47 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
       afterSevenDaysAgo.surfaceHashes[LoofitWidgetKinds.heatmapMonth]
     )
 
+    let calendar = Calendar.autoupdatingCurrent
+    let monthStart = LoofitHeatmapProjection.calendarWeekRangeStart(
+      endingAt: today,
+      count: LoofitWidgetLayoutContract.Heatmap.monthRangeWeeks,
+      calendar: calendar
+    )
+    let dayBeforeMonthStart = try XCTUnwrap(
+      calendar.date(byAdding: .day, value: -1, to: monthStart)
+    )
     let monthBeforeBoundary = afterSevenDaysAgo.surfaceHashes[LoofitWidgetKinds.heatmapMonth]
     let sixMonthsBeforeBoundary = afterSevenDaysAgo.surfaceHashes[
       LoofitWidgetKinds.heatmapSixMonths
     ]
-    try insertCompletedSession(startedAt: localDate(daysFromToday: -30), duration: 80)
-    let afterThirtyDaysAgo = try LoofitWorkoutProjection.makeSnapshot(database: database)
+    try insertCompletedSession(
+      startedAt: dayBeforeMonthStart.addingTimeInterval(12 * 60 * 60),
+      duration: 80
+    )
+    let afterDayBeforeMonthStart = try LoofitWorkoutProjection.makeSnapshot(database: database)
     XCTAssertEqual(
       monthBeforeBoundary,
-      afterThirtyDaysAgo.surfaceHashes[LoofitWidgetKinds.heatmapMonth]
+      afterDayBeforeMonthStart.surfaceHashes[LoofitWidgetKinds.heatmapMonth]
     )
     XCTAssertNotEqual(
       sixMonthsBeforeBoundary,
-      afterThirtyDaysAgo.surfaceHashes[LoofitWidgetKinds.heatmapSixMonths]
+      afterDayBeforeMonthStart.surfaceHashes[LoofitWidgetKinds.heatmapSixMonths]
     )
 
-    let weekBeforeIncludedDay = afterThirtyDaysAgo.surfaceHashes[
+    let monthBeforeIncludedDay = afterDayBeforeMonthStart.surfaceHashes[
+      LoofitWidgetKinds.heatmapMonth
+    ]
+    try insertCompletedSession(
+      startedAt: monthStart.addingTimeInterval(12 * 60 * 60),
+      duration: 85
+    )
+    let afterMonthStart = try LoofitWorkoutProjection.makeSnapshot(database: database)
+    XCTAssertNotEqual(
+      monthBeforeIncludedDay,
+      afterMonthStart.surfaceHashes[LoofitWidgetKinds.heatmapMonth]
+    )
+
+    let weekBeforeIncludedDay = afterMonthStart.surfaceHashes[
       LoofitWidgetKinds.heatmapWeek
     ]
     try insertCompletedSession(startedAt: localDate(daysFromToday: -6), duration: 90)

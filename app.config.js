@@ -23,8 +23,8 @@ const widgetsPlugin = [
       },
       {
         name: 'HeatmapMonthWidget',
-        displayName: `${brand.displayName} 히트맵 · 30일`,
-        description: 'Review your last 30 days of workouts.',
+        displayName: `${brand.displayName} 히트맵 · 5주`,
+        description: 'Review your last 5 calendar weeks of workouts.',
         contentMarginsDisabled: true,
         supportedFamilies: ['systemSmall'],
       },

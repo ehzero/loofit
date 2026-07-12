@@ -1,10 +1,11 @@
-import { useMemo, useRef } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useRef } from "react";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { weekdayLabel } from '@/src/domain/date';
-import { useTheme } from '@/src/theme/ThemeProvider';
-import { heatColor, typeScale, type ThemeColors } from '@/src/theme/tokens';
-import type { HeatmapDay } from '@/src/types';
+import { weekdayLabel } from "@/src/domain/date";
+import { buildWeekdayAlignedRows } from "@/src/domain/heatmap-layout";
+import { useTheme } from "@/src/theme/ThemeProvider";
+import { heatColor, typeScale, type ThemeColors } from "@/src/theme/tokens";
+import type { HeatmapDay } from "@/src/types";
 
 type HeatCell = HeatmapDay & {
   /** false renders the out-of-range placeholder (grid-alignment filler). */
@@ -13,10 +14,21 @@ type HeatCell = HeatmapDay & {
   isGap?: boolean;
 };
 
+const CALENDAR_COLUMNS = 7;
+const SUNDAY_FIRST_WEEKDAY_LABELS = [
+  "일",
+  "월",
+  "화",
+  "수",
+  "목",
+  "금",
+  "토",
+];
+
 /**
  * The single heatmap style: a weekday-aligned calendar grid with labels on
  * top. 7 cells render as one row (labels show those days' actual weekdays);
- * longer ranges wrap into weeks, Sunday-first.
+ * longer ranges are explicitly split into weeks, Sunday-first.
  */
 export function HeatGrid({
   cells,
@@ -24,53 +36,88 @@ export function HeatGrid({
   gap = 5,
   radius = 5,
   weekdayLabels = false,
+  alignToWeekdays = false,
 }: {
   cells: HeatCell[];
   colorsOverride?: ThemeColors;
   gap?: number;
   radius?: number;
   weekdayLabels?: boolean;
+  alignToWeekdays?: boolean;
 }) {
   const { colors: themeColors } = useTheme();
   const colors = colorsOverride ?? themeColors;
+  const rows = useMemo(
+    () =>
+      alignToWeekdays
+        ? buildWeekdayAlignedRows(cells)
+        : buildCalendarRows(cells),
+    [alignToWeekdays, cells],
+  );
+  const firstRow = rows[0] ?? [];
+  const headerLabels = alignToWeekdays
+    ? SUNDAY_FIRST_WEEKDAY_LABELS
+    : firstRow.map((cell) => (cell ? weekdayLabel(cell.dateKey) : ""));
 
   return (
     <View style={{ gap: 7 }}>
       {weekdayLabels ? (
-        // One label per column, derived from the first row's dates.
-        <View style={styles.weekdayHeader}>
-          {cells.slice(0, 7).map((cell) => (
-            <View key={cell.dateKey} style={styles.weekdayHeaderCell}>
-              <Text style={[styles.weekdayHeaderLabel, { color: colors.tx5 }]}>
-                {weekdayLabel(cell.dateKey)}
+        // Calendar-aligned ranges keep a fixed Sunday-first header.
+        <View style={[styles.weekdayHeader, { gap }]}>
+          {headerLabels.map((label, index) => (
+            <View key={`${label}-${index}`} style={styles.weekdayHeaderCell}>
+              <Text
+                style={[styles.weekdayHeaderLabel, { color: colors.tx5 }]}
+              >
+                {label}
               </Text>
             </View>
           ))}
         </View>
       ) : null}
-      {/* Cell spacing comes from each cell's internal padding (gap / 2 per
-          side); a container-level gap would push the 7th cell past 100%. */}
-      <View style={styles.grid}>
-        {cells.map((cell, index) => (
-          <View
-            key={`${cell.dateKey}-${index}`}
-            style={{
-              width: `${100 / 7}%`,
-              aspectRatio: 1,
-              padding: gap / 2,
-            }}>
-            <View
-              style={{
-                flex: 1,
-                borderRadius: radius,
-                backgroundColor: heatColor(colors, cell.bucket, cell.inRange ?? true),
-              }}
-            />
+      <View style={[styles.grid, { gap }]}>
+        {rows.map((row, rowIndex) => (
+          <View key={rowIndex} style={[styles.calendarRow, { gap }]}>
+            {row.map((cell, columnIndex) => (
+              <View
+                key={
+                  cell
+                    ? `${cell.dateKey}-${rowIndex}-${columnIndex}`
+                    : `placeholder-${rowIndex}-${columnIndex}`
+                }
+                style={[
+                  styles.calendarCell,
+                  {
+                    borderRadius: radius,
+                    backgroundColor: cell
+                      ? heatColor(colors, cell.bucket, cell.inRange ?? true)
+                      : "transparent",
+                  },
+                ]}
+              />
+            ))}
           </View>
         ))}
       </View>
     </View>
   );
+}
+
+function buildCalendarRows(cells: HeatCell[]): Array<Array<HeatCell | null>> {
+  const rows: Array<Array<HeatCell | null>> = [];
+
+  for (let index = 0; index < cells.length; index += CALENDAR_COLUMNS) {
+    const row: Array<HeatCell | null> = cells.slice(
+      index,
+      index + CALENDAR_COLUMNS,
+    );
+    while (row.length < CALENDAR_COLUMNS) {
+      row.push(null);
+    }
+    rows.push(row);
+  }
+
+  return rows;
 }
 
 const YEAR_CELL = 12;
@@ -85,13 +132,13 @@ function yearMonthMarkers(cells: HeatCell[]) {
   for (let week = 0; week < weekCount; week += 1) {
     const weekCells = cells.slice(week * 7, week * 7 + 7);
     const firstVisibleCell = weekCells.find(
-      (cell) => !cell.isGap && cell.dateKey && (cell.inRange ?? true)
+      (cell) => !cell.isGap && cell.dateKey && (cell.inRange ?? true),
     );
     if (!firstVisibleCell) {
       continue;
     }
 
-    const [, monthValue] = firstVisibleCell.dateKey.split('-').map(Number);
+    const [, monthValue] = firstVisibleCell.dateKey.split("-").map(Number);
     if (!monthValue || monthValue === previousMonth) {
       continue;
     }
@@ -112,9 +159,10 @@ function insertYearMonthTransitionGaps(cells: HeatCell[]): HeatCell[] {
   let hasVisibleInRangeCell = false;
 
   for (const cell of cells) {
-    const isVisibleInRangeCell = !cell.isGap && cell.dateKey && (cell.inRange ?? true);
+    const isVisibleInRangeCell =
+      !cell.isGap && cell.dateKey && (cell.inRange ?? true);
     const isMonthStart =
-      isVisibleInRangeCell && Number(cell.dateKey.split('-')[2]) === 1;
+      isVisibleInRangeCell && Number(cell.dateKey.split("-")[2]) === 1;
 
     if (isMonthStart && hasVisibleInRangeCell) {
       result.push(...yearMonthGapCells(result.length));
@@ -155,15 +203,24 @@ export function HeatYearGrid({
   const { colors: themeColors } = useTheme();
   const colors = colorsOverride ?? themeColors;
   const scrollRef = useRef<ScrollView>(null);
-  const renderCells = useMemo(() => insertYearMonthTransitionGaps(cells), [cells]);
+  const renderCells = useMemo(
+    () => insertYearMonthTransitionGaps(cells),
+    [cells],
+  );
   const weekCount = Math.ceil(renderCells.length / 7);
-  const monthMarkers = useMemo(() => yearMonthMarkers(renderCells), [renderCells]);
+  const monthMarkers = useMemo(
+    () => yearMonthMarkers(renderCells),
+    [renderCells],
+  );
 
   return (
     <View style={styles.yearWrap}>
       <View style={styles.yearLabels}>
         {cells.slice(0, 7).map((cell) => (
-          <Text key={cell.dateKey} style={[styles.yearLabel, { color: colors.tx5 }]}>
+          <Text
+            key={cell.dateKey}
+            style={[styles.yearLabel, { color: colors.tx5 }]}
+          >
             {weekdayLabel(cell.dateKey)}
           </Text>
         ))}
@@ -172,7 +229,10 @@ export function HeatYearGrid({
         ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
-        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}>
+        onContentSizeChange={() =>
+          scrollRef.current?.scrollToEnd({ animated: false })
+        }
+      >
         <View>
           <View style={styles.yearRows}>
             {Array.from({ length: 7 }, (_, weekday) => (
@@ -185,9 +245,14 @@ export function HeatYearGrid({
                       style={[
                         styles.yearCell,
                         {
-                          backgroundColor: cell && !cell.isGap
-                            ? heatColor(colors, cell.bucket, cell.inRange ?? true)
-                            : 'transparent',
+                          backgroundColor:
+                            cell && !cell.isGap
+                              ? heatColor(
+                                  colors,
+                                  cell.bucket,
+                                  cell.inRange ?? true,
+                                )
+                              : "transparent",
                         },
                       ]}
                     />
@@ -207,7 +272,8 @@ export function HeatYearGrid({
                     color: colors.tx5,
                     left: marker.week * YEAR_COLUMN_WIDTH,
                   },
-                ]}>
+                ]}
+              >
                 {marker.label}
               </Text>
             ))}
@@ -220,7 +286,11 @@ export function HeatYearGrid({
 
 const LEGEND_BUCKETS = [0, 1, 2, 3, 4] as const;
 
-export function HeatLegend({ colorsOverride }: { colorsOverride?: ThemeColors }) {
+export function HeatLegend({
+  colorsOverride,
+}: {
+  colorsOverride?: ThemeColors;
+}) {
   const { colors: themeColors } = useTheme();
   const colors = colorsOverride ?? themeColors;
   return (
@@ -229,7 +299,10 @@ export function HeatLegend({ colorsOverride }: { colorsOverride?: ThemeColors })
       {LEGEND_BUCKETS.map((bucket) => (
         <View
           key={bucket}
-          style={[styles.legendCell, { backgroundColor: heatColor(colors, bucket) }]}
+          style={[
+            styles.legendCell,
+            { backgroundColor: heatColor(colors, bucket) },
+          ]}
         />
       ))}
       <Text style={[styles.legendText, { color: colors.tx5 }]}>많음</Text>
@@ -238,26 +311,30 @@ export function HeatLegend({ colorsOverride }: { colorsOverride?: ThemeColors })
 }
 
 const styles = StyleSheet.create({
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    // negate the per-cell inset so outer edges align with the card
-    marginHorizontal: -2.5,
+  grid: {},
+  calendarRow: {
+    flexDirection: "row",
+    width: "100%",
+  },
+  calendarCell: {
+    flex: 1,
+    minWidth: 0,
+    aspectRatio: 1,
   },
   weekdayHeader: {
-    flexDirection: 'row',
-    marginHorizontal: -2.5,
+    flexDirection: "row",
   },
   weekdayHeaderCell: {
-    width: `${100 / 7}%`,
-    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    alignItems: "center",
   },
   weekdayHeaderLabel: {
     ...typeScale.caption,
   },
   legend: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   legendText: {
@@ -269,7 +346,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   yearWrap: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 6,
   },
   yearLabels: {
@@ -278,15 +355,15 @@ const styles = StyleSheet.create({
   yearLabel: {
     height: YEAR_CELL,
     fontSize: 9,
-    fontWeight: '700',
-    textAlign: 'center',
+    fontWeight: "700",
+    textAlign: "center",
     lineHeight: YEAR_CELL,
   },
   yearRows: {
     gap: YEAR_GAP,
   },
   yearRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: YEAR_GAP,
   },
   yearCell: {
@@ -297,11 +374,11 @@ const styles = StyleSheet.create({
   yearMonthLabels: {
     height: 16,
     marginTop: 6,
-    position: 'relative',
+    position: "relative",
   },
   yearMonthLabel: {
     ...typeScale.caption,
-    position: 'absolute',
+    position: "absolute",
     top: 0,
   },
 });

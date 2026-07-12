@@ -12,7 +12,7 @@ public enum LoofitWidgetLayoutContract {
 
   public enum CalendarAlignment: String, Sendable {
     case rollingDays
-    case weekContainingRangeStart
+    case calendarWeeks
     case continuousMonthsWithBoundarySlots
   }
 
@@ -24,14 +24,14 @@ public enum LoofitWidgetLayoutContract {
 
   public enum Heatmap {
     public static let weekRangeDays = 7
-    public static let monthRangeDays = 30
+    public static let monthRangeWeeks = 5
     public static let sixMonthRangeMonths = 6
     public static let monthBoundaryGapSlots = 7
     public static let weekHeaderSummary: HeaderSummary = .none
     public static let monthHeaderSummary: HeaderSummary = .none
     public static let sixMonthHeaderSummary: HeaderSummary = .countTotalAverage
     public static let weekCalendarAlignment: CalendarAlignment = .rollingDays
-    public static let monthCalendarAlignment: CalendarAlignment = .weekContainingRangeStart
+    public static let monthCalendarAlignment: CalendarAlignment = .calendarWeeks
     public static let sixMonthCalendarAlignment: CalendarAlignment = .continuousMonthsWithBoundarySlots
     public static let weekStatOrder: [HeatmapStat] = [.count, .totalDuration, .averageDuration]
     public static let weekAlwaysShowsRecent = true

@@ -191,7 +191,7 @@ export default function WidgetsScreen() {
           </Text>
           <View style={styles.smallRow}>
             <WidgetTypePreview
-              label="Small · 최근 7일"
+              label="Small · 지난 7일"
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquare}
             >
@@ -203,7 +203,7 @@ export default function WidgetsScreen() {
               />
             </WidgetTypePreview>
             <WidgetTypePreview
-              label="Small · 최근 30일"
+              label="Small · 지난 5주"
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquare}
             >
@@ -523,7 +523,7 @@ function LockScreenWidgetsPreview({
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type B · 최근 7일
+          Rectangular Type B · 지난 7일
         </Text>
         <RectangularWeekSummaryPreview previewTheme={previewTheme} summary={summary} />
       </View>
@@ -841,7 +841,10 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
 } {
   const source = buildPreviewHeatmapSource(365);
   const weekCells = buildPreviewHeatmapDays(source, 7);
-  const monthCells = buildPreviewHeatmapGrid(source, 30);
+  const monthCells = buildPreviewCalendarWeeks(
+    source,
+    WIDGET_RENDERER_CONTRACT.heatmap.variants.month.rangeWeeks
+  );
   const yearCells = buildPreviewHeatmapGrid(source, 365);
   const weekStats = rangeStatsFromCells(weekCells);
   const monthStats = rangeStatsFromCells(monthCells);
@@ -954,6 +957,29 @@ function buildPreviewHeatmapDays(source: Map<string, HeatmapDay>, days: number):
     const date = addLocalDays(today, index - days + 1);
     return previewCellFromSource(source, date);
   });
+}
+
+function buildPreviewCalendarWeeks(
+  source: Map<string, HeatmapDay>,
+  weeks: number
+): HeatmapGridCell[] {
+  const today = startOfLocalDay(new Date());
+  const currentWeekStart = addLocalDays(today, -today.getDay());
+  const rangeStart = addLocalDays(currentWeekStart, -(Math.max(weeks, 1) - 1) * 7);
+  const cells: HeatmapGridCell[] = [];
+
+  for (
+    let cursor = rangeStart;
+    cursor.getTime() <= today.getTime();
+    cursor = addLocalDays(cursor, 1)
+  ) {
+    cells.push({
+      ...previewCellFromSource(source, cursor),
+      inRange: true,
+    });
+  }
+
+  return cells;
 }
 
 function buildPreviewHeatmapGrid(source: Map<string, HeatmapDay>, days: number): HeatmapGridCell[] {

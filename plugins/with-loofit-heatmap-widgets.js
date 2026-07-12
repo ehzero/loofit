@@ -263,8 +263,8 @@ module.exports = function withLoofitNativeWidgets(config) {
           name: 'HeatmapMonthWidget',
           kind: widgetRendererContract.heatmap.variants.month.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.month.nativeCase,
-          displayName: `${brand.displayName} 히트맵 · 30일`,
-          description: 'Review your last 30 days of workouts.',
+          displayName: `${brand.displayName} 히트맵 · 5주`,
+          description: 'Review your last 5 calendar weeks of workouts.',
           family: widgetRendererContract.heatmap.variants.month.family,
         })
       );

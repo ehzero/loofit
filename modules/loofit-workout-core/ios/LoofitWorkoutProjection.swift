@@ -277,11 +277,10 @@ enum LoofitWorkoutProjection {
       value: -(LoofitWidgetLayoutContract.Heatmap.weekRangeDays - 1),
       to: today
     ) ?? today
-    let monthStart = Calendar.autoupdatingCurrent.date(
-      byAdding: .day,
-      value: -(LoofitWidgetLayoutContract.Heatmap.monthRangeDays - 1),
-      to: today
-    ) ?? today
+    let monthStart = LoofitHeatmapProjection.calendarWeekRangeStart(
+      endingAt: today,
+      count: LoofitWidgetLayoutContract.Heatmap.monthRangeWeeks
+    )
     let week = daily.filter { $0.dateKey >= localDateKey(weekStart) }
     let month = daily.filter { $0.dateKey >= localDateKey(monthStart) }
     let weekHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: week, recent: recent))

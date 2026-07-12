@@ -44,7 +44,9 @@
 - 사용자는 첫 실행에서 루틴이 없음을 이해하고, 루틴을 만든 뒤 첫 운동 시작까지 막힘없이 도달할 수 있어야 한다.
 - 다음 운동 시작은 가장 짧은 경로로 제공하되, 루틴 안의 다른 분할과 자유 운동 선택은 앱 안에서 제공한다.
 - 운동 종료 후에는 기록, 히트맵, 다음 운동 반영을 통해 저장 완료를 명확히 확인할 수 있어야 한다.
+- 대시보드의 30일 히트맵은 오늘을 포함한 정확히 30일만 표시한다. 요일 열은 일요일 시작 순서로 고정하고, 범위 시작일 이전 날짜 셀은 만들지 않는다.
 - 위젯은 빠른 확인과 시작/종료에 집중하고, 루틴 선택·자유 운동·설정·기록 수정 같은 복잡한 조작은 앱에서 수행한다.
+- 네이티브 스플래시 화면은 앱 설정을 읽기 전 표시되므로 기기 시스템의 라이트·다크 모드에 맞는 앱 팔레트를 사용한다. 저장된 앱 테마와 액센트 컬러는 앱 초기화 이후 적용한다.
 
 ## MVP 범위
 
@@ -87,8 +89,8 @@
 ### 제공 범위
 
 - 홈 화면 운동 위젯: 다음 운동 시작, 운동 중 경과 시간과 종료, 당일 완료 상태를 제공한다.
-- 홈 화면 히트맵 위젯: 최근 7일, 30일, 6개월 기록을 제공한다. 코드의 `year` variant와 `HeatmapYearWidget` 이름은 6개월 위젯 구현에 사용되는 내부 명칭이다.
-- 잠금 화면 위젯: 다음 운동, 운동 중, 당일 완료 상태와 최근 7일 요약을 제공한다.
+- 홈 화면 히트맵 위젯: 지난 7일, 지난 5주, 6개월 기록을 제공한다. 지난 5주는 이번 주를 포함해 일요일 시작 달력 행 5개를 항상 표시하며 실제 집계 범위는 4주 전 일요일부터 오늘까지다. 코드의 `month` variant와 `HeatmapMonthWidget`, `year` variant와 `HeatmapYearWidget` 이름은 기존 위젯 식별자 호환을 위해 유지하는 내부 명칭이다.
+- 잠금 화면 위젯: 다음 운동, 운동 중, 당일 완료 상태와 지난 7일 요약을 제공한다.
 - Live Activity: 운동 중 상태, 경과 시간, 종료 액션을 제공한다.
 - 운동 완료 상태는 당일 자정까지 유지하고 다음 날 다음 운동 상태로 돌아간다.
 
@@ -100,8 +102,9 @@
 - `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
 - 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
 - 앱 내 미리보기와 SwiftUI 위젯의 레이아웃·variant·표시 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 변경 후 `npm run generate:widget-contract`로 TS, Core layout, Widget Extension Swift 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
-- 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 30일 선행 달력 칸은 빈 셀로 표시하되 통계에서 제외하고, 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
+- 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 지난 5주는 4주 전 일요일부터 오늘까지 29~35일을 집계하고 현재 주의 남은 칸은 투명 placeholder로 채워 항상 5행을 유지한다. 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
 - 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고, 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
+- 히트맵 일자 숫자는 운동하지 않은 셀에서 보조 텍스트 색을 사용하고, 60분 미만 운동 셀에서는 테마 제목색(다크 모드 흰색, 라이트 모드 검정색), 60분 이상 셀에서는 액센트 대비색을 사용한다.
 - 히트맵 셀 크기는 고정값이 아니라 컨테이너 너비, padding, gap, 열 수를 기준으로 동적 계산한다.
 - iOS에서 앱과 위젯은 App Group의 `LoofitWidgets` 디렉터리에 있는 SQLite DB를 공유한다. 이전 기본 DB나 다른 공유 디렉터리의 개발 데이터는 자동으로 복사하지 않으며, build mode나 저장소 baseline을 바꿀 때는 개발 데이터를 초기화한다.
 - DB version, table·column, index, 위젯 sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. 현재 미출시 완성 스키마 전체를 version 1 baseline으로 사용하고, 출시 후 첫 스키마 변경부터 version 2 migration을 추가한다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → 후처리` 순서를 TS와 Swift가 동일하게 실행한다. 현재 version이면 schema 작업 없이 반환하고, 낮은 version에만 미적용 migration을 실행하며, 지원 version보다 높은 DB는 즉시 오류로 처리한다. 적용 완료 migration의 backfill이나 repair를 반복 실행하지 않는다. 변경 후 `npm run schema:generate`로 양쪽 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.

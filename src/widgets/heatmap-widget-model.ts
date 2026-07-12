@@ -185,10 +185,28 @@ function dayOfMonthLabel(dateKey: string): string {
 }
 
 function heatmapLabelColor(colors: ThemeColors, bucket: number): string {
-  if (bucket >= 3) {
-    return colors.accentText;
+  const policy = WIDGET_RENDERER_CONTRACT.heatmap.cellLabelColorPolicy;
+  const role =
+    bucket >= policy.strongMinimumBucket
+      ? policy.strongFilled
+      : bucket > 0
+        ? policy.filled
+        : policy.empty;
+  return heatmapLabelColorForRole(colors, role);
+}
+
+function heatmapLabelColorForRole(
+  colors: ThemeColors,
+  role: 'detail' | 'title' | 'accentText'
+): string {
+  switch (role) {
+    case 'title':
+      return colors.tx;
+    case 'accentText':
+      return colors.accentText;
+    default:
+      return colors.tx3;
   }
-  return colors.tx3;
 }
 
 function heatmapCellColor(colors: ThemeColors, cell: HeatmapCellInput): string {

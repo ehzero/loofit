@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
 import { Card } from '@/src/components/Card';
@@ -32,9 +32,9 @@ const MODE_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
   { value: 'dark', label: '다크' },
 ];
 
-// TODO: placeholder — 실제 호스팅 URL로 교체 예정
 const TERMS_URL = BRAND.urls.terms;
 const PRIVACY_URL = BRAND.urls.privacy;
+const CONTACT_EMAIL = BRAND.contactEmail;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -43,6 +43,15 @@ export default function SettingsScreen() {
   const resetDevData = useAppStore((state) => state.resetDevData);
   const refresh = useAppStore((state) => state.refresh);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
+  const openContactEmail = useCallback(async () => {
+    const subject = encodeURIComponent(`[${BRAND.displayName}] 문의`);
+
+    try {
+      await Linking.openURL(`mailto:${CONTACT_EMAIL}?subject=${subject}`);
+    } catch {
+      Alert.alert('메일 앱을 열 수 없어요', `아래 주소로 문의해 주세요.\n${CONTACT_EMAIL}`);
+    }
+  }, []);
   const updateMode = useCallback(
     async (next: ThemeMode) => {
       await setMode(next);
@@ -138,6 +147,13 @@ export default function SettingsScreen() {
         </Card>
 
         <Card padding={0} gap={0} style={styles.group}>
+          <ListRow
+            title="문의하기"
+            subtitle={CONTACT_EMAIL}
+            chevron
+            divider
+            onPress={() => void openContactEmail()}
+          />
           <ListRow
             title="이용약관"
             chevron

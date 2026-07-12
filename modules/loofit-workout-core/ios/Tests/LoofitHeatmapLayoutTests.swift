@@ -2,40 +2,50 @@ import XCTest
 @testable import LoofitWorkoutCore
 
 final class LoofitHeatmapLayoutTests: XCTestCase {
-  func testThirtyDayProjectionKeepsLeadingCalendarCellsEmptyAndOutOfStats() throws {
+  func testFiveWeekProjectionStartsFourSundaysAgoAndIncludesBoundaryData() throws {
     let calendar = try seoulCalendar()
     let endingAt = try date(year: 2026, month: 7, day: 11, calendar: calendar)
     let snapshot = makeSnapshot(daily: [
-      .init(dateKey: "2026-06-10", workoutCount: 9, durationSeconds: 9_000),
-      .init(dateKey: "2026-06-12", workoutCount: 2, durationSeconds: 1_200),
+      .init(dateKey: "2026-06-06", workoutCount: 9, durationSeconds: 9_000),
+      .init(dateKey: "2026-06-07", workoutCount: 2, durationSeconds: 1_200),
     ])
 
-    let days = LoofitHeatmapProjection.month(
+    let days = LoofitHeatmapProjection.calendarWeeks(
       snapshot: snapshot,
       endingAt: endingAt,
+      count: 5,
       calendar: calendar
     )
 
     XCTAssertEqual(days.count, 35)
     XCTAssertEqual(days.first?.dateKey, "2026-06-07")
     XCTAssertEqual(days.last?.dateKey, "2026-07-11")
-    XCTAssertEqual(days.filter(\.inRange).count, 30)
-    XCTAssertEqual(days.prefix(5).map(\.dateKey), [
-      "2026-06-07",
-      "2026-06-08",
-      "2026-06-09",
-      "2026-06-10",
-      "2026-06-11",
-    ])
-    XCTAssertTrue(days.prefix(5).allSatisfy { !$0.inRange })
-    XCTAssertTrue(days.prefix(5).allSatisfy {
-      $0.workoutCount == 0 && $0.durationSeconds == 0
-    })
+    XCTAssertTrue(days.allSatisfy(\.inRange))
 
-    let firstInRange = try XCTUnwrap(days.first { $0.dateKey == "2026-06-12" })
-    XCTAssertTrue(firstInRange.inRange)
-    XCTAssertEqual(firstInRange.workoutCount, 2)
-    XCTAssertEqual(firstInRange.durationSeconds, 1_200)
+    let firstDay = try XCTUnwrap(days.first)
+    XCTAssertEqual(firstDay.workoutCount, 2)
+    XCTAssertEqual(firstDay.durationSeconds, 1_200)
+  }
+
+  func testFiveWeekProjectionUsesTwentyNineToThirtyFiveDatesAcrossTheWeek() throws {
+    let calendar = try seoulCalendar()
+
+    for day in 12...18 {
+      let endingAt = try date(year: 2026, month: 7, day: day, calendar: calendar)
+      let days = LoofitHeatmapProjection.calendarWeeks(
+        snapshot: nil,
+        endingAt: endingAt,
+        count: 5,
+        calendar: calendar
+      )
+      let weekdayOffset = calendar.component(.weekday, from: endingAt) - 1
+
+      XCTAssertEqual(days.count, 29 + weekdayOffset)
+      XCTAssertEqual(Int(ceil(Double(days.count) / 7.0)), 5)
+      XCTAssertEqual(calendar.component(.weekday, from: try XCTUnwrap(days.first?.date)), 1)
+      XCTAssertEqual(days.last?.dateKey, LoofitHeatmapProjection.dateKey(endingAt, calendar: calendar))
+      XCTAssertTrue(days.allSatisfy(\.inRange))
+    }
   }
 
   func testSixMonthLayoutInsertsMonthBoundaryStepsAndLabelsEveryMonth() throws {

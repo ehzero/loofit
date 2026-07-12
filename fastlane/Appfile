@@ -1,0 +1,1 @@
+app_identifier(ENV.fetch("FASTLANE_APP_IDENTIFIER", "com.loofit.app"))

@@ -1,8 +1,11 @@
 {
   "displayName": "루핏",
   "tagline": "내 루틴대로, 운동을 가볍게 기록하세요.",
+  "contactEmail": "support@physiquehub.kr",
   "urls": {
-    "terms": "https://loofit.app/terms",
-    "privacy": "https://loofit.app/privacy"
+    "website": "https://ehzero.github.io/loofit-legal/",
+    "support": "https://ehzero.github.io/loofit-legal/support/",
+    "terms": "https://ehzero.github.io/loofit-legal/terms/",
+    "privacy": "https://ehzero.github.io/loofit-legal/privacy/"
   }
 }

@@ -61,9 +61,29 @@ function validate(value) {
   );
   assert(value.heatmap.weekdayLabels?.length === 7, 'heatmap must have seven weekday labels');
   assert(variants.week.rangeDays === 7, 'week range must be seven days');
-  assert(variants.month.rangeDays === 30, 'month range must be thirty days');
-  assert(variants.month.showLeadingCalendarCells === true, 'month leading cells must remain visible');
+  assert(variants.month.rangeDays === 0, 'five-week range must not use rolling days');
+  assert(variants.month.rangeWeeks === 5, 'month variant must cover five calendar weeks');
+  assert(variants.month.showLeadingCalendarCells === false, 'five-week range has no leading cells');
   assert(variants.year.rangeMonths === 6, 'year variant must represent six months');
+  const cellLabelColorPolicy = value.heatmap.cellLabelColorPolicy;
+  const cellLabelColorRoles = ['detail', 'title', 'accentText'];
+  assert(cellLabelColorPolicy, 'heatmap.cellLabelColorPolicy is required');
+  for (const key of ['empty', 'filled', 'strongFilled']) {
+    assert(
+      cellLabelColorRoles.includes(cellLabelColorPolicy[key]),
+      `heatmap.cellLabelColorPolicy.${key} is not supported`
+    );
+  }
+  assert(
+    Number.isInteger(cellLabelColorPolicy.strongMinimumBucket) &&
+      cellLabelColorPolicy.strongMinimumBucket > 0,
+    'heatmap.cellLabelColorPolicy.strongMinimumBucket must be a positive integer'
+  );
+  assert(
+    Number.isInteger(cellLabelColorPolicy.strongMinimumDurationSeconds) &&
+      cellLabelColorPolicy.strongMinimumDurationSeconds > 0,
+    'heatmap.cellLabelColorPolicy.strongMinimumDurationSeconds must be a positive integer'
+  );
   assert(
     variants.year.monthBoundaryGapSlots === 7,
     'six-month month boundaries must insert one seven-slot column'
@@ -72,7 +92,7 @@ function validate(value) {
   const headerSummaries = ['none', 'count', 'countTotalAverage'];
   const calendarAlignments = [
     'rollingDays',
-    'weekContainingRangeStart',
+    'calendarWeeks',
     'continuousMonthsWithBoundarySlots',
   ];
   for (const [name, variant] of Object.entries(variants)) {
@@ -86,14 +106,18 @@ function validate(value) {
       `${name}.calendarAlignment is not supported`
     );
     assert(
+      Number.isInteger(variant.rangeWeeks) && variant.rangeWeeks >= 0,
+      `${name}.rangeWeeks must be a non-negative integer`
+    );
+    assert(
       variant.headerVisible === (variant.headerSummary !== 'none'),
       `${name}.headerVisible must agree with headerSummary`
     );
   }
   assert(variants.week.calendarAlignment === 'rollingDays', 'week must use a rolling calendar');
   assert(
-    variants.month.calendarAlignment === 'weekContainingRangeStart',
-    'month must include the week containing its range start'
+    variants.month.calendarAlignment === 'calendarWeeks',
+    'month must use a fixed calendar-week window'
   );
   assert(
     variants.year.calendarAlignment === 'continuousMonthsWithBoundarySlots',
@@ -160,6 +184,7 @@ function renderSwift(value) {
   const heatmapVariant = (variant) => `LoofitHeatmapRendererSpec(
       title: ${swiftString(variant.title)},
       rangeDays: ${variant.rangeDays},
+      rangeWeeks: ${variant.rangeWeeks},
       rangeMonths: ${variant.rangeMonths},
       columns: ${variant.columns},
       contentPadding: ${swiftNumber(variant.contentPadding)},
@@ -199,7 +224,7 @@ enum LoofitHeatmapHeaderSummary {
 
 enum LoofitHeatmapCalendarAlignment {
   case rollingDays
-  case weekContainingRangeStart
+  case calendarWeeks
   case continuousMonthsWithBoundarySlots
 }
 
@@ -209,9 +234,16 @@ enum LoofitHeatmapStat {
   case averageDuration
 }
 
+enum LoofitHeatmapCellLabelColorRole {
+  case detail
+  case title
+  case accentText
+}
+
 struct LoofitHeatmapRendererSpec {
   let title: String
   let rangeDays: Int
+  let rangeWeeks: Int
   let rangeMonths: Int
   let columns: Int
   let contentPadding: CGFloat
@@ -278,6 +310,10 @@ enum LoofitWidgetRendererContract {
   enum Heatmap {
     static let weekdayLabels = ${swiftStringArray(value.heatmap.weekdayLabels)}
     static let weekdayLabelSize: CGFloat = ${swiftNumber(value.text.calendar.weekdaySize)}
+    static let emptyCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .${swiftCase(value.heatmap.cellLabelColorPolicy.empty)}
+    static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .${swiftCase(value.heatmap.cellLabelColorPolicy.filled)}
+    static let strongFilledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .${swiftCase(value.heatmap.cellLabelColorPolicy.strongFilled)}
+    static let strongCellLabelMinimumDurationSeconds = ${value.heatmap.cellLabelColorPolicy.strongMinimumDurationSeconds}
     static let week = ${heatmapVariant(variants.week)}
     static let month = ${heatmapVariant(variants.month)}
     static let year = ${heatmapVariant(variants.year)}
@@ -348,7 +384,7 @@ public enum LoofitWidgetLayoutContract {
 
   public enum CalendarAlignment: String, Sendable {
     case rollingDays
-    case weekContainingRangeStart
+    case calendarWeeks
     case continuousMonthsWithBoundarySlots
   }
 
@@ -360,7 +396,7 @@ public enum LoofitWidgetLayoutContract {
 
   public enum Heatmap {
     public static let weekRangeDays = ${variants.week.rangeDays}
-    public static let monthRangeDays = ${variants.month.rangeDays}
+    public static let monthRangeWeeks = ${variants.month.rangeWeeks}
     public static let sixMonthRangeMonths = ${variants.year.rangeMonths}
     public static let monthBoundaryGapSlots = ${variants.year.monthBoundaryGapSlots}
     public static let weekHeaderSummary: HeaderSummary = .${swiftCase(variants.week.headerSummary)}

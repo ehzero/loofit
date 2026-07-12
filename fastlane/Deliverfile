@@ -1,0 +1,9 @@
+metadata_path(File.expand_path("metadata", __dir__))
+screenshots_path(File.expand_path("screenshots", __dir__))
+app_previews_path(File.expand_path("app-previews", __dir__))
+
+skip_binary_upload(true)
+submit_for_review(false)
+force(false)
+overwrite_screenshots(true)
+precheck_include_in_app_purchases(false)

@@ -13,7 +13,7 @@ enum LoofitHeatmapHeaderSummary {
 
 enum LoofitHeatmapCalendarAlignment {
   case rollingDays
-  case weekContainingRangeStart
+  case calendarWeeks
   case continuousMonthsWithBoundarySlots
 }
 
@@ -23,9 +23,16 @@ enum LoofitHeatmapStat {
   case averageDuration
 }
 
+enum LoofitHeatmapCellLabelColorRole {
+  case detail
+  case title
+  case accentText
+}
+
 struct LoofitHeatmapRendererSpec {
   let title: String
   let rangeDays: Int
+  let rangeWeeks: Int
   let rangeMonths: Int
   let columns: Int
   let contentPadding: CGFloat
@@ -92,9 +99,14 @@ enum LoofitWidgetRendererContract {
   enum Heatmap {
     static let weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"]
     static let weekdayLabelSize: CGFloat = 8
+    static let emptyCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .detail
+    static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .title
+    static let strongFilledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .accentText
+    static let strongCellLabelMinimumDurationSeconds = 3600
     static let week = LoofitHeatmapRendererSpec(
       title: "지난 7일",
       rangeDays: 7,
+      rangeWeeks: 0,
       rangeMonths: 0,
       columns: 7,
       contentPadding: 16,
@@ -112,8 +124,9 @@ enum LoofitWidgetRendererContract {
       reservedFooterHeight: 63
     )
     static let month = LoofitHeatmapRendererSpec(
-      title: "지난 30일",
-      rangeDays: 30,
+      title: "지난 5주",
+      rangeDays: 0,
+      rangeWeeks: 5,
       rangeMonths: 0,
       columns: 7,
       contentPadding: 12,
@@ -124,8 +137,8 @@ enum LoofitWidgetRendererContract {
       headerVisible: false,
       headerFontSize: 11,
       headerSummary: .none,
-      calendarAlignment: .weekContainingRangeStart,
-      showLeadingCalendarCells: true,
+      calendarAlignment: .calendarWeeks,
+      showLeadingCalendarCells: false,
       monthBoundaryGapSlots: 0,
       reservedHeaderHeight: 0,
       reservedFooterHeight: 0
@@ -133,6 +146,7 @@ enum LoofitWidgetRendererContract {
     static let year = LoofitHeatmapRendererSpec(
       title: "지난 6개월",
       rangeDays: 0,
+      rangeWeeks: 0,
       rangeMonths: 6,
       columns: 0,
       contentPadding: 16,
@@ -178,7 +192,7 @@ enum LoofitWidgetRendererContract {
     static let completedBadge = "오운완"
     static let idle = "다음 운동"
     static let routineRequired = "루틴 설정 필요"
-    static let summaryTitle = "최근 7일"
+    static let summaryTitle = "지난 7일"
     static let compactCharacterLimit = 3
     static let summaryDays = 7
     static let inlineFontSize: CGFloat = 13

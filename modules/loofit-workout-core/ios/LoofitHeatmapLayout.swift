@@ -78,31 +78,40 @@ public enum LoofitHeatmapProjection {
     )
   }
 
-  public static func month(
+  public static func calendarWeeks(
     snapshot: LoofitWorkoutSnapshot?,
     endingAt date: Date,
+    count: Int,
     calendar: Calendar = .autoupdatingCurrent
   ) -> [LoofitHeatmapDay] {
     let end = calendar.startOfDay(for: date)
-    let rangeStart = calendar.date(
-      byAdding: .day,
-      value: -(LoofitWidgetLayoutContract.Heatmap.monthRangeDays - 1),
-      to: end
-    ) ?? end
-    let weekday = calendar.component(.weekday, from: rangeStart)
-    let daysSinceSunday = weekday - 1
-    let gridStart = calendar.date(
-      byAdding: .day,
-      value: -daysSinceSunday,
-      to: rangeStart
-    ) ?? rangeStart
+    let start = calendarWeekRangeStart(endingAt: end, count: count, calendar: calendar)
     return range(
       snapshot: snapshot,
-      start: gridStart,
+      start: start,
       end: end,
-      inRangeStart: rangeStart,
+      inRangeStart: start,
       calendar: calendar
     )
+  }
+
+  public static func calendarWeekRangeStart(
+    endingAt date: Date,
+    count: Int,
+    calendar: Calendar = .autoupdatingCurrent
+  ) -> Date {
+    let end = calendar.startOfDay(for: date)
+    let daysSinceSunday = calendar.component(.weekday, from: end) - 1
+    let currentWeekStart = calendar.date(
+      byAdding: .day,
+      value: -daysSinceSunday,
+      to: end
+    ) ?? end
+    return calendar.date(
+      byAdding: .weekOfYear,
+      value: -(max(count, 1) - 1),
+      to: currentWeekStart
+    ) ?? currentWeekStart
   }
 
   public static func sixMonths(

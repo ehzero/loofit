@@ -49,8 +49,9 @@ export default function DashboardScreen() {
           <HeatYearGrid cells={overview.heatmapYear} />
         ) : (
           <HeatGrid
-            cells={range === '7' ? overview.heatmap7 : overview.heatmapGrid}
+            cells={range === '7' ? overview.heatmap7 : overview.heatmap30}
             weekdayLabels
+            alignToWeekdays={range === '30'}
           />
         )}
       </Card>

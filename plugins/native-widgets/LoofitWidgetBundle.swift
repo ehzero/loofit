@@ -318,8 +318,12 @@ struct LoofitHeatmapWidgetView: View {
         endingAt: entry.date,
         count: rendererSpec.rangeDays
       )
-    case .weekContainingRangeStart:
-      return LoofitHeatmapProjection.month(snapshot: entry.snapshot, endingAt: entry.date)
+    case .calendarWeeks:
+      return LoofitHeatmapProjection.calendarWeeks(
+        snapshot: entry.snapshot,
+        endingAt: entry.date,
+        count: rendererSpec.rangeWeeks
+      )
     case .continuousMonthsWithBoundarySlots:
       return LoofitHeatmapProjection.sixMonths(snapshot: entry.snapshot, endingAt: entry.date)
     }
@@ -415,7 +419,7 @@ struct LoofitHeatmapWidgetView: View {
               if day.inRange || rendererSpec.showLeadingCalendarCells {
                 Text("\(Calendar.current.component(.day, from: day.date))")
                   .font(.system(size: rendererSpec.cellLabelSize, weight: .heavy))
-                  .foregroundStyle(day.durationSeconds >= 90 * 60 ? LoofitColor(entry.palette.accentText) : LoofitColor(entry.palette.tx3))
+                  .foregroundStyle(labelColor(for: day))
                   .minimumScaleFactor(0.6)
               }
             }
@@ -596,6 +600,26 @@ struct LoofitHeatmapWidgetView: View {
       return LoofitMixColor(entry.palette.accent, entry.palette.heatmapBase, weight: 0.74)
     default:
       return LoofitColor(entry.palette.accent)
+    }
+  }
+
+  private func labelColor(for day: LoofitHeatmapDay) -> Color {
+    let role: LoofitHeatmapCellLabelColorRole
+    if day.durationSeconds >= LoofitWidgetRendererContract.Heatmap.strongCellLabelMinimumDurationSeconds {
+      role = LoofitWidgetRendererContract.Heatmap.strongFilledCellLabelColorRole
+    } else if day.durationSeconds > 0 {
+      role = LoofitWidgetRendererContract.Heatmap.filledCellLabelColorRole
+    } else {
+      role = LoofitWidgetRendererContract.Heatmap.emptyCellLabelColorRole
+    }
+
+    switch role {
+    case .title:
+      return LoofitColor(entry.palette.tx)
+    case .accentText:
+      return LoofitColor(entry.palette.accentText)
+    case .detail:
+      return LoofitColor(entry.palette.tx3)
     }
   }
 }
