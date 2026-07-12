@@ -1,4 +1,5 @@
 const appJson = require('./app.json');
+const packageJson = require('./package.json');
 const brand = require('./src/config/brand.json');
 
 const widgetsPlugin = [
@@ -65,6 +66,7 @@ module.exports = ({ config }) => {
     ...config,
     ...appJson.expo,
     name: brand.displayName,
+    version: packageJson.version,
     ios: {
       ...(appJson.expo.ios ?? {}),
       infoPlist: {

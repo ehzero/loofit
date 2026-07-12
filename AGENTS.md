@@ -80,6 +80,7 @@
 - 패키지 매니저는 `npm`을 사용한다.
 - SQLite를 영속 데이터의 원천으로 사용하고, Zustand는 현재 세션과 화면 상태 캐시로 사용한다.
 - 로그인과 백엔드 동기화 없이 Local-first로 동작한다.
+- 앱 버전의 단일 원천은 루트 `package.json`의 `version`이다. `app.config.js`가 Expo 버전에 반영하고 앱 UI는 `expo-constants`로 주입된 버전을 표시한다.
 - 날짜 계산과 히트맵 귀속은 기기 로컬 시간 기준으로 처리한다.
 - 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build 기준으로 검증한다.
 - Android 위젯과 고정 알림은 iOS MVP 반응 확인 후 확장한다.

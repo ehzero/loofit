@@ -10,6 +10,7 @@ import { Icon } from '@/src/components/Icon';
 import { ListRow } from '@/src/components/ListRow';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
+import { APP_VERSION_LABEL } from '@/src/config/app-version';
 import { BRAND } from '@/src/config/brand';
 import {
   isActionSuccessful,
@@ -118,7 +119,8 @@ export default function SettingsScreen() {
             divider
             right={
               <AppText variant="body" tone="muted">
-                {BRAND.displayName} v0.1
+                {BRAND.displayName}
+                {APP_VERSION_LABEL ? ` ${APP_VERSION_LABEL}` : ''}
               </AppText>
             }
           />
