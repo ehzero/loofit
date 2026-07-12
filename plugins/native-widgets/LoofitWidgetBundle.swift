@@ -364,6 +364,9 @@ struct LoofitHeatmapWidgetView: View {
             Spacer(minLength: 0)
             weekRecent
           }
+        } else if rendererSpec.calendarAlignment == .calendarWeeks {
+          Spacer(minLength: 0)
+          monthStats
         } else {
           Spacer(minLength: 0)
         }
@@ -497,6 +500,24 @@ struct LoofitHeatmapWidgetView: View {
       weekStat(at: 1)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+  }
+
+  private var monthStats: some View {
+    Text(monthSummary)
+      .font(
+        .system(
+          size: LoofitWidgetRendererContract.Heatmap.year.headerFontSize,
+          weight: .semibold
+        )
+      )
+      .foregroundStyle(LoofitColor(entry.palette.tx3))
+      .opacity(0.82)
+      .lineLimit(1)
+      .minimumScaleFactor(0.68)
+  }
+
+  private var monthSummary: String {
+    return "\(count)회\(LoofitWidgetRendererContract.Heatmap.MonthFooter.separator)\(LoofitWidgetRendererContract.Heatmap.MonthFooter.totalDurationPrefix)\(LoofitFormat.duration(duration))"
   }
 
   private var orderedWeekStats: [(label: String, value: String)] {

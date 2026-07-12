@@ -131,6 +131,16 @@ function validate(value) {
   );
   assert(footer.statOrder.length === footer.statLabels?.length, 'week footer labels must match stats');
   assert(footer.alwaysShowRecent === true, 'week recent section must always be visible');
+  const monthFooter = value.heatmap.monthFooter;
+  assert(
+    monthFooter?.statOrder?.join(',') === 'count,totalDuration',
+    'month footer stat order must be count, total duration'
+  );
+  assert(typeof monthFooter.separator === 'string', 'month footer separator must be a string');
+  assert(
+    typeof monthFooter.totalDurationPrefix === 'string',
+    'month footer total duration prefix must be a string'
+  );
   assert(value.lockScreen?.summaryDays === 7, 'lock-screen summary must cover seven days');
 
   const compact = value.liveActivity?.compact;
@@ -203,6 +213,7 @@ function renderSwift(value) {
     )`;
   const copy = value.lockScreen.copy;
   const footer = value.heatmap.weekFooter;
+  const monthFooter = value.heatmap.monthFooter;
   const control = value.control;
   const lock = value.lockScreen;
   const summary = lock.summary;
@@ -338,6 +349,12 @@ enum LoofitWidgetRendererContract {
       static let recentValueSize: CGFloat = ${swiftNumber(footer.recentValueSize)}
       static let recentMetaSize: CGFloat = ${swiftNumber(footer.recentMetaSize)}
     }
+
+    enum MonthFooter {
+      static let statOrder: [LoofitHeatmapStat] = ${swiftCaseArray(monthFooter.statOrder)}
+      static let separator = ${swiftString(monthFooter.separator)}
+      static let totalDurationPrefix = ${swiftString(monthFooter.totalDurationPrefix)}
+    }
   }
 
   enum LockScreen {
@@ -406,6 +423,7 @@ public enum LoofitWidgetLayoutContract {
     public static let monthCalendarAlignment: CalendarAlignment = .${swiftCase(variants.month.calendarAlignment)}
     public static let sixMonthCalendarAlignment: CalendarAlignment = .${swiftCase(variants.year.calendarAlignment)}
     public static let weekStatOrder: [HeatmapStat] = ${swiftCaseArray(value.heatmap.weekFooter.statOrder)}
+    public static let monthStatOrder: [HeatmapStat] = ${swiftCaseArray(value.heatmap.monthFooter.statOrder)}
     public static let weekAlwaysShowsRecent = ${value.heatmap.weekFooter.alwaysShowRecent}
   }
 

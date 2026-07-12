@@ -216,7 +216,7 @@ export default function WidgetsScreen() {
             </WidgetTypePreview>
           </View>
 
-          <WidgetTypePreview label="Medium · 최근 6개월" labelColor={previewTheme.typeLabelColor}>
+          <WidgetTypePreview label="Medium · 지난 6개월" labelColor={previewTheme.typeLabelColor}>
             <HeatmapWidgetPreview
               title={yearWidget.title}
               variant="year"
@@ -869,6 +869,7 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
       variant: 'month',
       cells: monthCells,
       colors,
+      footer: buildPreviewMonthFooter(monthStats),
     }),
     yearWidget: buildHeatmapWidgetProps({
       title: formatSixMonthHeatmapWidgetTitle(sixMonthStats),
@@ -937,6 +938,16 @@ function buildPreviewWeekFooter(stats: RangeStats): HeatmapWidgetFooterProps {
     recentWorkoutLabel: footer.recentLabel,
     recentWorkoutTitles: hasRecentWorkout ? 'Push · 1시간 8분,Pull · 48분' : '',
     recentWorkoutMetas: hasRecentWorkout ? '오늘,어제' : '',
+  };
+}
+
+function buildPreviewMonthFooter(stats: RangeStats): HeatmapWidgetFooterProps {
+  return {
+    footerStatLabels: '',
+    footerStatValues: `${stats.workoutCount}회,${formatDuration(stats.durationSeconds)}`,
+    recentWorkoutLabel: '',
+    recentWorkoutTitles: '',
+    recentWorkoutMetas: '',
   };
 }
 

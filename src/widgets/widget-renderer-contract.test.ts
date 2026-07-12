@@ -32,6 +32,7 @@ describe('widget renderer contract', () => {
       headerVisible: false,
       headerSummary: 'none',
       reservedHeaderHeight: 0,
+      reservedFooterHeight: 18,
       calendarAlignment: 'calendarWeeks',
       showLeadingCalendarCells: false,
     });
@@ -42,6 +43,14 @@ describe('widget renderer contract', () => {
       calendarAlignment: 'continuousMonthsWithBoundarySlots',
       monthBoundaryGapSlots: 7,
       family: 'systemMedium',
+    });
+  });
+
+  it('keeps the 5-week footer as an unlabeled count and total duration summary', () => {
+    expect(WIDGET_RENDERER_CONTRACT.heatmap.monthFooter).toEqual({
+      statOrder: ['count', 'totalDuration'],
+      separator: ' · ',
+      totalDurationPrefix: '총 ',
     });
   });
 

@@ -177,7 +177,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "showLeadingCalendarCells": false,
         "monthBoundaryGapSlots": 0,
         "reservedHeaderHeight": 0,
-        "reservedFooterHeight": 0
+        "reservedFooterHeight": 18
       },
       "year": {
         "nativeCase": "sixMonths",
@@ -231,6 +231,14 @@ export const WIDGET_RENDERER_CONTRACT = {
       "recentLabelSize": 8,
       "recentValueSize": 10,
       "recentMetaSize": 9
+    },
+    "monthFooter": {
+      "statOrder": [
+        "count",
+        "totalDuration"
+      ],
+      "separator": " · ",
+      "totalDurationPrefix": "총 "
     }
   },
   "lockScreen": {

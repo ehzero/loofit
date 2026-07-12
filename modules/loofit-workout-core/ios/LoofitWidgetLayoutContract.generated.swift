@@ -34,6 +34,7 @@ public enum LoofitWidgetLayoutContract {
     public static let monthCalendarAlignment: CalendarAlignment = .calendarWeeks
     public static let sixMonthCalendarAlignment: CalendarAlignment = .continuousMonthsWithBoundarySlots
     public static let weekStatOrder: [HeatmapStat] = [.count, .totalDuration, .averageDuration]
+    public static let monthStatOrder: [HeatmapStat] = [.count, .totalDuration]
     public static let weekAlwaysShowsRecent = true
   }
 

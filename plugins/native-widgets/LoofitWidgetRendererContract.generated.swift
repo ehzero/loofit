@@ -141,7 +141,7 @@ enum LoofitWidgetRendererContract {
       showLeadingCalendarCells: false,
       monthBoundaryGapSlots: 0,
       reservedHeaderHeight: 0,
-      reservedFooterHeight: 0
+      reservedFooterHeight: 18
     )
     static let year = LoofitHeatmapRendererSpec(
       title: "지난 6개월",
@@ -183,6 +183,12 @@ enum LoofitWidgetRendererContract {
       static let recentLabelSize: CGFloat = 8
       static let recentValueSize: CGFloat = 10
       static let recentMetaSize: CGFloat = 9
+    }
+
+    enum MonthFooter {
+      static let statOrder: [LoofitHeatmapStat] = [.count, .totalDuration]
+      static let separator = " · "
+      static let totalDurationPrefix = "총 "
     }
   }
 

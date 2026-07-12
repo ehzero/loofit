@@ -3,7 +3,11 @@ import { StyleSheet, Text, View, type LayoutChangeEvent, type StyleProp, type Vi
 
 import { buildHeatmapWidgetRows, parseHeatmapWidgetList } from '@/src/widgets/heatmap-widget-model';
 import type { HeatmapWidgetProps } from '@/src/widgets/types';
-import { WIDGET_PREVIEW_SPEC, type HeatmapWidgetVariant } from '@/src/widgets/widget-spec';
+import {
+  WIDGET_PREVIEW_SPEC,
+  WIDGET_RENDERER_CONTRACT,
+  type HeatmapWidgetVariant,
+} from '@/src/widgets/widget-spec';
 
 export function HeatmapWidgetPreview({
   title,
@@ -29,8 +33,10 @@ export function HeatmapWidgetPreview({
   const showCalendarLabels = variant !== 'year';
   const resolvedFooterStats = footerStats ?? parseFooterStats(widget);
   const resolvedFooterRecords = footerRecords ?? parseFooterRecords(widget);
+  const monthSummary = variant === 'month' ? parseMonthSummary(widget) : '';
   const hasFooter =
     Boolean(footerSummary) ||
+    Boolean(monthSummary) ||
     resolvedFooterStats.length > 0 ||
     Boolean(widget.recentWorkoutLabel) ||
     resolvedFooterRecords.length > 0;
@@ -134,6 +140,22 @@ export function HeatmapWidgetPreview({
                 ]}
               >
                 {footerSummary}
+              </Text>
+            ) : null}
+            {monthSummary ? (
+              <Text
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.68}
+                style={[
+                  styles.monthSummary,
+                  {
+                    color: widget.titleColor,
+                    fontSize: WIDGET_RENDERER_CONTRACT.heatmap.variants.year.headerFontSize,
+                  },
+                ]}
+              >
+                {monthSummary}
               </Text>
             ) : null}
             {resolvedFooterStats.length ? (
@@ -250,6 +272,16 @@ function parseFooterStats(widget: HeatmapWidgetProps): Array<{ label: string; va
   return labels
     .map((label, index) => ({ label, value: values[index] ?? '' }))
     .filter((stat) => stat.label && stat.value);
+}
+
+function parseMonthSummary(widget: HeatmapWidgetProps): string {
+  const [count, duration] = parseHeatmapWidgetList(widget.footerStatValues);
+  if (!count || !duration) {
+    return '';
+  }
+
+  const footer = WIDGET_RENDERER_CONTRACT.heatmap.monthFooter;
+  return `${count}${footer.separator}${footer.totalDurationPrefix}${duration}`;
 }
 
 function parseFooterRecords(widget: HeatmapWidgetProps): Array<{ when: string; title: string; value: string }> {
@@ -423,6 +455,11 @@ const styles = StyleSheet.create({
     lineHeight: 14,
     fontWeight: '800',
     letterSpacing: 0,
+  },
+  monthSummary: {
+    fontWeight: '600',
+    letterSpacing: 0,
+    opacity: 0.82,
   },
   footerRecords: {
     gap: 2,
