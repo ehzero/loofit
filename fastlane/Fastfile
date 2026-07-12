@@ -1,7 +1,25 @@
 default_platform(:ios)
+skip_docs
+
+# deliver 2.237.0 fetches App Review details even when no review attachment is
+# configured. A first App Store version has no review-detail resource yet, so
+# that unconditional fetch ends the otherwise successful metadata upload with
+# `No data`. Preserve remote review attachments unless this repo explicitly
+# provides a replacement file.
+require "deliver/upload_metadata"
+
+module PreserveUnmanagedAppReviewAttachment
+  def review_attachment_file(version)
+    return unless options[:app_review_attachment_file]
+
+    super
+  end
+end
+
+Deliver::UploadMetadata.prepend(PreserveUnmanagedAppReviewAttachment)
 
 def app_store_connect_key
-  required = %w[ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_FILEPATH]
+  required = %w[ASC_KEY_ID ASC_KEY_FILEPATH]
   missing = required.select { |name| ENV[name].to_s.empty? }
 
   UI.user_error!("Missing App Store Connect credentials: #{missing.join(', ')}") unless missing.empty?
@@ -9,7 +27,7 @@ def app_store_connect_key
 
   app_store_connect_api_key(
     key_id: ENV.fetch("ASC_KEY_ID"),
-    issuer_id: ENV.fetch("ASC_ISSUER_ID"),
+    issuer_id: ENV["ASC_ISSUER_ID"].to_s.empty? ? nil : ENV["ASC_ISSUER_ID"],
     key_filepath: ENV.fetch("ASC_KEY_FILEPATH"),
     in_house: false
   )

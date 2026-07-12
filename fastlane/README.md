@@ -10,7 +10,7 @@ Fastlane manages the App Store product-page text, screenshots, and optional prev
 4. Copy `fastlane/.env.example` to `fastlane/.env` and fill in the key values.
 5. Verify the public URLs under `fastlane/metadata/<locale>` before uploading metadata.
 
-The `.p8` key and `fastlane/.env` are ignored by Git and must never be committed.
+The `.p8` key and `fastlane/.env` are ignored by Git and must never be committed. Team API keys require `ASC_ISSUER_ID`; individual API keys must leave it empty.
 
 ## Commands
 
@@ -22,14 +22,14 @@ npm run store:listing
 
 All lanes skip binary upload and never submit the app for review. `APP_STORE_VERSION` is required so automation cannot update an unintended editable version. Screenshot lanes also stop before contacting App Store Connect when no PNG or JPEG files exist.
 
-The Korean listing currently manages only values confirmed by the product and repository. `support@physiquehub.kr` is used in the public description and as the App Review contact email. The primary category is Health & Fitness (Fastlane value: `HEALTH_AND_FITNESS`); a secondary category is intentionally omitted.
+The Korean listing manages only values confirmed by the product and repository. `support@physiquehub.kr` is used in the public description and App Review contact. The primary category is Health & Fitness (Fastlane value: `HEALTH_AND_FITNESS`); a secondary category is intentionally omitted.
 
-The privacy-policy, customer-support, and marketing URLs use the public GitHub Pages site at `https://ehzero.github.io/loofit-legal/`. App Store Connect has no separate localized terms-of-service URL field, so the terms URL is managed by the app's brand configuration. Copyright, review contact name, and review contact phone remain absent until exact values are confirmed. App Store submission still requires complete App Review contact information.
+The privacy-policy, customer-support, and marketing URLs use the public GitHub Pages site at `https://ehzero.github.io/loofit-legal/`. App Store Connect has no separate localized terms-of-service URL field, so the terms URL is managed by the app's brand configuration. Copyright remains absent until an exact value is confirmed. No demo credentials are provided because the app has no login.
 
 ## Directory policy
 
 - `metadata/<locale>` contains localized text files.
-- `metadata/review_information` contains non-public App Review notes and contact values.
+- `metadata/review_information` contains the complete App Review contact and notes.
 - `screenshots/<locale>` contains ordered PNG or JPEG screenshots.
 - `app-previews/<locale>` contains optional App Preview videos.
 - Prefix screenshots with `01_`, `02_`, and so on to keep their App Store order stable.
