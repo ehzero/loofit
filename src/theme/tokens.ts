@@ -226,6 +226,10 @@ export function makeColors(scheme: ThemeScheme, accent: string): ThemeColors {
   const palette = scheme === 'light' ? LIGHT_PALETTE : DARK_PALETTE;
   return {
     ...palette,
+    // Use the same restrained accent-tinting rule for the hero gradient in
+    // both schemes while preserving each scheme's native surface contrast.
+    g1: mixHex(accent, palette.g1, 0.04),
+    g2: mixHex(accent, palette.g2, 0.02),
     accent,
     accentText: accentTextFor(accent),
   };
