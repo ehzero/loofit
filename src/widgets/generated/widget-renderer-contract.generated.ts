@@ -84,6 +84,37 @@ export const WIDGET_RENDERER_CONTRACT = {
       }
     }
   },
+  "liveActivity": {
+    "compact": {
+      "leadingWidth": 48,
+      "trailingWidth": 48,
+      "fontSize": 11,
+      "previewWidth": 230,
+      "previewHeight": 37,
+      "previewHorizontalPadding": 7
+    },
+    "expanded": {
+      "regions": {
+        "title": "leading",
+        "timer": "center",
+        "endButton": "trailing"
+      },
+      "sideRegionVerticalAlignment": "center",
+      "timerHorizontalAlignment": "trailing",
+      "timerRegionPriority": 1,
+      "previewWidth": 371,
+      "previewHeight": 84,
+      "horizontalPadding": 12,
+      "titleWidth": 72,
+      "titleFontSize": 14,
+      "titleMinimumScaleFactor": 0.76,
+      "timerFontSize": 14,
+      "timerLineHeight": 14,
+      "buttonWidth": 60,
+      "buttonHeight": 26,
+      "buttonFontSize": 11
+    }
+  },
   "heatmap": {
     "weekdayLabels": [
       "일",

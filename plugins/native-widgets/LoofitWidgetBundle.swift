@@ -620,18 +620,74 @@ struct LoofitWorkoutLiveActivity: Widget {
         .widgetURL(URL(string: "loofit://"))
     } dynamicIsland: { context in
       DynamicIsland {
-        DynamicIslandExpandedRegion(.center) {
-          LoofitWorkoutActivityExpanded(context: context)
+        DynamicIslandExpandedRegion(
+          LoofitWidgetRendererContract.LiveActivity.Expanded.titleRegion
+        ) {
+          Text(context.state.title)
+            .font(.system(
+              size: LoofitWidgetRendererContract.LiveActivity.Expanded.titleFontSize,
+              weight: .heavy
+            ))
+            .foregroundStyle(.white)
+            .lineLimit(1)
+            .minimumScaleFactor(
+              LoofitWidgetRendererContract.LiveActivity.Expanded.titleMinimumScaleFactor
+            )
+            .frame(
+              maxHeight: .infinity,
+              alignment: LoofitWidgetRendererContract.LiveActivity.Expanded.sideRegionAlignment
+            )
+        }
+        DynamicIslandExpandedRegion(
+          LoofitWidgetRendererContract.LiveActivity.Expanded.timerRegion,
+          priority: LoofitWidgetRendererContract.LiveActivity.Expanded.timerRegionPriority
+        ) {
+          LoofitActivityTimer(
+            state: context.state,
+            size: LoofitWidgetRendererContract.LiveActivity.Expanded.timerFontSize
+          )
+          .multilineTextAlignment(.trailing)
+          .frame(
+            maxWidth: .infinity,
+            alignment: LoofitWidgetRendererContract.LiveActivity.Expanded.timerAlignment
+          )
+          .frame(height: LoofitWidgetRendererContract.LiveActivity.Expanded.timerLineHeight)
+        }
+        DynamicIslandExpandedRegion(
+          LoofitWidgetRendererContract.LiveActivity.Expanded.endButtonRegion
+        ) {
+          LoofitActivityEndButton(
+            sessionId: context.attributes.sessionId,
+            accent: context.state.accent,
+            accentText: context.state.accentText,
+            width: LoofitWidgetRendererContract.LiveActivity.Expanded.buttonWidth,
+            height: LoofitWidgetRendererContract.LiveActivity.Expanded.buttonHeight,
+            fontSize: LoofitWidgetRendererContract.LiveActivity.Expanded.buttonFontSize
+          )
+          .frame(
+            maxHeight: .infinity,
+            alignment: LoofitWidgetRendererContract.LiveActivity.Expanded.sideRegionAlignment
+          )
         }
       } compactLeading: {
-        Text(context.state.title.replacingOccurrences(of: " · ", with: "·"))
-          .font(.system(size: 11, weight: .heavy))
+        Text("🏋️ " + context.state.title.replacingOccurrences(of: " · ", with: "·"))
+          .font(.system(
+            size: LoofitWidgetRendererContract.LiveActivity.Compact.fontSize,
+            weight: .heavy
+          ))
           .foregroundStyle(LoofitColor(context.state.accent))
           .lineLimit(1)
-          .frame(width: 48, alignment: .leading)
+          .frame(
+            width: LoofitWidgetRendererContract.LiveActivity.Compact.leadingWidth,
+            alignment: .leading
+          )
       } compactTrailing: {
-        LoofitActivityTimer(state: context.state, size: 11)
-          .frame(width: 42, alignment: .trailing)
+        LoofitActivityTimer(
+          state: context.state,
+          size: LoofitWidgetRendererContract.LiveActivity.Compact.fontSize
+        )
+        .multilineTextAlignment(.trailing)
+        .frame(width: LoofitWidgetRendererContract.LiveActivity.Compact.trailingWidth)
       } minimal: {
         Text(String(context.state.title.prefix(4)))
           .font(.system(size: 10, weight: .heavy))
@@ -677,33 +733,6 @@ private struct LoofitWorkoutActivityBanner: View {
   }
 }
 
-private struct LoofitWorkoutActivityExpanded: View {
-  let context: ActivityViewContext<LoofitWorkoutActivityAttributes>
-
-  var body: some View {
-    HStack(spacing: 7) {
-      Text(context.state.title)
-        .font(.system(size: 14, weight: .heavy))
-        .foregroundStyle(.white)
-        .lineLimit(1)
-        .minimumScaleFactor(0.76)
-        .frame(maxWidth: 124, alignment: .leading)
-      Spacer(minLength: 0)
-      LoofitActivityTimer(state: context.state, size: 14)
-        .frame(width: 68, alignment: .trailing)
-      LoofitActivityEndButton(
-        sessionId: context.attributes.sessionId,
-        accent: context.state.accent,
-        accentText: context.state.accentText,
-        width: 68,
-        height: 26,
-        fontSize: 11
-      )
-    }
-    .padding(.horizontal, 12)
-  }
-}
-
 private struct LoofitActivityTimer: View {
   let state: LoofitWorkoutActivityAttributes.ContentState
   let size: CGFloat
@@ -720,7 +749,6 @@ private struct LoofitActivityTimer: View {
     .monospacedDigit()
     .foregroundStyle(LoofitColor(state.accent))
     .lineLimit(1)
-    .minimumScaleFactor(0.68)
   }
 }
 

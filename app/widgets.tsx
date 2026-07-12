@@ -40,6 +40,8 @@ import type {
 } from '@/src/widgets/types';
 
 const CONTROL = WIDGET_PREVIEW_SPEC.control;
+const LIVE_ACTIVITY_COMPACT = WIDGET_RENDERER_CONTRACT.liveActivity.compact;
+const LIVE_ACTIVITY_EXPANDED = WIDGET_RENDERER_CONTRACT.liveActivity.expanded;
 const LIVE_ACTIVITY_PREVIEW = {
   banner: {
     buttonWidth: 88,
@@ -47,26 +49,24 @@ const LIVE_ACTIVITY_PREVIEW = {
     buttonTextSize: 13,
   },
   compact: {
-    width: 128,
-    height: 38,
-    paddingHorizontal: 7,
-    titleWidth: 48,
-    timerWidth: 38,
+    width: LIVE_ACTIVITY_COMPACT.previewWidth,
+    height: LIVE_ACTIVITY_COMPACT.previewHeight,
+    paddingHorizontal: LIVE_ACTIVITY_COMPACT.previewHorizontalPadding,
+    timerWidth: LIVE_ACTIVITY_COMPACT.trailingWidth,
+    fontSize: LIVE_ACTIVITY_COMPACT.fontSize,
   },
   minimal: {
     size: 46,
   },
   expanded: {
-    width: 292,
-    height: 52,
-    contentWidth: 268,
-    contentHeight: 32,
-    horizontalPadding: 12,
-    titleWidth: 110,
-    timerWidth: 66,
-    buttonWidth: 68,
-    buttonHeight: 26,
-    buttonTextSize: 11,
+    width: LIVE_ACTIVITY_EXPANDED.previewWidth,
+    height: LIVE_ACTIVITY_EXPANDED.previewHeight,
+    horizontalPadding: LIVE_ACTIVITY_EXPANDED.horizontalPadding,
+    titleWidth: LIVE_ACTIVITY_EXPANDED.titleWidth,
+    timerLineHeight: LIVE_ACTIVITY_EXPANDED.timerLineHeight,
+    buttonWidth: LIVE_ACTIVITY_EXPANDED.buttonWidth,
+    buttonHeight: LIVE_ACTIVITY_EXPANDED.buttonHeight,
+    buttonTextSize: LIVE_ACTIVITY_EXPANDED.buttonFontSize,
     gap: 7,
   },
 } as const;
@@ -717,16 +717,12 @@ function DynamicIslandPreview({
           <Text
             style={[styles.liveCompactLeadingText, { color: accent }]}
             numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.55}
           >
-            {compactTitle}
+            {`🏋️ ${compactTitle}`}
           </Text>
           <Text
             style={[styles.liveCompactTrailingText, { color: accent }]}
             numberOfLines={1}
-            adjustsFontSizeToFit
-            minimumFontScale={0.68}
           >
             {elapsed}
           </Text>
@@ -766,16 +762,19 @@ function DynamicIslandPreview({
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
-              minimumFontScale={0.76}
+              minimumFontScale={LIVE_ACTIVITY_EXPANDED.titleMinimumScaleFactor}
             >
               {title}
             </Text>
-            <View style={styles.liveExpandedActionGroup}>
-              <Text style={[styles.liveExpandedTimer, { color: accent }]} numberOfLines={1}>
+            <View style={styles.liveIslandExpandedCenter}>
+              <Text
+                style={[styles.liveExpandedTimer, { color: accent }]}
+                numberOfLines={1}
+              >
                 {elapsed}
               </Text>
-              <StopPill accent={accent} accentText={accentText} variant="expanded" />
             </View>
+            <StopPill accent={accent} accentText={accentText} variant="expanded" />
           </View>
         </View>
       </ScrollView>
@@ -1376,14 +1375,13 @@ const styles = StyleSheet.create({
     gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
   },
   liveCompactLeadingText: {
-    width: LIVE_ACTIVITY_PREVIEW.compact.titleWidth,
-    fontSize: 11,
+    fontSize: LIVE_ACTIVITY_PREVIEW.compact.fontSize,
     lineHeight: 16,
     fontWeight: '800',
   },
   liveCompactTrailingText: {
     width: LIVE_ACTIVITY_PREVIEW.compact.timerWidth,
-    fontSize: 11,
+    fontSize: LIVE_ACTIVITY_PREVIEW.compact.fontSize,
     lineHeight: 16,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
@@ -1411,31 +1409,29 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   liveIslandExpandedRow: {
-    width: LIVE_ACTIVITY_PREVIEW.expanded.contentWidth,
-    height: LIVE_ACTIVITY_PREVIEW.expanded.contentHeight,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
     gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
   },
   liveExpandedTitle: {
     width: LIVE_ACTIVITY_PREVIEW.expanded.titleWidth,
-    fontSize: 14,
+    fontSize: LIVE_ACTIVITY_EXPANDED.titleFontSize,
     lineHeight: 18,
     fontWeight: '800',
   },
-  liveExpandedActionGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: LIVE_ACTIVITY_PREVIEW.expanded.gap,
+  liveIslandExpandedCenter: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
   },
   liveExpandedTimer: {
-    width: LIVE_ACTIVITY_PREVIEW.expanded.timerWidth,
-    fontSize: 14,
-    lineHeight: 18,
+    width: '100%',
+    fontSize: LIVE_ACTIVITY_EXPANDED.timerFontSize,
+    lineHeight: LIVE_ACTIVITY_PREVIEW.expanded.timerLineHeight,
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
-    textAlign: 'right',
+    textAlign: LIVE_ACTIVITY_EXPANDED.timerHorizontalAlignment === 'trailing' ? 'right' : 'center',
   },
   controlCard: {
     width: CONTROL.cardSize,

@@ -2,6 +2,8 @@
 // Edit src/widgets/widget-renderer-contract.json and regenerate instead.
 
 import CoreGraphics
+import SwiftUI
+import WidgetKit
 
 enum LoofitHeatmapHeaderSummary {
   case none
@@ -61,6 +63,30 @@ enum LoofitWidgetRendererContract {
     static let buttonTextSize: CGFloat = 13
     static let durationSize: CGFloat = 22
     static let rangeSize: CGFloat = 11
+  }
+
+  enum LiveActivity {
+    enum Compact {
+      static let leadingWidth: CGFloat = 48
+      static let trailingWidth: CGFloat = 48
+      static let fontSize: CGFloat = 11
+    }
+
+    enum Expanded {
+      static let titleRegion: DynamicIslandExpandedRegionPosition = .leading
+      static let timerRegion: DynamicIslandExpandedRegionPosition = .center
+      static let endButtonRegion: DynamicIslandExpandedRegionPosition = .trailing
+      static let sideRegionAlignment: Alignment = .center
+      static let timerAlignment: Alignment = .trailing
+      static let timerRegionPriority: Double = 1
+      static let titleFontSize: CGFloat = 14
+      static let titleMinimumScaleFactor: CGFloat = 0.76
+      static let timerFontSize: CGFloat = 14
+      static let timerLineHeight: CGFloat = 14
+      static let buttonWidth: CGFloat = 60
+      static let buttonHeight: CGFloat = 26
+      static let buttonFontSize: CGFloat = 11
+    }
   }
 
   enum Heatmap {

@@ -59,6 +59,44 @@ describe('widget renderer contract', () => {
     expect(props.recentWorkoutTitles).toBe('');
   });
 
+  it('keeps compact Live Activity content balanced at the system preview size', () => {
+    expect(WIDGET_RENDERER_CONTRACT.liveActivity.compact).toEqual({
+      leadingWidth: 48,
+      trailingWidth: 48,
+      fontSize: 11,
+      previewWidth: 230,
+      previewHeight: 37,
+      previewHorizontalPadding: 7,
+    });
+
+    const renderer = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
+    expect(renderer).toContain('LiveActivity.Compact.leadingWidth');
+    expect(renderer).toContain('LiveActivity.Compact.trailingWidth');
+    expect(renderer).toContain('Text("🏋️ " + context.state.title');
+    expect(renderer).toContain('.multilineTextAlignment(.trailing)');
+  });
+
+  it('places expanded Live Activity content around the TrueDepth camera', () => {
+    expect(WIDGET_RENDERER_CONTRACT.liveActivity.expanded.regions).toEqual({
+      title: 'leading',
+      timer: 'center',
+      endButton: 'trailing',
+    });
+    expect(WIDGET_RENDERER_CONTRACT.liveActivity.expanded).toMatchObject({
+      sideRegionVerticalAlignment: 'center',
+      timerHorizontalAlignment: 'trailing',
+      timerRegionPriority: 1,
+      timerFontSize: 14,
+      timerLineHeight: 14,
+    });
+
+    const renderer = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
+    expect(renderer).toContain('LiveActivity.Expanded.titleRegion');
+    expect(renderer).toContain('LiveActivity.Expanded.timerRegion');
+    expect(renderer).toContain('LiveActivity.Expanded.endButtonRegion');
+    expect(renderer).toContain('LiveActivity.Expanded.timerAlignment');
+  });
+
   it('derives preview layout values from the canonical contract', () => {
     expect(WIDGET_PREVIEW_SPEC.card.padding).toBe(
       WIDGET_RENDERER_CONTRACT.card.contentPadding
