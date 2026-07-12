@@ -6,7 +6,7 @@
     "scheme": "loofit",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.loofit.app",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

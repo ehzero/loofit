@@ -83,6 +83,7 @@
 - 앱 버전의 단일 원천은 루트 `package.json`의 `version`이다. `app.config.js`가 Expo 버전에 반영하고 앱 UI는 `expo-constants`로 주입된 버전을 표시한다.
 - 날짜 계산과 히트맵 귀속은 기기 로컬 시간 기준으로 처리한다.
 - 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build 기준으로 검증한다.
+- iOS 앱은 iPhone 전용으로 배포하며 `ios.supportsTablet`을 활성화하지 않는다.
 - Android 위젯과 고정 알림은 iOS MVP 반응 확인 후 확장한다.
 
 ## 위젯 아키텍처
