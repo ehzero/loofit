@@ -64,7 +64,7 @@ private enum LoofitWorkoutPipelineCoordinator {
       let processLock = try await LoofitWorkoutProcessLock.acquire(databaseDirectory: directory)
       defer { processLock.unlock() }
       let database = try LoofitSQLiteDatabase(databaseDirectory: directory)
-      try database.ensureWidgetSyncSchema()
+      try database.migrateSchemaIfNeeded()
       let outcome = try LoofitWorkoutMetrics.measure("DatabaseTransaction") {
         try LoofitWorkoutCommandEngine.execute(command, database: database)
       }
@@ -91,7 +91,7 @@ private enum LoofitWorkoutPipelineCoordinator {
       let processLock = try await LoofitWorkoutProcessLock.acquire(databaseDirectory: directory)
       defer { processLock.unlock() }
       let database = try LoofitSQLiteDatabase(databaseDirectory: directory)
-      try database.ensureWidgetSyncSchema()
+      try database.migrateSchemaIfNeeded()
       let outcome = LoofitWorkoutMutationOutcome(status: .noop, sessionId: nil)
       guard reloadWidgets || updateLiveActivity else {
         return resultWithoutPublication(outcome: outcome, database: database)
@@ -116,7 +116,7 @@ private enum LoofitWorkoutPipelineCoordinator {
       let processLock = try await LoofitWorkoutProcessLock.acquire(databaseDirectory: directory)
       defer { processLock.unlock() }
       let database = try LoofitSQLiteDatabase(databaseDirectory: directory)
-      try database.ensureWidgetSyncSchema()
+      try database.migrateSchemaIfNeeded()
       let encoder = JSONEncoder()
       encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
       let data = try encoder.encode(theme.dictionary)

@@ -268,32 +268,14 @@ function YearHeatmapPreview({
 }) {
   const [width, setWidth] = useState(0);
   const monthLabels = useMemo(() => parseHeatmapWidgetList(widget.monthLabels), [widget.monthLabels]);
-  const monthGapBeforeWeeks = useMemo(
-    () => parseHeatmapWidgetList(widget.monthGapBeforeWeeks),
-    [widget.monthGapBeforeWeeks]
-  );
   const weekCount = rows[0]?.length ?? 0;
-  const monthGapColumns = widget.monthGapColumns ?? 0;
-  const boundaryCount = monthGapBeforeWeeks.filter((flag, index) => flag === '1' && index > 0).length;
   const normalGapWidth = widget.cellGap * Math.max(weekCount - 1, 0);
-  const availableUnits = Math.max(weekCount + boundaryCount * monthGapColumns, 1);
-  const cellSize = Math.max(0, (width - normalGapWidth) / availableUnits);
-  const monthGap = cellSize * monthGapColumns;
+  const cellSize = Math.max(0, (width - normalGapWidth) / Math.max(weekCount, 1));
 
-  const weekOffsets = useMemo(() => {
-    let offset = 0;
-    return Array.from({ length: weekCount }, (_, week) => {
-      if (week > 0) {
-        offset += widget.cellGap;
-        if (monthGapBeforeWeeks[week] === '1') {
-          offset += monthGap;
-        }
-      }
-      const current = offset;
-      offset += cellSize;
-      return current;
-    });
-  }, [cellSize, monthGap, monthGapBeforeWeeks, weekCount, widget.cellGap]);
+  const weekOffsets = useMemo(
+    () => Array.from({ length: weekCount }, (_, week) => week * (cellSize + widget.cellGap)),
+    [cellSize, weekCount, widget.cellGap]
+  );
 
   const onLayout = (event: LayoutChangeEvent) => {
     setWidth(event.nativeEvent.layout.width);
@@ -336,10 +318,7 @@ function YearHeatmapPreview({
                         backgroundColor: cell.color,
                         borderRadius: widget.cellRadius,
                         height: cellSize,
-                        marginLeft:
-                          week === 0
-                            ? 0
-                            : widget.cellGap + (monthGapBeforeWeeks[week] === '1' ? monthGap : 0),
+                        marginLeft: week === 0 ? 0 : widget.cellGap,
                         width: cellSize,
                       },
                     ]}

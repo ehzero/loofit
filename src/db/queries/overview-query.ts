@@ -2,13 +2,8 @@ import type * as SQLite from 'expo-sqlite';
 
 import { addLocalDays, getWeekStart, startOfLocalDay, toLocalDateKey } from '@/src/domain/date';
 import { buildHeatmap, buildHeatmapGrid } from '@/src/domain/heatmap';
-import { getNextRoutineDay, routineDayDisplayName } from '@/src/domain/routine';
-import type {
-  AppOverview,
-  DashboardStats,
-  RangeStats,
-  RoutineDay,
-} from '@/src/types';
+import { getNextRoutineDay } from '@/src/domain/routine';
+import type { AppOverview, DashboardStats, RangeStats } from '@/src/types';
 
 import { withDatabaseReadTransaction } from '../database';
 import { getBodyPartsFromDatabase } from '../repositories/body-part-repository';
@@ -22,8 +17,7 @@ import { getSessionsFromDatabase } from '../repositories/session-repository';
 /** Completed-session count, total duration, and split totals since the given instant. */
 async function getCompletedRangeStats(
   db: SQLite.SQLiteDatabase,
-  sinceIso: string,
-  routineDays: RoutineDay[]
+  sinceIso: string
 ): Promise<RangeStats> {
   const row = await db.getFirstAsync<{ count: number; total: number | null }>(
     `SELECT COUNT(*) AS count, SUM(duration_seconds) AS total
@@ -53,7 +47,7 @@ async function getCompletedRangeStats(
     workoutCount: row?.count ?? 0,
     durationSeconds: Math.round(row?.total ?? 0),
     bySplit: splitRows.map((split) => ({
-      name: splitDisplayName(split.routine_day_id, split.routine_day_name, routineDays),
+      name: splitDisplayName(split.routine_day_id, split.routine_day_name),
       workoutCount: split.count,
       durationSeconds: Math.round(split.total),
     })),
@@ -90,8 +84,7 @@ async function getDashboardStats(
 
 function splitDisplayName(
   routineDayId: number | null,
-  routineDayName: string | null,
-  routineDays: RoutineDay[]
+  routineDayName: string | null
 ): string {
   if (!routineDayId) {
     return '자유 운동';
@@ -101,12 +94,6 @@ function splitDisplayName(
   if (frozenName) {
     return frozenName;
   }
-
-  const routineDay = routineDays.find((day) => day.id === routineDayId);
-  if (routineDay) {
-    return routineDayDisplayName(routineDay);
-  }
-
   return '삭제된 분할';
 }
 
@@ -157,23 +144,19 @@ async function buildOverviewFromDatabase(
     rangeStats: {
       last7: await getCompletedRangeStats(
         db,
-        addLocalDays(today, -6).toISOString(),
-        routineDays
+        addLocalDays(today, -6).toISOString()
       ),
       last30: await getCompletedRangeStats(
         db,
-        addLocalDays(today, -29).toISOString(),
-        routineDays
+        addLocalDays(today, -29).toISOString()
       ),
       last6Months: await getCompletedRangeStats(
         db,
-        sixMonthRangeStart.toISOString(),
-        routineDays
+        sixMonthRangeStart.toISOString()
       ),
       last365: await getCompletedRangeStats(
         db,
-        addLocalDays(today, -364).toISOString(),
-        routineDays
+        addLocalDays(today, -364).toISOString()
       ),
     },
   };

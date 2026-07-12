@@ -27,9 +27,6 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   const sharedDirectory = getSharedDatabaseDirectory();
   const db = await SQLite.openDatabaseAsync(DATABASE_NAME, undefined, sharedDirectory);
   await db.execAsync('PRAGMA busy_timeout = 500');
-  if (sharedDirectory) {
-    await migrateDefaultDatabaseToSharedDirectory(db);
-  }
   await db.execAsync('PRAGMA journal_mode = WAL');
   await db.withExclusiveTransactionAsync(async (tx) => {
     const version = await tx.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
@@ -43,6 +40,18 @@ async function applyDatabaseMigrations(
   db: SQLite.SQLiteDatabase,
   currentVersion: number
 ): Promise<void> {
+  if (currentVersion > DATABASE_VERSION) {
+    throw new Error(
+      `Database schema version ${currentVersion} is newer than supported version ${DATABASE_VERSION}.`
+    );
+  }
+  if (currentVersion === DATABASE_VERSION) {
+    return;
+  }
+  if (DATABASE_MIGRATIONS.at(-1)?.version !== DATABASE_VERSION) {
+    throw new Error('Database migration contract does not reach the configured schema version.');
+  }
+
   for (const migration of DATABASE_MIGRATIONS) {
     if (migration.version <= currentVersion) {
       continue;
@@ -57,23 +66,6 @@ async function applyDatabaseMigrations(
     }
     await applyDatabaseMigrationAfterSql(db, migration);
     await db.execAsync(`PRAGMA user_version = ${migration.version}`);
-  }
-
-  // A committed version normally means its migration completed atomically.
-  // Replaying only explicitly-idempotent column/data effects also repairs old
-  // experimental databases whose user_version was advanced prematurely.
-  for (const migration of DATABASE_MIGRATIONS) {
-    if (migration.version <= currentVersion) {
-      await ensureDatabaseMigrationColumns(db, migration);
-      await applyDatabaseMigrationAfterSql(db, migration);
-    }
-  }
-
-  if (
-    currentVersion < DATABASE_VERSION &&
-    DATABASE_MIGRATIONS.at(-1)?.version !== DATABASE_VERSION
-  ) {
-    throw new Error('Database migration contract does not reach the configured schema version.');
   }
 }
 
@@ -145,30 +137,6 @@ function getSharedDatabaseDirectory(): string | undefined {
     )
       .databaseDirectory ?? undefined
   );
-}
-
-async function migrateDefaultDatabaseToSharedDirectory(
-  sharedDb: SQLite.SQLiteDatabase
-): Promise<void> {
-  const sharedVersion = await sharedDb.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-  if ((sharedVersion?.user_version ?? 0) > 0) {
-    return;
-  }
-
-  const defaultDb = await SQLite.openDatabaseAsync(DATABASE_NAME, { useNewConnection: true });
-  try {
-    const defaultVersion = await defaultDb.getFirstAsync<{ user_version: number }>(
-      'PRAGMA user_version'
-    );
-    if ((defaultVersion?.user_version ?? 0) > 0) {
-      await SQLite.backupDatabaseAsync({
-        sourceDatabase: defaultDb,
-        destDatabase: sharedDb,
-      });
-    }
-  } finally {
-    await defaultDb.closeAsync();
-  }
 }
 
 export async function seedDefaultBodyParts(db: SQLite.SQLiteDatabase): Promise<void> {

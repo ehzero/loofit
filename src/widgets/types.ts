@@ -15,8 +15,6 @@ export type HeatmapWidgetProps = {
   weekdayLabels: string;
   /** Month labels aligned to week columns for the medium heatmap widget. */
   monthLabels: string;
-  /** "1"/"0" flags aligned to week columns; "1" adds a one-cell gap before the week. */
-  monthGapBeforeWeeks: string;
   brandName: string;
   /** Footer stat labels for compact widgets, joined with commas. */
   footerStatLabels: string;
@@ -43,7 +41,6 @@ export type HeatmapWidgetProps = {
   cellRadius: number;
   headerGap: number;
   columns: number;
-  monthGapColumns: number;
 };
 
 export type WorkoutLockScreenWidgetProps = {

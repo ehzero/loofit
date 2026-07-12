@@ -92,6 +92,8 @@ describe('widget renderer contract', () => {
     const monthLabels = parseHeatmapWidgetList(props.monthLabels).filter(Boolean);
     const renderedCells = parseHeatmapWidgetList(props.colors);
 
+    expect(props).not.toHaveProperty('monthGapBeforeWeeks');
+    expect(props).not.toHaveProperty('monthGapColumns');
     expect(monthLabels).toEqual(['2월', '3월', '4월', '5월', '6월', '7월']);
     expect(renderedCells).toHaveLength(
       cells.length +

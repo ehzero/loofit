@@ -154,11 +154,28 @@ final class LoofitSQLiteDatabase {
     }
   }
 
-  func ensureWidgetSyncSchema() throws {
+  func migrateSchemaIfNeeded() throws {
+    let databaseVersion = Int(try firstInt64("PRAGMA user_version") ?? 0)
+    try validateSchemaVersion(databaseVersion)
+    guard databaseVersion < LoofitWorkoutSchemaContract.currentVersion else {
+      return
+    }
+
     try withImmediateTransaction {
-      let currentVersion = Int(try firstInt64("PRAGMA user_version") ?? 0)
+      let transactionVersion = Int(try firstInt64("PRAGMA user_version") ?? 0)
+      try validateSchemaVersion(transactionVersion)
+      guard transactionVersion < LoofitWorkoutSchemaContract.currentVersion else {
+        return
+      }
+
+      var expectedVersion = transactionVersion + 1
       for migration in LoofitWorkoutSchemaContract.migrations
-      where migration.version > currentVersion {
+      where migration.version > transactionVersion {
+        guard migration.version == expectedVersion else {
+          throw LoofitWorkoutCoreError.database(
+            "Missing schema migration for version \(expectedVersion)"
+          )
+        }
         if migration.schemaSQL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
           try execute(migration.schemaSQL)
         }
@@ -170,30 +187,23 @@ final class LoofitSQLiteDatabase {
         }
         try applySchemaMigrationAfterSQL(migration)
         try execute("PRAGMA user_version = \(migration.version)")
-      }
-      for migration in LoofitWorkoutSchemaContract.migrations
-      where migration.version <= currentVersion {
-        try ensureSchemaMigrationColumns(migration)
-        try applySchemaMigrationAfterSQL(migration)
+        expectedVersion += 1
       }
 
-      try execute(LoofitWorkoutSchemaContract.widgetSyncStateBootstrapSQL)
-
-      for table in LoofitWorkoutSchemaContract.widgetSyncTrackedTables
-      where try tableExists(table) {
-        for operation in LoofitWorkoutSchemaContract.widgetSyncOperations {
-          try execute(
-            LoofitWorkoutSchemaContract.widgetSyncTriggerSQL(
-              table: table,
-              operation: operation
-            )
-          )
-        }
+      guard expectedVersion == LoofitWorkoutSchemaContract.currentVersion + 1 else {
+        throw LoofitWorkoutCoreError.database(
+          "Missing schema migration for version \(expectedVersion)"
+        )
       }
+    }
+  }
 
-      if try tableExists(LoofitWorkoutSchemaContract.workoutSessionsTable) {
-        try execute(LoofitWorkoutSchemaContract.singleActiveSessionInvariantSQL)
-      }
+  private func validateSchemaVersion(_ version: Int) throws {
+    guard version <= LoofitWorkoutSchemaContract.currentVersion else {
+      throw LoofitWorkoutCoreError.database(
+        "Database schema version \(version) is newer than supported version " +
+          "\(LoofitWorkoutSchemaContract.currentVersion)"
+      )
     }
   }
 

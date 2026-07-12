@@ -14,8 +14,7 @@ class LoofitWorkoutCoreTestCase: XCTestCase {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     databaseDirectory = directory.path
     database = try LoofitSQLiteDatabase(databaseDirectory: directory.path)
-    try database.execute(LoofitWorkoutSchemaContract.schemaMigrationFixtureSQL)
-    try database.ensureWidgetSyncSchema()
+    try database.migrateSchemaIfNeeded()
   }
 
   override func tearDownWithError() throws {

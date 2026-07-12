@@ -94,7 +94,7 @@ export default function SettingsScreen() {
                       },
                     ]}>
                     {selected ? (
-                      <Icon name="check" size={16} color={accentTextFor(option)} weight="bold" />
+                      <Icon name="check" size={16} color={accentTextFor(option)} />
                     ) : null}
                   </Pressable>
                 );

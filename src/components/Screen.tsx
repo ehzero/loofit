@@ -44,7 +44,7 @@ export function Screen({
       <View style={styles.header}>
         {onBack ? (
           <Pressable onPress={onBack} hitSlop={10} style={styles.back}>
-            <Icon name="chevronLeft" size={24} color={colors.tx2} weight="semibold" />
+            <Icon name="chevronLeft" size={24} color={colors.tx2} />
           </Pressable>
         ) : null}
         {title ? (

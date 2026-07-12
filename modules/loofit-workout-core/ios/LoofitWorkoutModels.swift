@@ -265,10 +265,9 @@ public struct LoofitWorkoutDailyAggregate: Codable, Hashable, Sendable {
 }
 
 public struct LoofitWorkoutSnapshot: Codable, Sendable {
-  public let schemaVersion: Int
   public let revision: Int64
   public let generatedAt: String
-  public let timeZoneIdentifier: String?
+  public let timeZoneIdentifier: String
   public let theme: LoofitWidgetTheme
   public let activeSession: LoofitWorkoutSessionSnapshot?
   public let nextWorkout: LoofitWorkoutTargetSnapshot?
@@ -279,7 +278,6 @@ public struct LoofitWorkoutSnapshot: Codable, Sendable {
   public let surfaceHashes: [String: String]
 
   public init(
-    schemaVersion: Int = 2,
     revision: Int64,
     generatedAt: String,
     timeZoneIdentifier: String = Calendar.autoupdatingCurrent.timeZone.identifier,
@@ -292,7 +290,6 @@ public struct LoofitWorkoutSnapshot: Codable, Sendable {
     recentCompleted: [LoofitWorkoutSessionSnapshot],
     surfaceHashes: [String: String]
   ) {
-    self.schemaVersion = schemaVersion
     self.revision = revision
     self.generatedAt = generatedAt
     self.timeZoneIdentifier = timeZoneIdentifier

@@ -40,5 +40,5 @@ export default function TabLayout() {
 }
 
 function icon(name: IconName, color: unknown) {
-  return <Icon name={name} size={23} color={String(color)} weight="regular" />;
+  return <Icon name={name} size={23} color={String(color)} />;
 }

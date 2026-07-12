@@ -5,7 +5,7 @@ export { WIDGET_RENDERER_CONTRACT } from './generated/widget-renderer-contract.g
 const { card, control, heatmap, text } = WIDGET_RENDERER_CONTRACT;
 
 /**
- * React Native preview compatibility view of the canonical renderer contract.
+ * React Native preview projection of the canonical renderer contract.
  * The JSON contract is the editable source; both this shape and native Swift
  * constants are generated/derived from it.
  */
@@ -28,9 +28,6 @@ export const WIDGET_PREVIEW_SPEC = {
       cellGap: heatmap.variants.year.cellGap,
       cellRadius: heatmap.variants.year.cellRadius,
       headerGap: heatmap.variants.year.headerGap,
-      // Month boundaries are materialized as seven explicit gap slots before
-      // row/column projection, so the legacy preview-only gap width stays zero.
-      monthGapColumns: 0,
       cellLabelSize: heatmap.variants.year.cellLabelSize,
     },
   },

@@ -37,8 +37,6 @@ type IconProps = {
   name: IconName;
   size?: number;
   color: string;
-  /** Accepted for call-site compatibility; line icon sets have a fixed stroke. */
-  weight?: string;
 };
 
 export function Icon({ name, size = 20, color }: IconProps) {

@@ -55,7 +55,6 @@ export function buildHeatmapWidgetProps({
         )
       : cells;
   const monthLabels = variant === 'year' ? buildWeekMonthLabels(widgetCells) : [];
-  const weekCount = variant === 'year' ? Math.ceil(widgetCells.length / CALENDAR_ROWS) : 0;
 
   return {
     title: title ?? defaultHeatmapWidgetTitle(variant),
@@ -67,7 +66,6 @@ export function buildHeatmapWidgetProps({
     labelColors: widgetCells.map((cell) => heatmapCellLabelColor(colors, cell)).join(','),
     weekdayLabels: heatmapWeekdayLabels(variant, widgetCells).join(','),
     monthLabels: monthLabels.join(','),
-    monthGapBeforeWeeks: Array.from({ length: weekCount }, () => '0').join(','),
     brandName: BRAND.displayName,
     footerStatLabels: footer?.footerStatLabels ?? '',
     footerStatValues: footer?.footerStatValues ?? '',
@@ -93,7 +91,6 @@ export function buildHeatmapWidgetProps({
     cellRadius: spec.cellRadius,
     headerGap: spec.headerGap,
     columns: 'columns' in spec ? spec.columns : 0,
-    monthGapColumns: 'monthGapColumns' in spec ? spec.monthGapColumns : 0,
   };
 }
 

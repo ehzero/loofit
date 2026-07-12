@@ -61,7 +61,7 @@ describe('historical workout session display name', () => {
     ).toBe('Push');
   });
 
-  it('uses frozen body-part names for free and pre-migration sessions', () => {
+  it('uses frozen body-part names for free workouts', () => {
     expect(
       workoutSessionDisplayName({
         routineDayNameSnapshot: null,

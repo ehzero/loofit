@@ -18,18 +18,6 @@ validateContract(contract);
 
 const migrationSteps = buildMigrationSteps(contract);
 const latestSchemaSQL = schemaSQL(contract.database.version);
-const migrationFixtureSQL = `${schemaSQL(contract.migrationFixtureVersion)}\nPRAGMA user_version = ${contract.migrationFixtureVersion};\n`;
-const widgetSyncStateBootstrapSQL = [
-  createTableSQL(tableNamed(contract.widgetSync.stateTable), contract.database.version),
-  widgetSyncSeedSQL(),
-].join('\n\n');
-const singleActiveIndex = contract.indexes.find(
-  (index) => index.name === contract.nativeCore.singleActiveSessionIndex
-);
-const singleActiveInvariantSQL = [
-  ...singleActiveIndex.beforeCreateSql,
-  createIndexSQL(singleActiveIndex),
-].join('\n');
 
 const outputs = new Map([
   [TYPESCRIPT_OUTPUT, renderTypeScript()],
@@ -64,13 +52,6 @@ function validateContract(value) {
   const identifier = /^[a-z][a-z0-9_]*$/;
   assert(Number.isInteger(value.database?.version) && value.database.version > 0, 'Invalid version');
   assert(typeof value.database?.name === 'string' && value.database.name.length > 0, 'Invalid name');
-  assert(
-    Number.isInteger(value.migrationFixtureVersion) &&
-      value.migrationFixtureVersion > 0 &&
-      value.migrationFixtureVersion < value.database.version,
-    'Migration fixture version must precede the current version'
-  );
-
   const tableNames = new Set();
   for (const table of value.tables ?? []) {
     assert(identifier.test(table.name), `Invalid table name: ${table.name}`);
@@ -131,17 +112,9 @@ function validateContract(value) {
         Array.isArray(migration.afterSql) && migration.afterSql.length > 0,
         `Migration ${migration.id} has empty afterSql`
       );
-      assert(
-        migration.afterSqlIsIdempotent === true,
-        `Migration ${migration.id} afterSql must be declared idempotent`
-      );
     }
   }
 
-  assert(
-    migrationVersions.has(value.migrationFixtureVersion),
-    'Migration fixture version must have a migration step'
-  );
   for (const table of value.tables) {
     assert(
       migrationVersions.has(table.sinceVersion),
@@ -160,11 +133,6 @@ function validateContract(value) {
       `Index ${index.name} has no migration step for version ${index.sinceVersion}`
     );
   }
-  assert(
-    indexNames.has(value.nativeCore?.singleActiveSessionIndex),
-    'Unknown native single-active index'
-  );
-
   function validVersion(version) {
     return Number.isInteger(version) && version > 0 && version <= value.database.version;
   }
@@ -391,15 +359,6 @@ function renderTypeScript() {
     `export const DATABASE_NAME = ${JSON.stringify(contract.database.name)};`,
     `export const DATABASE_VERSION = ${contract.database.version};`,
     `export const DATABASE_MIGRATIONS: readonly DatabaseSchemaMigrationStep[] = ${renderTypeScriptMigrationSteps()};`,
-    `export const WIDGET_SYNC_OPERATIONS = ${renderTsArray(contract.widgetSync.operations)} as const;`,
-    `export const WIDGET_SYNC_STATE_TABLE = ${JSON.stringify(contract.widgetSync.stateTable)};`,
-    `export const WIDGET_SYNC_TRACKED_TABLES = ${renderTsArray(contract.widgetSync.trackedTables)} as const;`,
-    '',
-    `export const WIDGET_SYNC_STATE_BOOTSTRAP_SQL = ${renderTsTemplate(widgetSyncStateBootstrapSQL)};`,
-    '',
-    `export const SINGLE_ACTIVE_SESSION_INVARIANT_SQL = ${renderTsTemplate(singleActiveInvariantSQL)};`,
-    '',
-    `export const SCHEMA_MIGRATION_FIXTURE_SQL = ${renderTsTemplate(migrationFixtureSQL)};`,
     '',
     `export const MIGRATION_SQL = ${renderTsTemplate(latestSchemaSQL)};`,
     '',
@@ -432,30 +391,7 @@ function renderSwift() {
     `  static let databaseName = ${JSON.stringify(contract.database.name)}`,
     `  static let currentVersion = ${contract.database.version}`,
     `  static let migrations: [LoofitWorkoutSchemaMigrationStep] = ${renderSwiftMigrationSteps()}`,
-    `  static let widgetSyncOperations = ${renderSwiftArray(contract.widgetSync.operations)}`,
     `  static let widgetSyncStateTable = ${JSON.stringify(contract.widgetSync.stateTable)}`,
-    `  static let widgetSyncTrackedTables = ${renderSwiftArray(contract.widgetSync.trackedTables)}`,
-    `  static let workoutSessionsTable = ${JSON.stringify(singleActiveIndex.table)}`,
-    '',
-    `  static let widgetSyncStateBootstrapSQL = ${renderSwiftMultiline(widgetSyncStateBootstrapSQL)}`,
-    '',
-    '  static func widgetSyncTriggerSQL(table: String, operation: String) -> String {',
-    '    let trigger = "widget_sync_" + table + "_" + operation.lowercased()',
-    '    return """',
-    'CREATE TRIGGER IF NOT EXISTS \\(trigger)',
-    'AFTER \\(operation) ON \\(table)',
-    'BEGIN',
-    `  UPDATE ${contract.widgetSync.stateTable}`,
-    '  SET desired_revision = desired_revision + 1,',
-    "      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
-    `  WHERE id = ${contract.widgetSync.singletonId};`,
-    'END;',
-    '"""',
-    '  }',
-    '',
-    `  static let singleActiveSessionInvariantSQL = ${renderSwiftMultiline(singleActiveInvariantSQL)}`,
-    '',
-    `  static let schemaMigrationFixtureSQL = ${renderSwiftMultiline(migrationFixtureSQL)}`,
     '}',
     '',
   ].join('\n');
@@ -518,14 +454,6 @@ function renderSwiftMigrationColumns(columns) {
         `        LoofitWorkoutSchemaColumnMigration(table: ${JSON.stringify(column.table)}, column: ${JSON.stringify(column.column)}, definition: ${JSON.stringify(column.definition)}),`
     )
     .join('\n')}\n      ]`;
-}
-
-function renderTsArray(values) {
-  return `[${values.map((value) => JSON.stringify(value)).join(', ')}]`;
-}
-
-function renderSwiftArray(values) {
-  return `[${values.map((value) => JSON.stringify(value)).join(', ')}]`;
 }
 
 function renderTsTemplate(value) {

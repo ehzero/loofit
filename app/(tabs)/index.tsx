@@ -331,7 +331,7 @@ export default function HomeScreen() {
           <Card variant="hero">
             <View style={styles.postHead}>
               <View style={[styles.postCheck, { backgroundColor: colors.accent }]}>
-                <Icon name="check" size={18} color={colors.accentText} weight="bold" />
+                <Icon name="check" size={18} color={colors.accentText} />
               </View>
               <AppText variant="title">오늘 운동 완료</AppText>
             </View>

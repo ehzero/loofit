@@ -228,11 +228,18 @@ describe('overview historical split labels', () => {
         durationSeconds: 900,
         routineDayNameSnapshot: '새 Push',
       });
+      insertCompletedRoutineSession(database, {
+        startedAt: new Date(now.getTime() - 15 * 60 * 1000).toISOString(),
+        endedAt,
+        durationSeconds: 300,
+        routineDayNameSnapshot: null,
+      });
 
       const overview = await getOverview(now);
       expect(overview.rangeStats.last7.bySplit).toEqual([
         { name: '새 Push', workoutCount: 1, durationSeconds: 900 },
         { name: '예전 Push', workoutCount: 1, durationSeconds: 600 },
+        { name: '삭제된 분할', workoutCount: 1, durationSeconds: 300 },
       ]);
     });
   });
@@ -265,7 +272,7 @@ function insertCompletedRoutineSession(
     startedAt: string;
     endedAt: string;
     durationSeconds: number;
-    routineDayNameSnapshot: string;
+    routineDayNameSnapshot: string | null;
   }
 ): void {
   database.run(

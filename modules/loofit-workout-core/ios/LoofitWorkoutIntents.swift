@@ -4,7 +4,7 @@ import Foundation
 public enum LoofitWorkoutIntentEnvironment {
   public static let appGroupInfoKey = "ExpoWidgetsAppGroupIdentifier"
   public static let widgetsEnabledInfoKey = "LoofitWidgetsEnabled"
-  public static let widgetsDirectoryName = "ExpoWidgets"
+  public static let widgetsDirectoryName = "LoofitWidgets"
 
   public static func widgetsAreConfigured(bundle: Bundle = .main) -> Bool {
     bundle.object(forInfoDictionaryKey: widgetsEnabledInfoKey) as? Bool ?? false

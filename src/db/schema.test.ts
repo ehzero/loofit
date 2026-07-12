@@ -10,14 +10,28 @@ import {
   type DatabaseSchemaMigrationStep,
 } from './generated/workout-schema.generated';
 
-describe('generated database migrations', () => {
-  it('covers every schema version exactly once and in order', () => {
+describe('generated database schema', () => {
+  it('uses the complete unreleased schema as the version 1 baseline', () => {
+    expect(DATABASE_VERSION).toBe(1);
+    expect(schemaContract.database.version).toBe(1);
+    expect(schemaContract.migrations).toEqual([{ id: 'initial_schema', version: 1 }]);
+
+    for (const table of schemaContract.tables) {
+      expect(table.sinceVersion, table.name).toBe(1);
+      for (const column of table.columns) {
+        expect(column.sinceVersion, `${table.name}.${column.name}`).toBe(1);
+      }
+    }
+    for (const index of schemaContract.indexes) {
+      expect(index.sinceVersion, index.name).toBe(1);
+    }
+  });
+
+  it('covers every schema version exactly once and preserves migration phase ordering', () => {
     expect(DATABASE_MIGRATIONS.map((migration) => migration.version)).toEqual(
       Array.from({ length: DATABASE_VERSION }, (_, index) => index + 1)
     );
-  });
 
-  it('emits indexes only after same-version column migrations', () => {
     for (const migration of DATABASE_MIGRATIONS) {
       expect(migration.schemaSql, migration.id).not.toMatch(/\bCREATE(?: UNIQUE)? INDEX\b/);
     }
@@ -29,96 +43,76 @@ describe('generated database migrations', () => {
       expect(migration!.schemaSql, index.name).not.toContain(index.name);
       expect(migration!.postSchemaSql, index.name).toContain(index.name);
     }
-
-    const snapshotMigration = DATABASE_MIGRATIONS.find((migration) => migration.version === 3);
-    expect(snapshotMigration?.schemaSql).not.toContain('routine_day_name_snapshot');
-    expect(snapshotMigration?.columns).toContainEqual({
-      table: 'workout_sessions',
-      column: 'routine_day_name_snapshot',
-      definition: 'TEXT',
-    });
-    expect(snapshotMigration?.postSchemaSql).toContain('CREATE TRIGGER');
-    expect(snapshotMigration?.afterSql).toContain('SET routine_day_name_snapshot');
   });
 
-  it('applies the v2 to v3 column migration and backfill idempotently', () => {
+  it('creates the complete schema, widget sync state, and triggers from an empty database', () => {
     const database = new DatabaseSync(':memory:');
     try {
-      applyMigrations(database, 2);
-      expect(userVersion(database)).toBe(2);
-      expect(columnNames(database, 'workout_sessions')).not.toContain(
-        'routine_day_name_snapshot'
-      );
-
-      const now = '2026-07-11T12:00:00.000Z';
-      database.exec(`
-        INSERT INTO routine_days
-          (id, routine_id, name, sort_order, created_at, updated_at)
-        VALUES (101, 10, ' ', 0, '${now}', '${now}');
-        INSERT INTO workout_sessions
-          (id, routine_id, routine_day_id, started_at, ended_at, duration_seconds,
-           status, note, created_at, updated_at)
-        VALUES
-          (501, 10, 101, '${now}', '${now}', 60, 'completed', NULL, '${now}', '${now}');
-        INSERT INTO workout_session_parts_snapshot
-          (workout_session_id, body_part_id, body_part_name, body_part_color, sort_order)
-        VALUES (501, 1, '가슴', '#E84A5F', 0);
-      `);
-
       applyMigrations(database);
 
       expect(userVersion(database)).toBe(DATABASE_VERSION);
-      expect(columnNames(database, 'workout_sessions')).toContain(
-        'routine_day_name_snapshot'
-      );
+      for (const table of schemaContract.tables) {
+        expect(tableNames(database), table.name).toContain(table.name);
+        expect(columnNames(database, table.name), table.name).toEqual(
+          table.columns.map((column) => column.name)
+        );
+      }
+      for (const index of schemaContract.indexes) {
+        expect(indexNames(database), index.name).toContain(index.name);
+      }
+
       expect(
         database
-          .prepare('SELECT routine_day_name_snapshot AS title FROM workout_sessions WHERE id = 501')
+          .prepare(
+            'SELECT desired_revision, published_revision FROM widget_sync_state WHERE id = 1'
+          )
           .get()
-      ).toMatchObject({ title: '가슴' });
+      ).toMatchObject({ desired_revision: 1, published_revision: 0 });
 
-      database.exec('UPDATE workout_sessions SET routine_day_name_snapshot = NULL WHERE id = 501');
-      applyMigrations(database);
-      expect(
-        database
-          .prepare('SELECT routine_day_name_snapshot AS title FROM workout_sessions WHERE id = 501')
-          .get()
-      ).toMatchObject({ title: '가슴' });
-
-      database.exec('PRAGMA user_version = 2');
-      applyMigrations(database);
-
-      expect(
-        columnNames(database, 'workout_sessions').filter(
-          (column) => column === 'routine_day_name_snapshot'
+      const expectedTriggerNames = schemaContract.widgetSync.trackedTables.flatMap((table) =>
+        schemaContract.widgetSync.operations.map(
+          (operation) => `widget_sync_${table}_${operation.toLowerCase()}`
         )
-      ).toHaveLength(1);
+      );
+      expect(triggerNames(database).sort()).toEqual(expectedTriggerNames.sort());
+
+      const now = '2026-07-12T12:00:00.000Z';
+      database
+        .prepare(
+          `INSERT INTO body_parts
+            (name, color, sort_order, is_archived, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?)`
+        )
+        .run('가슴', '#E84A5F', 0, 0, now, now);
       expect(
-        database
-          .prepare('SELECT routine_day_name_snapshot AS title FROM workout_sessions WHERE id = 501')
-          .get()
-      ).toMatchObject({ title: '가슴' });
+        database.prepare('SELECT desired_revision FROM widget_sync_state WHERE id = 1').get()
+      ).toMatchObject({ desired_revision: 2 });
+    } finally {
+      database.close();
+    }
+  });
+
+  it('enforces a single active workout session in the baseline schema', () => {
+    const database = new DatabaseSync(':memory:');
+    try {
+      applyMigrations(database);
+
+      insertActiveSession(database, 1);
+      expect(() => insertActiveSession(database, 2)).toThrow();
     } finally {
       database.close();
     }
   });
 });
 
-function applyMigrations(database: DatabaseSync, maximumVersion = DATABASE_VERSION): void {
-  const startingVersion = userVersion(database);
-  let currentVersion = startingVersion;
+function applyMigrations(database: DatabaseSync): void {
+  let currentVersion = userVersion(database);
   for (const migration of DATABASE_MIGRATIONS) {
-    if (migration.version <= currentVersion || migration.version > maximumVersion) {
+    if (migration.version <= currentVersion) {
       continue;
     }
     applyMigration(database, migration);
     currentVersion = migration.version;
-  }
-  for (const migration of DATABASE_MIGRATIONS) {
-    if (migration.version <= startingVersion) {
-      ensureMigrationColumns(database, migration);
-      applyMigrationAfterSql(database, migration);
-    }
   }
 }
 
@@ -132,7 +126,9 @@ function applyMigration(database: DatabaseSync, migration: DatabaseSchemaMigrati
     if (migration.postSchemaSql.trim()) {
       database.exec(migration.postSchemaSql);
     }
-    applyMigrationAfterSql(database, migration);
+    if (migration.afterSql?.trim()) {
+      database.exec(migration.afterSql);
+    }
     database.exec(`PRAGMA user_version = ${migration.version}`);
     database.exec('COMMIT');
   } catch (error) {
@@ -154,13 +150,16 @@ function ensureMigrationColumns(
   }
 }
 
-function applyMigrationAfterSql(
-  database: DatabaseSync,
-  migration: DatabaseSchemaMigrationStep
-): void {
-  if (migration.afterSql?.trim()) {
-    database.exec(migration.afterSql);
-  }
+function insertActiveSession(database: DatabaseSync, id: number): void {
+  const now = '2026-07-12T12:00:00.000Z';
+  database
+    .prepare(
+      `INSERT INTO workout_sessions
+        (id, routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at,
+         duration_seconds, status, note, created_at, updated_at)
+       VALUES (?, NULL, NULL, NULL, ?, NULL, 0, 'active', NULL, ?, ?)`
+    )
+    .run(id, now, now, now);
 }
 
 function userVersion(database: DatabaseSync): number {
@@ -168,8 +167,32 @@ function userVersion(database: DatabaseSync): number {
   return row.user_version;
 }
 
+function tableNames(database: DatabaseSync): string[] {
+  return (
+    database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'table'")
+      .all() as Array<{ name: string }>
+  ).map((row) => row.name);
+}
+
 function columnNames(database: DatabaseSync, table: string): string[] {
   return (database.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>).map(
     (column) => column.name
   );
+}
+
+function indexNames(database: DatabaseSync): string[] {
+  return (
+    database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'index'")
+      .all() as Array<{ name: string }>
+  ).map((row) => row.name);
+}
+
+function triggerNames(database: DatabaseSync): string[] {
+  return (
+    database
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'trigger'")
+      .all() as Array<{ name: string }>
+  ).map((row) => row.name);
 }

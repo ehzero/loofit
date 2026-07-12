@@ -17,15 +17,15 @@ describe('resolveIosNativeBuildMode', () => {
   });
 
   it('fails when an app-only marker is mixed with stale App Group configuration', () => {
-    expect(() => resolveIosNativeBuildMode(true, false, '/stale-app-group/ExpoWidgets')).toThrow(
+    expect(() => resolveIosNativeBuildMode(true, false, '/stale-app-group/LoofitWidgets')).toThrow(
       'app-only iOS build still exposes an App Group database directory'
     );
   });
 
   it('uses the App Group database for a widget-enabled binary', () => {
-    expect(resolveIosNativeBuildMode(true, true, '/app-group/ExpoWidgets')).toEqual({
+    expect(resolveIosNativeBuildMode(true, true, '/app-group/LoofitWidgets')).toEqual({
       widgetsEnabled: true,
-      databaseDirectory: '/app-group/ExpoWidgets',
+      databaseDirectory: '/app-group/LoofitWidgets',
     });
   });
 
