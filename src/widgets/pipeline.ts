@@ -1,10 +1,11 @@
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
 import {
   executeWorkoutCommand,
   reconcileWorkoutSurfaces,
   updateWidgetThemeSnapshot,
+  workoutCoreNativeModuleAvailable,
+  workoutCoreWidgetsConfigured,
   workoutCoreWidgetsDirectory,
   type CommandResult,
   type WidgetThemeSnapshot,
@@ -12,6 +13,7 @@ import {
 } from '@/modules/loofit-workout-core';
 import { BRAND } from '@/src/config/brand';
 import type { ThemeColors } from '@/src/theme/tokens';
+import { resolveIosNativeBuildMode } from './ios-build-mode';
 
 type NativePipelineOptions = {
   databaseDirectory: string | null;
@@ -78,16 +80,14 @@ export function buildWidgetThemeSnapshot(colors: ThemeColors): WidgetThemeSnapsh
 }
 
 function nativePipelineOptions(): NativePipelineOptions {
-  // The embedded config flag can differ from Metro's manifest when an
-  // APP_ONLY development build is opened by a regular dev server. Requiring
-  // the native App Group directory keeps the installed binary authoritative.
-  const widgetsEnabled =
-    Constants.expoConfig?.extra?.widgetsEnabled === true &&
-    Boolean(workoutCoreWidgetsDirectory);
-  return {
-    databaseDirectory: widgetsEnabled ? workoutCoreWidgetsDirectory : null,
-    widgetsEnabled,
-  };
+  // Read build mode from the installed native binary. Metro can serve a full
+  // manifest to an APP_ONLY development build, so its manifest is not an
+  // authoritative source for entitlements or App Group availability.
+  return resolveIosNativeBuildMode(
+    workoutCoreNativeModuleAvailable,
+    workoutCoreWidgetsConfigured,
+    workoutCoreWidgetsDirectory
+  );
 }
 
 function requireSupportedResult(result: CommandResult, action: string): CommandResult {

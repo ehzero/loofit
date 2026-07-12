@@ -3,7 +3,12 @@ import Foundation
 
 public enum LoofitWorkoutIntentEnvironment {
   public static let appGroupInfoKey = "ExpoWidgetsAppGroupIdentifier"
+  public static let widgetsEnabledInfoKey = "LoofitWidgetsEnabled"
   public static let widgetsDirectoryName = "ExpoWidgets"
+
+  public static func widgetsAreConfigured(bundle: Bundle = .main) -> Bool {
+    bundle.object(forInfoDictionaryKey: widgetsEnabledInfoKey) as? Bool ?? false
+  }
 
   public static func databaseDirectory(bundle: Bundle = .main) -> String? {
     guard let identifier = bundle.object(
@@ -26,6 +31,16 @@ public enum LoofitWorkoutIntentEnvironment {
       return nil
     }
   }
+
+  public static func requireDatabaseDirectory(bundle: Bundle = .main) throws -> String {
+    guard let directory = databaseDirectory(bundle: bundle) else {
+      throw LoofitWorkoutCoreError.configuration(
+        "The widget-enabled build cannot access its App Group database directory. " +
+          "Verify the ExpoWidgetsAppGroupIdentifier and App Group entitlement."
+      )
+    }
+    return directory
+  }
 }
 
 @available(iOS 17.0, *)
@@ -38,9 +53,7 @@ public struct LoofitStartNextWorkoutIntent: LiveActivityIntent {
   public init() {}
 
   public func perform() async throws -> some IntentResult {
-    guard let directory = LoofitWorkoutIntentEnvironment.databaseDirectory() else {
-      return .result()
-    }
+    let directory = try LoofitWorkoutIntentEnvironment.requireDatabaseDirectory()
     _ = try await LoofitWorkoutPipeline.execute(
       .startNext,
       databaseDirectory: directory,
@@ -69,11 +82,10 @@ public struct LoofitEndWorkoutIntent: LiveActivityIntent {
   }
 
   public func perform() async throws -> some IntentResult {
-    guard let sessionId = Int64(sessionId), sessionId > 0,
-      let directory = LoofitWorkoutIntentEnvironment.databaseDirectory()
-    else {
+    guard let sessionId = Int64(sessionId), sessionId > 0 else {
       return .result()
     }
+    let directory = try LoofitWorkoutIntentEnvironment.requireDatabaseDirectory()
     _ = try await LoofitWorkoutPipeline.execute(
       .complete(expectedSessionId: sessionId),
       databaseDirectory: directory,

@@ -67,6 +67,10 @@ module.exports = ({ config }) => {
     name: brand.displayName,
     ios: {
       ...(appJson.expo.ios ?? {}),
+      infoPlist: {
+        ...(appJson.expo.ios?.infoPlist ?? {}),
+        LoofitWidgetsEnabled: widgetsEnabled,
+      },
       config: {
         ...(appJson.expo.ios?.config ?? {}),
         usesNonExemptEncryption: false,

@@ -1,9 +1,18 @@
 import * as SQLite from 'expo-sqlite';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
 
-import { workoutCoreWidgetsDirectory } from '@/modules/loofit-workout-core';
-import { DATABASE_NAME, DATABASE_VERSION, DEFAULT_BODY_PARTS, MIGRATION_SQL } from './schema';
+import {
+  workoutCoreNativeModuleAvailable,
+  workoutCoreWidgetsConfigured,
+  workoutCoreWidgetsDirectory,
+} from '@/modules/loofit-workout-core';
+import { resolveIosNativeBuildMode } from '@/src/widgets/ios-build-mode';
+import {
+  DATABASE_MIGRATIONS,
+  DATABASE_NAME,
+  DATABASE_VERSION,
+  DEFAULT_BODY_PARTS,
+} from './schema';
 
 let databasePromise: Promise<SQLite.SQLiteDatabase> | null = null;
 
@@ -24,13 +33,73 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   await db.execAsync('PRAGMA journal_mode = WAL');
   await db.withExclusiveTransactionAsync(async (tx) => {
     const version = await tx.getFirstAsync<{ user_version: number }>('PRAGMA user_version');
-    if ((version?.user_version ?? 0) < DATABASE_VERSION) {
-      await tx.execAsync(MIGRATION_SQL);
-      await tx.execAsync(`PRAGMA user_version = ${DATABASE_VERSION}`);
-    }
+    await applyDatabaseMigrations(tx, version?.user_version ?? 0);
   });
   await seedDefaultBodyParts(db);
   return db;
+}
+
+async function applyDatabaseMigrations(
+  db: SQLite.SQLiteDatabase,
+  currentVersion: number
+): Promise<void> {
+  for (const migration of DATABASE_MIGRATIONS) {
+    if (migration.version <= currentVersion) {
+      continue;
+    }
+
+    if (migration.schemaSql.trim()) {
+      await db.execAsync(migration.schemaSql);
+    }
+    await ensureDatabaseMigrationColumns(db, migration);
+    if (migration.postSchemaSql.trim()) {
+      await db.execAsync(migration.postSchemaSql);
+    }
+    await applyDatabaseMigrationAfterSql(db, migration);
+    await db.execAsync(`PRAGMA user_version = ${migration.version}`);
+  }
+
+  // A committed version normally means its migration completed atomically.
+  // Replaying only explicitly-idempotent column/data effects also repairs old
+  // experimental databases whose user_version was advanced prematurely.
+  for (const migration of DATABASE_MIGRATIONS) {
+    if (migration.version <= currentVersion) {
+      await ensureDatabaseMigrationColumns(db, migration);
+      await applyDatabaseMigrationAfterSql(db, migration);
+    }
+  }
+
+  if (
+    currentVersion < DATABASE_VERSION &&
+    DATABASE_MIGRATIONS.at(-1)?.version !== DATABASE_VERSION
+  ) {
+    throw new Error('Database migration contract does not reach the configured schema version.');
+  }
+}
+
+async function ensureDatabaseMigrationColumns(
+  db: SQLite.SQLiteDatabase,
+  migration: (typeof DATABASE_MIGRATIONS)[number]
+): Promise<void> {
+  for (const column of migration.columns) {
+    const existingColumns = await db.getAllAsync<{ name: string }>(
+      `PRAGMA table_info(${column.table})`
+    );
+    if (!existingColumns.some((existing) => existing.name === column.column)) {
+      await db.execAsync(
+        `ALTER TABLE ${column.table} ADD COLUMN ${column.column} ${column.definition}`
+      );
+    }
+  }
+}
+
+async function applyDatabaseMigrationAfterSql(
+  db: SQLite.SQLiteDatabase,
+  migration: (typeof DATABASE_MIGRATIONS)[number]
+): Promise<void> {
+  if (migration.afterSql?.trim()) {
+    await db.execAsync(migration.afterSql);
+  }
 }
 
 /**
@@ -65,10 +134,17 @@ export async function withDatabaseReadTransaction<T>(
 }
 
 function getSharedDatabaseDirectory(): string | undefined {
-  if (Platform.OS !== 'ios' || Constants.expoConfig?.extra?.widgetsEnabled !== true) {
+  if (Platform.OS !== 'ios') {
     return undefined;
   }
-  return workoutCoreWidgetsDirectory || undefined;
+  return (
+    resolveIosNativeBuildMode(
+      workoutCoreNativeModuleAvailable,
+      workoutCoreWidgetsConfigured,
+      workoutCoreWidgetsDirectory
+    )
+      .databaseDirectory ?? undefined
+  );
 }
 
 async function migrateDefaultDatabaseToSharedDirectory(

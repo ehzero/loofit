@@ -361,7 +361,7 @@ public struct LoofitWorkoutActivityAttributes: ActivityAttributes {
 }
 
 public enum LoofitWorkoutPaths {
-  public static let databaseName = "loofit.db"
+  public static let databaseName: String = LoofitWorkoutSchemaContract.databaseName
   public static let snapshotName = "loofit-widget-snapshot.json"
 
   public static func normalizeDatabaseDirectory(_ value: String) -> String {

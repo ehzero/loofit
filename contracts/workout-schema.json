@@ -1,0 +1,212 @@
+{
+  "database": {
+    "name": "loofit.db",
+    "version": 3
+  },
+  "migrationFixtureVersion": 2,
+  "nativeCore": {
+    "singleActiveSessionIndex": "idx_sessions_single_active"
+  },
+  "tables": [
+    {
+      "name": "body_parts",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY AUTOINCREMENT", "sinceVersion": 1 },
+        { "name": "name", "definition": "TEXT NOT NULL UNIQUE", "sinceVersion": 1 },
+        { "name": "color", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "sort_order", "definition": "INTEGER NOT NULL", "sinceVersion": 1 },
+        { "name": "is_archived", "definition": "INTEGER NOT NULL DEFAULT 0", "sinceVersion": 1 },
+        { "name": "created_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "routines",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY AUTOINCREMENT", "sinceVersion": 1 },
+        { "name": "name", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "is_active", "definition": "INTEGER NOT NULL DEFAULT 0", "sinceVersion": 1 },
+        { "name": "created_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "routine_days",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY AUTOINCREMENT", "sinceVersion": 1 },
+        { "name": "routine_id", "definition": "INTEGER NOT NULL", "sinceVersion": 1 },
+        { "name": "name", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "sort_order", "definition": "INTEGER NOT NULL", "sinceVersion": 1 },
+        { "name": "created_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "routine_day_parts",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY AUTOINCREMENT", "sinceVersion": 1 },
+        { "name": "routine_day_id", "definition": "INTEGER NOT NULL", "sinceVersion": 1 },
+        { "name": "body_part_id", "definition": "INTEGER NOT NULL", "sinceVersion": 1 },
+        { "name": "sort_order", "definition": "INTEGER NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "workout_sessions",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY AUTOINCREMENT", "sinceVersion": 1 },
+        { "name": "routine_id", "definition": "INTEGER", "sinceVersion": 1 },
+        { "name": "routine_day_id", "definition": "INTEGER", "sinceVersion": 1 },
+        { "name": "routine_day_name_snapshot", "definition": "TEXT", "sinceVersion": 3 },
+        { "name": "started_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "ended_at", "definition": "TEXT", "sinceVersion": 1 },
+        { "name": "duration_seconds", "definition": "INTEGER NOT NULL DEFAULT 0", "sinceVersion": 1 },
+        { "name": "status", "definition": "TEXT NOT NULL CHECK (status IN ('active', 'completed', 'canceled'))", "sinceVersion": 1 },
+        { "name": "note", "definition": "TEXT", "sinceVersion": 1 },
+        { "name": "created_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "workout_session_parts_snapshot",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY AUTOINCREMENT", "sinceVersion": 1 },
+        { "name": "workout_session_id", "definition": "INTEGER NOT NULL", "sinceVersion": 1 },
+        { "name": "body_part_id", "definition": "INTEGER", "sinceVersion": 1 },
+        { "name": "body_part_name", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "body_part_color", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "sort_order", "definition": "INTEGER NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "routine_progress",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY CHECK (id = 1)", "sinceVersion": 1 },
+        { "name": "active_routine_id", "definition": "INTEGER", "sinceVersion": 1 },
+        { "name": "next_routine_day_id", "definition": "INTEGER", "sinceVersion": 1 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "app_settings",
+      "sinceVersion": 1,
+      "columns": [
+        { "name": "key", "definition": "TEXT PRIMARY KEY NOT NULL", "sinceVersion": 1 },
+        { "name": "value", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+      ]
+    },
+    {
+      "name": "widget_sync_state",
+      "sinceVersion": 2,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY CHECK (id = 1)", "sinceVersion": 2 },
+        { "name": "desired_revision", "definition": "INTEGER NOT NULL DEFAULT 1", "sinceVersion": 2 },
+        { "name": "published_revision", "definition": "INTEGER NOT NULL DEFAULT 0", "sinceVersion": 2 },
+        { "name": "last_error", "definition": "TEXT", "sinceVersion": 2 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 2 }
+      ]
+    }
+  ],
+  "indexes": [
+    {
+      "name": "idx_sessions_status_started_at",
+      "table": "workout_sessions",
+      "columns": ["status", "started_at"],
+      "sinceVersion": 1
+    },
+    {
+      "name": "idx_session_parts_session_id",
+      "table": "workout_session_parts_snapshot",
+      "columns": ["workout_session_id"],
+      "sinceVersion": 1
+    },
+    {
+      "name": "idx_sessions_single_active",
+      "table": "workout_sessions",
+      "columns": ["status"],
+      "unique": true,
+      "where": "status = 'active'",
+      "sinceVersion": 2,
+      "beforeCreateSql": [
+        "UPDATE workout_sessions",
+        "SET status = 'canceled',",
+        "    ended_at = COALESCE(ended_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),",
+        "    duration_seconds = CAST(MAX(",
+        "      0,",
+        "      (julianday('now') - COALESCE(julianday(started_at), julianday('now'))) * 86400",
+        "    ) AS INTEGER),",
+        "    updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')",
+        "WHERE status = 'active'",
+        "  AND id NOT IN (",
+        "    SELECT id",
+        "    FROM workout_sessions",
+        "    WHERE status = 'active'",
+        "    ORDER BY started_at DESC, id DESC",
+        "    LIMIT 1",
+        "  );"
+      ]
+    }
+  ],
+  "widgetSync": {
+    "stateTable": "widget_sync_state",
+    "singletonId": 1,
+    "initialDesiredRevision": 1,
+    "initialPublishedRevision": 0,
+    "trackedTables": [
+      "body_parts",
+      "routines",
+      "routine_days",
+      "routine_day_parts",
+      "workout_sessions",
+      "workout_session_parts_snapshot",
+      "routine_progress",
+      "app_settings"
+    ],
+    "operations": ["INSERT", "UPDATE", "DELETE"]
+  },
+  "migrations": [
+    {
+      "id": "initial_schema",
+      "version": 1
+    },
+    {
+      "id": "widget_sync",
+      "version": 2
+    },
+    {
+      "id": "routine_day_name_snapshot",
+      "version": 3,
+      "afterSqlIsIdempotent": true,
+      "afterSql": [
+        "UPDATE workout_sessions",
+        "SET routine_day_name_snapshot = COALESCE(",
+        "  NULLIF(TRIM((",
+        "    SELECT rd.name",
+        "    FROM routine_days rd",
+        "    WHERE rd.id = workout_sessions.routine_day_id",
+        "    LIMIT 1",
+        "  )), ''),",
+        "  NULLIF((",
+        "    SELECT GROUP_CONCAT(ordered_parts.body_part_name, ' · ')",
+        "    FROM (",
+        "      SELECT sp.body_part_name",
+        "      FROM workout_session_parts_snapshot sp",
+        "      WHERE sp.workout_session_id = workout_sessions.id",
+        "      ORDER BY sp.sort_order ASC, sp.id ASC",
+        "    ) AS ordered_parts",
+        "  ), ''),",
+        "  '삭제된 분할'",
+        ")",
+        "WHERE routine_day_id IS NOT NULL",
+        "  AND routine_day_name_snapshot IS NULL;"
+      ]
+    }
+  ]
+}

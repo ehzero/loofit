@@ -79,7 +79,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
 
   private var inline: some View {
     Text(inlineText)
-      .font(.system(size: 13, weight: .semibold))
+      .font(.system(size: LoofitWidgetRendererContract.LockScreen.inlineFontSize, weight: .semibold))
       .foregroundStyle(primaryColor)
       .lineLimit(1)
       .minimumScaleFactor(0.75)
@@ -93,7 +93,14 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
         Text(circularText)
       }
     }
-    .font(.system(size: presentation.state == .completed ? 15 : 18, weight: .heavy))
+    .font(
+      .system(
+        size: presentation.state == .completed
+          ? LoofitWidgetRendererContract.LockScreen.circularCompletedFontSize
+          : LoofitWidgetRendererContract.LockScreen.circularDefaultFontSize,
+        weight: .heavy
+      )
+    )
     .foregroundStyle(primaryColor)
     .widgetAccentable()
     .lineLimit(1)
@@ -113,14 +120,14 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
           Text(rectangularTitle)
         }
       }
-      .font(.system(size: 30, weight: .heavy))
+      .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularTitleFontSize, weight: .heavy))
       .foregroundStyle(primaryColor)
       .widgetAccentable()
       .lineLimit(1)
       .minimumScaleFactor(0.62)
 
       Text(rectangularDetail)
-        .font(.system(size: 18, weight: .semibold))
+        .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularDetailFontSize, weight: .semibold))
         .foregroundStyle(secondaryColor)
         .lineLimit(1)
         .minimumScaleFactor(0.68)
@@ -131,11 +138,11 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
   private var inlineText: String {
     switch presentation.state {
     case .active:
-      return "루핏 · 운동 중 \(presentation.title)"
+      return "\(entry.palette.brandName) · \(LoofitWidgetRendererContract.LockScreen.active) \(presentation.title)"
     case .completed:
-      return "루핏 · 오운완 \(presentation.title)"
+      return "\(entry.palette.brandName) · \(LoofitWidgetRendererContract.LockScreen.completedBadge) \(presentation.title)"
     case .idle:
-      return "루핏 · 다음 운동 \(presentation.title)"
+      return "\(entry.palette.brandName) · \(LoofitWidgetRendererContract.LockScreen.idle) \(presentation.title)"
     }
   }
 
@@ -144,11 +151,11 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
     case .active:
       return "0분"
     case .completed:
-      return "오운완"
+      return LoofitWidgetRendererContract.LockScreen.completedBadge
     case .idle:
       return String((presentation.detail.isEmpty ? presentation.title : presentation.detail)
         .replacingOccurrences(of: " ", with: "")
-        .prefix(3))
+        .prefix(LoofitWidgetRendererContract.LockScreen.compactCharacterLimit))
     }
   }
 
@@ -157,7 +164,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
     case .active:
       return "0분"
     case .completed:
-      return "오운완"
+      return LoofitWidgetRendererContract.LockScreen.completedBadge
     case .idle:
       return presentation.title
     }

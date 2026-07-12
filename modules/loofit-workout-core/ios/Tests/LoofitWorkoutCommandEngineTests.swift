@@ -12,6 +12,7 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
       "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
       [.integer(nextId)]
     ), 102)
+    XCTAssertEqual(try routineDayNameSnapshot(of: nextId), "Pull")
     XCTAssertEqual(try partNames(of: nextId), ["등"])
     _ = try LoofitWorkoutCommandEngine.execute(.cancel(expectedSessionId: nextId), database: database)
 
@@ -25,6 +26,7 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
       "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
       [.integer(routineId)]
     ), 101)
+    XCTAssertEqual(try routineDayNameSnapshot(of: routineId), "Push")
     XCTAssertEqual(try partNames(of: routineId), ["가슴"])
     _ = try LoofitWorkoutCommandEngine.execute(.cancel(expectedSessionId: routineId), database: database)
 
@@ -42,6 +44,7 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
       "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
       [.integer(freeId)]
     ))
+    XCTAssertNil(try routineDayNameSnapshot(of: freeId))
     XCTAssertEqual(try partNames(of: freeId), ["하체"])
   }
 
@@ -65,6 +68,7 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
       "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
       [.integer(sessionId)]
     ), 102)
+    XCTAssertEqual(try routineDayNameSnapshot(of: sessionId), "Pull")
     XCTAssertEqual(try partNames(of: sessionId), ["등"])
 
     let freeChange = try LoofitWorkoutCommandEngine.execute(
@@ -78,7 +82,73 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
       "SELECT routine_id FROM workout_sessions WHERE id = ?",
       [.integer(sessionId)]
     ))
+    XCTAssertNil(try routineDayNameSnapshot(of: sessionId))
     XCTAssertEqual(try partNames(of: sessionId), ["하체"])
+  }
+
+  func testSchemaMigrationBackfillsExistingRoutineSessionDisplayTitleFromParts() throws {
+    XCTAssertEqual(
+      LoofitWorkoutSchemaContract.migrations.map(\.version),
+      Array(1...LoofitWorkoutSchemaContract.currentVersion)
+    )
+
+    let legacyDirectory = URL(fileURLWithPath: databaseDirectory, isDirectory: true)
+      .appendingPathComponent("v2-migration", isDirectory: true)
+    let legacyDatabase = try LoofitSQLiteDatabase(databaseDirectory: legacyDirectory.path)
+    try legacyDatabase.execute(LoofitWorkoutSchemaContract.schemaMigrationFixtureSQL)
+
+    let now = LoofitWorkoutDate.nowISO8601()
+    try legacyDatabase.run(
+      "INSERT INTO routine_days (id, routine_id, name, sort_order, created_at, updated_at) VALUES (101, 10, ' ', 0, ?, ?)",
+      [.text(now), .text(now)]
+    )
+    try legacyDatabase.run(
+      """
+      INSERT INTO workout_sessions
+        (routine_id, routine_day_id, started_at, ended_at, duration_seconds,
+         status, note, created_at, updated_at)
+      VALUES (10, 101, ?, ?, 60, 'completed', NULL, ?, ?)
+      """,
+      [.text(now), .text(now), .text(now), .text(now)]
+    )
+    let sessionId = legacyDatabase.lastInsertRowId
+    try legacyDatabase.run(
+      """
+      INSERT INTO workout_session_parts_snapshot
+        (workout_session_id, body_part_id, body_part_name, body_part_color, sort_order)
+      VALUES (?, 1, '가슴', '#E84A5F', 0)
+      """,
+      [.integer(sessionId)]
+    )
+
+    XCTAssertEqual(try legacyDatabase.firstInt64(
+      "SELECT COUNT(*) FROM pragma_table_info('workout_sessions') WHERE name = 'routine_day_name_snapshot'"
+    ), 0)
+
+    try legacyDatabase.ensureWidgetSyncSchema()
+
+    XCTAssertEqual(try legacyDatabase.firstString(
+      "SELECT routine_day_name_snapshot FROM workout_sessions WHERE id = ?",
+      [.integer(sessionId)]
+    ), "가슴")
+    XCTAssertEqual(try legacyDatabase.firstInt64("PRAGMA user_version"), 3)
+    XCTAssertEqual(try legacyDatabase.firstInt64(
+      "SELECT COUNT(*) FROM pragma_table_info('workout_sessions') WHERE name = 'routine_day_name_snapshot'"
+    ), 1)
+
+    try legacyDatabase.run(
+      "UPDATE workout_sessions SET routine_day_name_snapshot = NULL WHERE id = ?",
+      [.integer(sessionId)]
+    )
+    try legacyDatabase.ensureWidgetSyncSchema()
+
+    XCTAssertEqual(try legacyDatabase.firstString(
+      "SELECT routine_day_name_snapshot FROM workout_sessions WHERE id = ?",
+      [.integer(sessionId)]
+    ), "가슴")
+    XCTAssertEqual(try legacyDatabase.firstInt64(
+      "SELECT COUNT(*) FROM pragma_table_info('workout_sessions') WHERE name = 'routine_day_name_snapshot'"
+    ), 1)
   }
 
   func testCompleteAdvancesRoutineExactlyOnce() throws {

@@ -41,6 +41,18 @@ export function joinPartNames(parts: Array<{ name: string }>): string {
   return parts.map((part) => part.name).join(' · ');
 }
 
+/** Historical session titles must not follow later routine alias edits. */
+export function workoutSessionDisplayName(session: {
+  routineDayNameSnapshot: string | null;
+  parts: Array<{ bodyPartName: string }>;
+}): string {
+  const frozenName = session.routineDayNameSnapshot?.trim();
+  if (frozenName) {
+    return frozenName;
+  }
+  return joinPartNames(session.parts.map((part) => ({ name: part.bodyPartName })));
+}
+
 type RoutineDayLike = { name: string; parts: Array<{ name: string }> };
 
 /**

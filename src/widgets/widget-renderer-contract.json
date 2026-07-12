@@ -1,0 +1,198 @@
+{
+  "version": 1,
+  "card": {
+    "screenBackground": "#0C0D10",
+    "background": "#141418",
+    "border": "rgba(255,255,255,0.08)",
+    "radius": 24,
+    "contentPadding": 16,
+    "contentGap": 12
+  },
+  "text": {
+    "label": {
+      "size": 11,
+      "lineHeight": 14,
+      "weight": "800",
+      "color": "#8A8A90"
+    },
+    "brand": {
+      "size": 10,
+      "lineHeight": 13,
+      "weight": "700",
+      "color": "#6B6B70"
+    },
+    "calendar": {
+      "weekdaySize": 8,
+      "weekdayLineHeight": 10,
+      "weekdayWeight": "800",
+      "monthSize": 9,
+      "monthLineHeight": 11,
+      "color": "#6B6B70",
+      "dayColor": "#9A9AA0"
+    }
+  },
+  "control": {
+    "cardSize": 158,
+    "headerHeight": 14,
+    "bodyHeight": 54,
+    "bodyGap": 4,
+    "activeDotSize": 7,
+    "activeDotGap": 6,
+    "buttonHeight": 28,
+    "buttonRadius": 12,
+    "buttonDarkBackground": "#26262B",
+    "footerWithRangeHeight": 41,
+    "footerGap": 1,
+    "timerMaxHours": 8,
+    "text": {
+      "title": {
+        "size": 19,
+        "lineHeight": 24,
+        "weight": "800",
+        "color": "#F4F4F2"
+      },
+      "timer": {
+        "size": 26,
+        "lineHeight": 30,
+        "weight": "800",
+        "color": "#F4F4F2"
+      },
+      "detail": {
+        "size": 13,
+        "lineHeight": 18,
+        "weight": "600",
+        "color": "#8A8A90"
+      },
+      "button": {
+        "size": 13,
+        "lineHeight": 18,
+        "weight": "800"
+      },
+      "duration": {
+        "size": 22,
+        "lineHeight": 26,
+        "weight": "800"
+      },
+      "range": {
+        "size": 11,
+        "lineHeight": 14,
+        "weight": "600",
+        "color": "#8A8A90"
+      }
+    }
+  },
+  "heatmap": {
+    "weekdayLabels": ["일", "월", "화", "수", "목", "금", "토"],
+    "variants": {
+      "week": {
+        "nativeCase": "week",
+        "kindAccessor": "heatmapWeek",
+        "title": "지난 7일",
+        "family": "systemSmall",
+        "rangeDays": 7,
+        "rangeMonths": 0,
+        "columns": 7,
+        "cellGap": 4,
+        "cellRadius": 4,
+        "cellLabelSize": 8,
+        "headerGap": 8,
+        "headerVisible": false,
+        "headerFontSize": 11,
+        "headerSummary": "none",
+        "calendarAlignment": "rollingDays",
+        "showLeadingCalendarCells": false,
+        "monthBoundaryGapSlots": 0,
+        "reservedHeaderHeight": 0,
+        "reservedFooterHeight": 63
+      },
+      "month": {
+        "nativeCase": "month",
+        "kindAccessor": "heatmapMonth",
+        "title": "지난 30일",
+        "family": "systemSmall",
+        "rangeDays": 30,
+        "rangeMonths": 0,
+        "columns": 7,
+        "cellGap": 3,
+        "cellRadius": 3,
+        "cellLabelSize": 7,
+        "headerGap": 8,
+        "headerVisible": true,
+        "headerFontSize": 11,
+        "headerSummary": "count",
+        "calendarAlignment": "weekContainingRangeStart",
+        "showLeadingCalendarCells": true,
+        "monthBoundaryGapSlots": 0,
+        "reservedHeaderHeight": 22,
+        "reservedFooterHeight": 0
+      },
+      "year": {
+        "nativeCase": "sixMonths",
+        "kindAccessor": "heatmapSixMonths",
+        "title": "지난 6개월",
+        "family": "systemMedium",
+        "rangeDays": 0,
+        "rangeMonths": 6,
+        "columns": 0,
+        "cellGap": 2,
+        "cellRadius": 2,
+        "cellLabelSize": 0,
+        "headerGap": 8,
+        "headerVisible": true,
+        "headerFontSize": 10,
+        "headerSummary": "countTotalAverage",
+        "calendarAlignment": "continuousMonthsWithBoundarySlots",
+        "showLeadingCalendarCells": true,
+        "monthBoundaryGapSlots": 7,
+        "reservedHeaderHeight": 22,
+        "reservedFooterHeight": 0
+      }
+    },
+    "sixMonth": {
+      "monthLabelSize": 9,
+      "monthLabelHeight": 12,
+      "monthHeaderBottomGap": 12
+    },
+    "weekFooter": {
+      "statOrder": ["count", "totalDuration", "averageDuration"],
+      "statLabels": ["횟수", "총 시간", "평균"],
+      "recentLabel": "최근 운동",
+      "emptyRecentLabel": "아직 기록 없음",
+      "alwaysShowRecent": true,
+      "recentLimit": 2,
+      "topRowGap": 8,
+      "statGap": 4,
+      "recentRowGap": 2,
+      "statLabelSize": 8,
+      "statValueSize": 14,
+      "recentLabelSize": 8,
+      "recentValueSize": 10,
+      "recentMetaSize": 9
+    }
+  },
+  "lockScreen": {
+    "copy": {
+      "active": "운동 중",
+      "completedEyebrow": "오늘 완료",
+      "completedBadge": "오운완",
+      "idle": "다음 운동",
+      "routineRequired": "루틴 설정 필요",
+      "summaryTitle": "최근 7일"
+    },
+    "compactCharacterLimit": 3,
+    "summaryDays": 7,
+    "inlineFontSize": 13,
+    "circularDefaultFontSize": 18,
+    "circularCompletedFontSize": 15,
+    "rectangularTitleFontSize": 30,
+    "rectangularDetailFontSize": 18,
+    "summary": {
+      "cellSize": 18,
+      "cellGap": 3,
+      "cellRadius": 5,
+      "fontSize": 15,
+      "contentGap": 6,
+      "contentPadding": 4
+    }
+  }
+}

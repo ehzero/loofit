@@ -140,7 +140,9 @@ struct LoofitWorkoutPresentation {
     let next = snapshot?.nextWorkout
     state = .idle
     sessionId = nil
-    title = next?.title.isEmpty == false ? next!.title : "루틴 설정 필요"
+    title = next?.title.isEmpty == false
+      ? next!.title
+      : LoofitWidgetRendererContract.LockScreen.routineRequired
     detail = next?.detail ?? ""
     startedAt = nil
     durationSeconds = 0
@@ -164,12 +166,6 @@ enum LoofitFormat {
     formatter.locale = Locale(identifier: "ko_KR")
     formatter.dateFormat = "a h:mm"
     return formatter.string(from: date)
-  }
-
-  static func weekday(_ date: Date) -> String {
-    let symbols = ["일", "월", "화", "수", "목", "금", "토"]
-    let index = Calendar.current.component(.weekday, from: date) - 1
-    return symbols.indices.contains(index) ? symbols[index] : ""
   }
 
   static func parts(_ parts: [LoofitWorkoutPartSnapshot]) -> String {
@@ -293,20 +289,38 @@ enum LoofitHeatmapVariant {
   case week
   case month
   case sixMonths
+
+  var rendererSpec: LoofitHeatmapRendererSpec {
+    switch self {
+    case .week:
+      return LoofitWidgetRendererContract.Heatmap.week
+    case .month:
+      return LoofitWidgetRendererContract.Heatmap.month
+    case .sixMonths:
+      return LoofitWidgetRendererContract.Heatmap.year
+    }
+  }
 }
 
 struct LoofitHeatmapWidgetView: View {
   let entry: LoofitWidgetEntry
-  let title: String
   let variant: LoofitHeatmapVariant
 
+  private var rendererSpec: LoofitHeatmapRendererSpec {
+    variant.rendererSpec
+  }
+
   private var days: [LoofitHeatmapDay] {
-    switch variant {
-    case .week:
-      return LoofitHeatmapProjection.days(snapshot: entry.snapshot, endingAt: entry.date, count: 7)
-    case .month:
+    switch rendererSpec.calendarAlignment {
+    case .rollingDays:
+      return LoofitHeatmapProjection.days(
+        snapshot: entry.snapshot,
+        endingAt: entry.date,
+        count: rendererSpec.rangeDays
+      )
+    case .weekContainingRangeStart:
       return LoofitHeatmapProjection.month(snapshot: entry.snapshot, endingAt: entry.date)
-    case .sixMonths:
+    case .continuousMonthsWithBoundarySlots:
       return LoofitHeatmapProjection.sixMonths(snapshot: entry.snapshot, endingAt: entry.date)
     }
   }
@@ -321,34 +335,36 @@ struct LoofitHeatmapWidgetView: View {
 
   var body: some View {
     GeometryReader { geometry in
-      VStack(alignment: .leading, spacing: variant == .week ? 0 : 8) {
-        if variant != .week {
+      VStack(alignment: .leading, spacing: rendererSpec.headerVisible ? rendererSpec.headerGap : 0) {
+        if rendererSpec.headerVisible, rendererSpec.headerSummary != .none {
           Text(headerTitle)
-            .font(.system(size: variant == .sixMonths ? 10 : 11, weight: .semibold))
+            .font(.system(size: rendererSpec.headerFontSize, weight: .semibold))
             .foregroundStyle(LoofitColor(entry.palette.tx3))
             .opacity(0.82)
             .lineLimit(1)
             .minimumScaleFactor(0.68)
         }
 
-        if variant == .sixMonths {
+        if rendererSpec.calendarAlignment == .continuousMonthsWithBoundarySlots {
           sixMonthGrid(available: geometry.size)
         } else {
           calendarGrid(available: geometry.size)
         }
 
-        if variant == .week {
+        if rendererSpec.calendarAlignment == .rollingDays {
           Spacer(minLength: 0)
           weekStatsTop
           Spacer(minLength: 0)
-          stat(label: "평균", value: LoofitFormat.duration(count > 0 ? duration / count : 0))
-          Spacer(minLength: 0)
-          weekRecent
+          weekStat(at: 2)
+          if shouldShowWeekRecent {
+            Spacer(minLength: 0)
+            weekRecent
+          }
         } else {
           Spacer(minLength: 0)
         }
       }
-      .padding(16)
+      .padding(LoofitWidgetRendererContract.contentPadding)
       .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
     .loofitWidgetBackground(LoofitColor(entry.palette.card))
@@ -356,47 +372,57 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private var headerTitle: String {
-    if variant == .sixMonths {
+    switch rendererSpec.headerSummary {
+    case .none:
+      return rendererSpec.title
+    case .count:
+      return "\(rendererSpec.title) · \(count)회"
+    case .countTotalAverage:
       let average = count > 0 ? duration / count : 0
-      return "\(title) · \(count)회 · 총 \(LoofitFormat.duration(duration)) · 평균 \(LoofitFormat.duration(average))"
+      return "\(rendererSpec.title) · \(count)회 · 총 \(LoofitFormat.duration(duration)) · 평균 \(LoofitFormat.duration(average))"
     }
-    return "\(title) · \(count)회"
   }
 
   private func calendarGrid(available: CGSize) -> some View {
-    let rows = days.chunked(into: 7)
-    let gap: CGFloat = variant == .week ? 4 : 3
-    let reservedFooter: CGFloat = variant == .week ? 63 : 0
-    let reservedHeader: CGFloat = variant == .week ? 0 : 22
-    let width = max(0, available.width - 32 - gap * 6)
-    let height = max(0, available.height - 32 - reservedHeader - reservedFooter - gap * CGFloat(max(rows.count - 1, 0)))
-    let cell = max(0, min(width / 7, height / CGFloat(max(rows.count, 1))))
+    let columns = max(rendererSpec.columns, 1)
+    let rows = days.chunked(into: columns)
+    let gap = rendererSpec.cellGap
+    let padding = LoofitWidgetRendererContract.contentPadding * 2
+    let width = max(0, available.width - padding - gap * CGFloat(columns - 1))
+    let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - rendererSpec.reservedFooterHeight - gap * CGFloat(max(rows.count - 1, 0)))
+    let cell = max(0, min(width / CGFloat(columns), height / CGFloat(max(rows.count, 1))))
     return VStack(alignment: .leading, spacing: gap) {
       HStack(spacing: gap) {
-        ForEach(Array(days.prefix(7))) { day in
-          Text(LoofitFormat.weekday(day.date))
-            .font(.system(size: 8, weight: .heavy))
-            .foregroundStyle(LoofitColor(entry.palette.tx4))
-            .frame(width: cell)
+        if rendererSpec.calendarAlignment == .rollingDays {
+          ForEach(Array(days.prefix(columns))) { day in
+            weekdayLabel(weekdayLabel(for: day.date), cell: cell)
+          }
+        } else {
+          ForEach(
+            Array(LoofitWidgetRendererContract.Heatmap.weekdayLabels.prefix(columns).enumerated()),
+            id: \.offset
+          ) { _, label in
+            weekdayLabel(label, cell: cell)
+          }
         }
       }
       ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
         HStack(spacing: gap) {
           ForEach(row) { day in
             ZStack {
-              RoundedRectangle(cornerRadius: variant == .week ? 4 : 3)
+              RoundedRectangle(cornerRadius: rendererSpec.cellRadius)
                 .fill(color(for: day))
-              if day.inRange || variant == .month {
+              if day.inRange || rendererSpec.showLeadingCalendarCells {
                 Text("\(Calendar.current.component(.day, from: day.date))")
-                  .font(.system(size: variant == .week ? 8 : 7, weight: .heavy))
+                  .font(.system(size: rendererSpec.cellLabelSize, weight: .heavy))
                   .foregroundStyle(day.durationSeconds >= 90 * 60 ? LoofitColor(entry.palette.accentText) : LoofitColor(entry.palette.tx3))
                   .minimumScaleFactor(0.6)
               }
             }
             .frame(width: cell, height: cell)
           }
-          if row.count < 7 {
-            ForEach(row.count..<7, id: \.self) { _ in
+          if row.count < columns {
+            ForEach(row.count..<columns, id: \.self) { _ in
               Color.clear.frame(width: cell, height: cell)
             }
           }
@@ -405,33 +431,53 @@ struct LoofitHeatmapWidgetView: View {
     }
   }
 
+  private func weekdayLabel(for date: Date) -> String {
+    let labels = LoofitWidgetRendererContract.Heatmap.weekdayLabels
+    let index = Calendar.current.component(.weekday, from: date) - 1
+    return labels.indices.contains(index) ? labels[index] : ""
+  }
+
+  private func weekdayLabel(_ label: String, cell: CGFloat) -> some View {
+    Text(label)
+      .font(
+        .system(
+          size: LoofitWidgetRendererContract.Heatmap.weekdayLabelSize,
+          weight: .heavy
+        )
+      )
+      .foregroundStyle(LoofitColor(entry.palette.tx4))
+      .frame(width: cell)
+  }
+
   private func sixMonthGrid(available: CGSize) -> some View {
     let columns = LoofitHeatmapProjection.sixMonthColumns(from: days)
-    let gap: CGFloat = 2
-    let width = max(0, available.width - 32 - gap * CGFloat(max(columns.count - 1, 0)))
-    let height = max(0, available.height - 32 - 22 - gap * 6 - 12)
-    let cell = max(0, min(width / CGFloat(max(columns.count, 1)), height / 7))
+    let gap = rendererSpec.cellGap
+    let calendarRows = max(LoofitWidgetRendererContract.Heatmap.weekdayLabels.count, 1)
+    let padding = LoofitWidgetRendererContract.contentPadding * 2
+    let width = max(0, available.width - padding - gap * CGFloat(max(columns.count - 1, 0)))
+    let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - gap * CGFloat(calendarRows - 1) - LoofitWidgetRendererContract.Heatmap.monthHeaderBottomGap)
+    let cell = max(0, min(width / CGFloat(max(columns.count, 1)), height / CGFloat(calendarRows)))
     return HStack(alignment: .top, spacing: gap) {
       ForEach(columns) { column in
         VStack(alignment: .leading, spacing: gap) {
           Text(column.monthLabel)
-            .font(.system(size: 9, weight: .heavy))
+            .font(.system(size: LoofitWidgetRendererContract.Heatmap.monthLabelSize, weight: .heavy))
             .foregroundStyle(LoofitColor(entry.palette.tx4))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
-            .frame(width: cell, height: 12, alignment: .leading)
+            .frame(width: cell, height: LoofitWidgetRendererContract.Heatmap.monthLabelHeight, alignment: .leading)
           ForEach(column.slots) { slot in
             switch slot {
             case .day(let day):
-              RoundedRectangle(cornerRadius: 2)
+              RoundedRectangle(cornerRadius: rendererSpec.cellRadius)
                 .fill(color(for: day))
                 .frame(width: cell, height: cell)
             case .gap:
               Color.clear.frame(width: cell, height: cell)
             }
           }
-          if column.slots.count < 7 {
-            ForEach(column.slots.count..<7, id: \.self) { _ in
+          if column.slots.count < calendarRows {
+            ForEach(column.slots.count..<calendarRows, id: \.self) { _ in
               Color.clear.frame(width: cell, height: cell)
             }
           }
@@ -441,12 +487,37 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private var weekStatsTop: some View {
-    HStack(alignment: .firstTextBaseline, spacing: 8) {
-      stat(label: "횟수", value: "\(count)회")
+    return HStack(alignment: .firstTextBaseline, spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.topRowGap) {
+      weekStat(at: 0)
         .fixedSize(horizontal: true, vertical: false)
-      stat(label: "총 시간", value: LoofitFormat.duration(duration))
+      weekStat(at: 1)
         .frame(maxWidth: .infinity, alignment: .leading)
     }
+  }
+
+  private var orderedWeekStats: [(label: String, value: String)] {
+    let order = LoofitWidgetRendererContract.Heatmap.WeekFooter.statOrder
+    let labels = LoofitWidgetRendererContract.Heatmap.WeekFooter.statLabels
+    return order.enumerated().map { index, stat in
+      let label = labels.indices.contains(index) ? labels[index] : ""
+      let value: String
+      switch stat {
+      case .count:
+        value = "\(count)회"
+      case .totalDuration:
+        value = LoofitFormat.duration(duration)
+      case .averageDuration:
+        value = LoofitFormat.duration(count > 0 ? duration / count : 0)
+      }
+      return (label, value)
+    }
+  }
+
+  private func weekStat(at index: Int) -> some View {
+    let value = orderedWeekStats.indices.contains(index)
+      ? orderedWeekStats[index]
+      : (label: "", value: "")
+    return stat(label: value.label, value: value.value)
   }
 
   private var recentWeekWorkouts: [LoofitWorkoutSessionSnapshot] {
@@ -454,33 +525,38 @@ struct LoofitHeatmapWidgetView: View {
       guard let started = $0.startedDate else { return false }
       return started >= Calendar.current.date(
         byAdding: .day,
-        value: -6,
+        value: -(max(rendererSpec.rangeDays, 1) - 1),
         to: Calendar.current.startOfDay(for: entry.date)
       ) ?? .distantFuture
-    }.prefix(2))
+    }.prefix(LoofitWidgetRendererContract.Heatmap.WeekFooter.recentLimit))
+  }
+
+  private var shouldShowWeekRecent: Bool {
+    LoofitWidgetRendererContract.Heatmap.WeekFooter.alwaysShowRecent ||
+      !recentWeekWorkouts.isEmpty
   }
 
   private var weekRecent: some View {
-    VStack(alignment: .leading, spacing: 2) {
-      Text("최근 운동")
-        .font(.system(size: 8, weight: .heavy))
+    VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentRowGap) {
+      Text(LoofitWidgetRendererContract.Heatmap.WeekFooter.recentLabel)
+        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentLabelSize, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx5))
       if recentWeekWorkouts.isEmpty {
-        Text("아직 기록 없음")
-          .font(.system(size: 10, weight: .heavy))
+        Text(LoofitWidgetRendererContract.Heatmap.WeekFooter.emptyRecentLabel)
+          .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentValueSize, weight: .heavy))
           .foregroundStyle(LoofitColor(entry.palette.tx2))
           .lineLimit(1)
       } else {
         ForEach(recentWeekWorkouts, id: \.id) { session in
-          HStack(spacing: 4) {
+          HStack(spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.statGap) {
             Text("\(session.title) · \(LoofitFormat.duration(session.durationSeconds))")
-              .font(.system(size: 10, weight: .heavy))
+              .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentValueSize, weight: .heavy))
               .foregroundStyle(LoofitColor(entry.palette.tx2))
               .lineLimit(1)
             Spacer(minLength: 0)
             if let date = session.startedDate {
               Text(LoofitFormat.relativeDay(date, now: entry.date))
-                .font(.system(size: 9, weight: .heavy))
+                .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentMetaSize, weight: .heavy))
                 .foregroundStyle(LoofitColor(entry.palette.tx5))
             }
           }
@@ -490,12 +566,12 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private func stat(label: String, value: String) -> some View {
-    HStack(alignment: .firstTextBaseline, spacing: 4) {
+    HStack(alignment: .firstTextBaseline, spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.statGap) {
       Text(label)
-        .font(.system(size: 8, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.statLabelSize, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx5))
       Text(value)
-        .font(.system(size: 14, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.statValueSize, weight: .heavy))
         .foregroundStyle(LoofitColor(entry.palette.tx2))
         .lineLimit(1)
         .allowsTightening(true)
@@ -505,7 +581,7 @@ struct LoofitHeatmapWidgetView: View {
 
   private func color(for day: LoofitHeatmapDay) -> Color {
     guard day.inRange else {
-      return variant == .month || variant == .sixMonths
+      return rendererSpec.showLeadingCalendarCells
         ? LoofitColor(entry.palette.heatmapEmpty)
         : LoofitColor(entry.palette.heatmapGap)
     }

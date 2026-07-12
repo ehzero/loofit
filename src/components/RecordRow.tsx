@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { formatDateK, formatDuration } from '@/src/domain/date';
-import { joinPartNames } from '@/src/domain/routine';
+import { workoutSessionDisplayName } from '@/src/domain/routine';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { radius, spacing } from '@/src/theme/tokens';
 import type { WorkoutSession } from '@/src/types';
@@ -18,7 +18,7 @@ export function RecordRow({
   onPress?: () => void;
 }) {
   const { colors } = useTheme();
-  const title = joinPartNames(session.parts.map((part) => ({ name: part.bodyPartName })));
+  const title = workoutSessionDisplayName(session);
 
   return (
     <Pressable

@@ -1,0 +1,221 @@
+{
+  "version": 1,
+  "seed": {
+    "routineId": 10,
+    "nextRoutineDayId": 101,
+    "bodyParts": [
+      { "id": 1, "name": "가슴", "color": "#E84A5F", "sortOrder": 0 },
+      { "id": 2, "name": "등", "color": "#2A9D8F", "sortOrder": 1 },
+      { "id": 3, "name": "하체", "color": "#F4A261", "sortOrder": 2 }
+    ],
+    "routineDays": [
+      { "id": 101, "name": "Push", "sortOrder": 0, "bodyPartIds": [1] },
+      { "id": 102, "name": "Pull", "sortOrder": 1, "bodyPartIds": [2] }
+    ]
+  },
+  "scenarios": [
+    {
+      "id": "routine-complete-and-duplicate",
+      "steps": [
+        {
+          "command": { "type": "startNext" },
+          "captureSessionAs": "routine",
+          "expect": { "status": "applied", "sessionId": "nonNull" }
+        },
+        {
+          "command": { "type": "complete", "expectedSessionId": { "ref": "routine" } },
+          "expect": { "status": "applied", "sessionId": { "ref": "routine" } }
+        },
+        {
+          "command": { "type": "complete", "expectedSessionId": { "ref": "routine" } },
+          "expect": { "status": "noop", "sessionId": null }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 102,
+        "sessions": [
+          { "ref": "routine", "status": "completed", "routineDayId": 101, "parts": ["가슴"] }
+        ]
+      }
+    },
+    {
+      "id": "active-noop-stale-and-rejected",
+      "steps": [
+        {
+          "command": { "type": "startRoutine", "routineDayId": 101 },
+          "captureSessionAs": "active",
+          "expect": { "status": "applied", "sessionId": "nonNull" }
+        },
+        {
+          "command": { "type": "startFree", "bodyPartIds": [3] },
+          "expect": { "status": "noop", "sessionId": { "ref": "active" } }
+        },
+        {
+          "command": {
+            "type": "changeRoutine",
+            "expectedSessionId": { "ref": "active", "offset": 999 },
+            "routineDayId": 102
+          },
+          "expect": { "status": "stale", "sessionId": { "ref": "active" } }
+        },
+        {
+          "command": {
+            "type": "changeRoutine",
+            "expectedSessionId": { "ref": "active" },
+            "routineDayId": 999
+          },
+          "expect": { "status": "rejected", "sessionId": { "ref": "active" } }
+        },
+        {
+          "command": {
+            "type": "complete",
+            "expectedSessionId": { "ref": "active", "offset": 999 }
+          },
+          "expect": { "status": "stale", "sessionId": { "ref": "active" } }
+        },
+        {
+          "command": { "type": "cancel", "expectedSessionId": { "ref": "active" } },
+          "expect": { "status": "applied", "sessionId": { "ref": "active" } }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 101,
+        "sessions": [
+          { "ref": "active", "status": "canceled", "routineDayId": 101, "parts": ["가슴"] }
+        ]
+      }
+    },
+    {
+      "id": "free-completion-does-not-advance-routine",
+      "steps": [
+        {
+          "command": { "type": "startFree", "bodyPartIds": [3] },
+          "captureSessionAs": "free",
+          "expect": { "status": "applied", "sessionId": "nonNull" }
+        },
+        {
+          "command": { "type": "complete", "expectedSessionId": { "ref": "free" } },
+          "expect": { "status": "applied", "sessionId": { "ref": "free" } }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 101,
+        "sessions": [
+          { "ref": "free", "status": "completed", "routineDayId": null, "parts": ["하체"] }
+        ]
+      }
+    },
+    {
+      "id": "cancel-and-duplicate-cancel",
+      "steps": [
+        {
+          "command": { "type": "startRoutine", "routineDayId": 101 },
+          "captureSessionAs": "canceled",
+          "expect": { "status": "applied", "sessionId": "nonNull" }
+        },
+        {
+          "command": { "type": "cancel", "expectedSessionId": { "ref": "canceled" } },
+          "expect": { "status": "applied", "sessionId": { "ref": "canceled" } }
+        },
+        {
+          "command": { "type": "cancel", "expectedSessionId": { "ref": "canceled" } },
+          "expect": { "status": "noop", "sessionId": null }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 101,
+        "sessions": [
+          { "ref": "canceled", "status": "canceled", "routineDayId": 101, "parts": ["가슴"] }
+        ]
+      }
+    },
+    {
+      "id": "changing-to-free-clears-routine-progression",
+      "steps": [
+        {
+          "command": { "type": "startRoutine", "routineDayId": 101 },
+          "captureSessionAs": "changed",
+          "expect": { "status": "applied", "sessionId": "nonNull" }
+        },
+        {
+          "command": {
+            "type": "changeFree",
+            "expectedSessionId": { "ref": "changed" },
+            "bodyPartIds": [3]
+          },
+          "expect": { "status": "applied", "sessionId": { "ref": "changed" } }
+        },
+        {
+          "command": { "type": "complete", "expectedSessionId": { "ref": "changed" } },
+          "expect": { "status": "applied", "sessionId": { "ref": "changed" } }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 101,
+        "sessions": [
+          { "ref": "changed", "status": "completed", "routineDayId": null, "parts": ["하체"] }
+        ]
+      }
+    },
+    {
+      "id": "changing-routine-advances-from-final-target",
+      "steps": [
+        {
+          "command": { "type": "startRoutine", "routineDayId": 101 },
+          "captureSessionAs": "changedRoutine",
+          "expect": { "status": "applied", "sessionId": "nonNull" }
+        },
+        {
+          "command": {
+            "type": "changeRoutine",
+            "expectedSessionId": { "ref": "changedRoutine" },
+            "routineDayId": 102
+          },
+          "expect": { "status": "applied", "sessionId": { "ref": "changedRoutine" } }
+        },
+        {
+          "command": {
+            "type": "complete",
+            "expectedSessionId": { "ref": "changedRoutine" }
+          },
+          "expect": { "status": "applied", "sessionId": { "ref": "changedRoutine" } }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 101,
+        "sessions": [
+          {
+            "ref": "changedRoutine",
+            "status": "completed",
+            "routineDayId": 102,
+            "parts": ["등"]
+          }
+        ]
+      }
+    },
+    {
+      "id": "invalid-starts-are-rejected",
+      "steps": [
+        {
+          "command": { "type": "startRoutine", "routineDayId": 999 },
+          "expect": { "status": "rejected", "sessionId": null }
+        },
+        {
+          "command": { "type": "startFree", "bodyPartIds": [] },
+          "expect": { "status": "rejected", "sessionId": null }
+        }
+      ],
+      "expectState": {
+        "activeSessionCount": 0,
+        "nextRoutineDayId": 101,
+        "sessions": []
+      }
+    }
+  ]
+}

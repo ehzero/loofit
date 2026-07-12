@@ -2,13 +2,15 @@ import Foundation
 import SQLite3
 
 enum LoofitWorkoutCoreError: LocalizedError {
+  case configuration(String)
   case database(String)
   case invalidCommand(String)
   case projection(String)
 
   var errorDescription: String? {
     switch self {
-    case .database(let message), .invalidCommand(let message), .projection(let message):
+    case .configuration(let message), .database(let message),
+      .invalidCommand(let message), .projection(let message):
       return message
     }
   }
@@ -154,73 +156,70 @@ final class LoofitSQLiteDatabase {
 
   func ensureWidgetSyncSchema() throws {
     try withImmediateTransaction {
-      try execute("""
-        CREATE TABLE IF NOT EXISTS widget_sync_state (
-          id INTEGER PRIMARY KEY CHECK (id = 1),
-          desired_revision INTEGER NOT NULL DEFAULT 1,
-          published_revision INTEGER NOT NULL DEFAULT 0,
-          last_error TEXT,
-          updated_at TEXT NOT NULL
-        );
-        INSERT OR IGNORE INTO widget_sync_state
-          (id, desired_revision, published_revision, last_error, updated_at)
-        VALUES
-          (1, 1, 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
-        """)
+      let currentVersion = Int(try firstInt64("PRAGMA user_version") ?? 0)
+      for migration in LoofitWorkoutSchemaContract.migrations
+      where migration.version > currentVersion {
+        if migration.schemaSQL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+          try execute(migration.schemaSQL)
+        }
+        try ensureSchemaMigrationColumns(migration)
+        let postSchemaSQL = migration.postSchemaSQL
+          .trimmingCharacters(in: .whitespacesAndNewlines)
+        if postSchemaSQL.isEmpty == false {
+          try execute(migration.postSchemaSQL)
+        }
+        try applySchemaMigrationAfterSQL(migration)
+        try execute("PRAGMA user_version = \(migration.version)")
+      }
+      for migration in LoofitWorkoutSchemaContract.migrations
+      where migration.version <= currentVersion {
+        try ensureSchemaMigrationColumns(migration)
+        try applySchemaMigrationAfterSQL(migration)
+      }
 
-      let trackedTables = [
-        "body_parts",
-        "routines",
-        "routine_days",
-        "routine_day_parts",
-        "workout_sessions",
-        "workout_session_parts_snapshot",
-        "routine_progress",
-        "app_settings",
-      ]
-      for table in trackedTables where try tableExists(table) {
-        for operation in ["INSERT", "UPDATE", "DELETE"] {
-          let trigger = "widget_sync_\(table)_\(operation.lowercased())"
-          try execute("""
-            CREATE TRIGGER IF NOT EXISTS \(trigger)
-            AFTER \(operation) ON \(table)
-            BEGIN
-              UPDATE widget_sync_state
-              SET desired_revision = desired_revision + 1,
-                  updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-              WHERE id = 1;
-            END;
-            """)
+      try execute(LoofitWorkoutSchemaContract.widgetSyncStateBootstrapSQL)
+
+      for table in LoofitWorkoutSchemaContract.widgetSyncTrackedTables
+      where try tableExists(table) {
+        for operation in LoofitWorkoutSchemaContract.widgetSyncOperations {
+          try execute(
+            LoofitWorkoutSchemaContract.widgetSyncTriggerSQL(
+              table: table,
+              operation: operation
+            )
+          )
         }
       }
 
-      if try tableExists("workout_sessions") {
-        try execute("""
-          UPDATE workout_sessions
-          SET status = 'canceled',
-              ended_at = COALESCE(
-                ended_at,
-                strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-              ),
-              duration_seconds = CAST(MAX(
-                0,
-                (julianday('now') - COALESCE(
-                  julianday(started_at),
-                  julianday('now')
-                )) * 86400
-              ) AS INTEGER),
-              updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
-          WHERE status = 'active'
-            AND id NOT IN (
-              SELECT id FROM workout_sessions
-              WHERE status = 'active'
-              ORDER BY started_at DESC, id DESC LIMIT 1
-            );
-          CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_single_active
-            ON workout_sessions(status)
-            WHERE status = 'active';
-          """)
+      if try tableExists(LoofitWorkoutSchemaContract.workoutSessionsTable) {
+        try execute(LoofitWorkoutSchemaContract.singleActiveSessionInvariantSQL)
       }
+    }
+  }
+
+  private func ensureSchemaMigrationColumns(
+    _ migration: LoofitWorkoutSchemaMigrationStep
+  ) throws {
+    for column in migration.columns {
+      guard try tableExists(column.table) else {
+        throw LoofitWorkoutCoreError.database(
+          "Migration \(migration.id) requires missing table \(column.table)"
+        )
+      }
+      if try columnExists(column.column, in: column.table) == false {
+        try execute(
+          "ALTER TABLE \(column.table) ADD COLUMN \(column.column) \(column.definition)"
+        )
+      }
+    }
+  }
+
+  private func applySchemaMigrationAfterSQL(
+    _ migration: LoofitWorkoutSchemaMigrationStep
+  ) throws {
+    if let afterSQL = migration.afterSQL,
+       afterSQL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+      try execute(afterSQL)
     }
   }
 
@@ -228,7 +227,7 @@ final class LoofitSQLiteDatabase {
     var desired: Int64 = 0
     var published: Int64 = 0
     try query(
-      "SELECT desired_revision, published_revision FROM widget_sync_state WHERE id = 1"
+      "SELECT desired_revision, published_revision FROM \(LoofitWorkoutSchemaContract.widgetSyncStateTable) WHERE id = 1"
     ) { statement in
       desired = sqlite3_column_int64(statement, 0)
       published = sqlite3_column_int64(statement, 1)
@@ -239,7 +238,7 @@ final class LoofitSQLiteDatabase {
   func markPublished(revision: Int64) throws {
     try run(
       """
-      UPDATE widget_sync_state
+      UPDATE \(LoofitWorkoutSchemaContract.widgetSyncStateTable)
       SET published_revision = ?, last_error = NULL,
           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = 1 AND desired_revision = ?
@@ -252,7 +251,7 @@ final class LoofitSQLiteDatabase {
     let message = String(describing: error)
     _ = try? run(
       """
-      UPDATE widget_sync_state
+      UPDATE \(LoofitWorkoutSchemaContract.widgetSyncStateTable)
       SET last_error = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
       WHERE id = 1
       """,
@@ -280,6 +279,16 @@ final class LoofitSQLiteDatabase {
       "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ? LIMIT 1",
       [.text(table)]
     ) == 1
+  }
+
+  private func columnExists(_ column: String, in table: String) throws -> Bool {
+    var exists = false
+    try query("PRAGMA table_info(\(table))") { statement in
+      if Self.string(statement, 1) == column {
+        exists = true
+      }
+    }
+    return exists
   }
 
   private func prepare(_ sql: String, _ values: [LoofitSQLiteValue]) throws -> OpaquePointer {

@@ -4,7 +4,11 @@ import { heatColor, type ThemeColors } from '@/src/theme/tokens';
 import type { HeatmapDay, RangeStats } from '@/src/types';
 
 import type { HeatmapWidgetProps } from './types';
-import { WIDGET_PREVIEW_SPEC, type HeatmapWidgetVariant } from './widget-spec';
+import {
+  WIDGET_PREVIEW_SPEC,
+  WIDGET_RENDERER_CONTRACT,
+  type HeatmapWidgetVariant,
+} from './widget-spec';
 
 type HeatmapCellInput = Pick<HeatmapDay, 'bucket' | 'dateKey'> & {
   inRange?: boolean;
@@ -12,7 +16,8 @@ type HeatmapCellInput = Pick<HeatmapDay, 'bucket' | 'dateKey'> & {
 };
 
 const TRANSPARENT_CELL = '#00000000';
-const WEEKDAY_LABELS = ['일', '월', '화', '수', '목', '금', '토'] as const;
+const WEEKDAY_LABELS = WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabels;
+const CALENDAR_ROWS = WEEKDAY_LABELS.length;
 
 export type HeatmapWidgetCell = {
   color: string;
@@ -50,7 +55,7 @@ export function buildHeatmapWidgetProps({
         )
       : cells;
   const monthLabels = variant === 'year' ? buildWeekMonthLabels(widgetCells) : [];
-  const weekCount = variant === 'year' ? Math.ceil(widgetCells.length / 7) : 0;
+  const weekCount = variant === 'year' ? Math.ceil(widgetCells.length / CALENDAR_ROWS) : 0;
 
   return {
     title: title ?? defaultHeatmapWidgetTitle(variant),
@@ -60,13 +65,17 @@ export function buildHeatmapWidgetProps({
     colors: widgetCells.map((cell) => heatmapCellColor(colors, cell)).join(','),
     labels: widgetCells.map((cell) => (cell.isGap ? '' : dayOfMonthLabel(cell.dateKey))).join(','),
     labelColors: widgetCells.map((cell) => heatmapCellLabelColor(colors, cell)).join(','),
-    weekdayLabels: WEEKDAY_LABELS.join(','),
+    weekdayLabels: heatmapWeekdayLabels(variant, widgetCells).join(','),
     monthLabels: monthLabels.join(','),
     monthGapBeforeWeeks: Array.from({ length: weekCount }, () => '0').join(','),
     brandName: BRAND.displayName,
     footerStatLabels: footer?.footerStatLabels ?? '',
     footerStatValues: footer?.footerStatValues ?? '',
-    recentWorkoutLabel: footer?.recentWorkoutLabel ?? '',
+    recentWorkoutLabel:
+      footer?.recentWorkoutLabel ??
+      (variant === 'week' && WIDGET_RENDERER_CONTRACT.heatmap.weekFooter.alwaysShowRecent
+        ? WIDGET_RENDERER_CONTRACT.heatmap.weekFooter.recentLabel
+        : ''),
     recentWorkoutTitles: footer?.recentWorkoutTitles ?? '',
     recentWorkoutMetas: footer?.recentWorkoutMetas ?? '',
     background: colors.card,
@@ -93,7 +102,7 @@ export function formatHeatmapWidgetTitle(label: string, workoutCount: number): s
 }
 
 export function formatSixMonthHeatmapWidgetTitle(stats: RangeStats): string {
-  return `지난 6개월 · ${stats.workoutCount}회 · 총 ${formatDuration(
+  return `${WIDGET_RENDERER_CONTRACT.heatmap.variants.year.title} · ${stats.workoutCount}회 · 총 ${formatDuration(
     stats.durationSeconds
   )} · 평균 ${formatDuration(averageDurationSeconds(stats))}`;
 }
@@ -119,14 +128,14 @@ export function buildHeatmapWidgetRows(
       ? props.columns
       : variant === 'week' || variant === 'month'
         ? WIDGET_PREVIEW_SPEC.heatmap[variant].columns
-        : 7;
+        : CALENDAR_ROWS;
 
   if (variant === 'year') {
-    const weekCount = Math.ceil(cells.length / 7);
-    return Array.from({ length: 7 }, (_, weekday) =>
+    const weekCount = Math.ceil(cells.length / CALENDAR_ROWS);
+    return Array.from({ length: CALENDAR_ROWS }, (_, weekday) =>
       Array.from(
         { length: weekCount },
-        (_, week) => cells[week * 7 + weekday] ?? transparentWidgetCell(props)
+        (_, week) => cells[week * CALENDAR_ROWS + weekday] ?? transparentWidgetCell(props)
       )
     );
   }
@@ -155,14 +164,22 @@ function transparentWidgetCell(props: HeatmapWidgetProps): HeatmapWidgetCell {
 }
 
 function defaultHeatmapWidgetTitle(variant: HeatmapWidgetVariant): string {
-  switch (variant) {
-    case 'week':
-      return '지난 7일';
-    case 'month':
-      return '지난 30일';
-    case 'year':
-      return '지난 6개월';
+  return WIDGET_RENDERER_CONTRACT.heatmap.variants[variant].title;
+}
+
+function heatmapWeekdayLabels(
+  variant: HeatmapWidgetVariant,
+  cells: HeatmapCellInput[]
+): readonly string[] {
+  if (variant !== 'week') {
+    return WEEKDAY_LABELS;
   }
+  return cells.slice(0, WIDGET_RENDERER_CONTRACT.heatmap.variants.week.columns).map((cell) => {
+    if (!cell.dateKey) {
+      return '';
+    }
+    return WEEKDAY_LABELS[dateFromKey(cell.dateKey).getDay()] ?? '';
+  });
 }
 
 function dayOfMonthLabel(dateKey: string): string {
@@ -240,19 +257,25 @@ function insertMonthTransitionGapCells(cells: HeatmapCellInput[]): HeatmapCellIn
 }
 
 function monthTransitionGapCells(): HeatmapCellInput[] {
-  return Array.from({ length: 7 }, () => ({
-    dateKey: '',
-    bucket: 0,
-    isGap: true,
-  }));
+  return Array.from(
+    { length: WIDGET_RENDERER_CONTRACT.heatmap.variants.year.monthBoundaryGapSlots },
+    () => ({
+      dateKey: '',
+      bucket: 0,
+      isGap: true,
+    })
+  );
 }
 
 function buildWeekMonthLabels(cells: HeatmapCellInput[]): string[] {
-  const weekCount = Math.ceil(cells.length / 7);
+  const weekCount = Math.ceil(cells.length / CALENDAR_ROWS);
   const labels = Array.from({ length: weekCount }, () => '');
 
   for (let week = 0; week < weekCount; week += 1) {
-    const weekCells = cells.slice(week * 7, week * 7 + 7);
+    const weekCells = cells.slice(
+      week * CALENDAR_ROWS,
+      week * CALENDAR_ROWS + CALENDAR_ROWS
+    );
     const monthStartIndex = weekCells.findIndex(
       (cell) => !cell.isGap && (cell.inRange ?? true) && Number(cell.dateKey.split('-')[2]) === 1
     );

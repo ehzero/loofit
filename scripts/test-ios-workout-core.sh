@@ -9,13 +9,15 @@ restore_production_pods() {
   local status=$?
   trap - EXIT
   echo "Restoring the production LoofitWorkoutCore pod declaration..."
-  LOOFIT_CORE_TESTS=0 CI=1 npx expo prebuild --platform ios --no-install >/dev/null || true
+  LOOFIT_APP_ONLY=0 LOOFIT_CORE_TESTS=0 CI=1 \
+    npx expo prebuild --platform ios --no-install >/dev/null || true
   npx pod-install >/dev/null || true
   exit "$status"
 }
 trap restore_production_pods EXIT
 
-LOOFIT_CORE_TESTS=1 CI=1 npx expo prebuild --platform ios --no-install
+LOOFIT_APP_ONLY=0 LOOFIT_CORE_TESTS=1 CI=1 \
+  npx expo prebuild --platform ios --no-install
 npx pod-install
 
 SIMULATOR_ID="$(
@@ -28,6 +30,7 @@ if [[ -z "$SIMULATOR_ID" ]]; then
   exit 1
 fi
 
+export LOOFIT_COMMAND_SCENARIOS_PATH="$ROOT_DIR/contracts/workout-command-scenarios.json"
 xcodebuild \
   -workspace ios/app.xcworkspace \
   -scheme LoofitWorkoutCore-Unit-Tests \

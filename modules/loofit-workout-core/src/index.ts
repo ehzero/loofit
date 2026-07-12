@@ -44,6 +44,7 @@ export type WidgetThemeSnapshot = {
 };
 
 type NativeLoofitWorkoutCore = {
+  widgetsConfigured?: boolean;
   widgetsDirectory?: string | null;
   executeWorkoutCommand(
     command: WorkoutCommand,
@@ -62,6 +63,8 @@ type NativeLoofitWorkoutCore = {
 };
 
 const nativeModule = requireOptionalNativeModule<NativeLoofitWorkoutCore>('LoofitWorkoutCore');
+export const workoutCoreNativeModuleAvailable = nativeModule !== null;
+export const workoutCoreWidgetsConfigured = nativeModule?.widgetsConfigured === true;
 export const workoutCoreWidgetsDirectory = nativeModule?.widgetsDirectory ?? null;
 const unsupportedResult: CommandResult = {
   status: 'rejected',

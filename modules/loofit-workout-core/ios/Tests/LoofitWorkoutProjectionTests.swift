@@ -153,6 +153,34 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     })
   }
 
+  func testCompletedSessionTitleDoesNotFollowLaterRoutineEdits() throws {
+    try seedRoutine()
+    let started = try LoofitWorkoutCommandEngine.execute(
+      .startRoutine(routineDayId: 101),
+      database: database
+    )
+    let sessionId = try XCTUnwrap(started.sessionId)
+    _ = try LoofitWorkoutCommandEngine.execute(
+      .complete(expectedSessionId: sessionId),
+      database: database
+    )
+
+    let now = LoofitWorkoutDate.nowISO8601()
+    try database.run(
+      "UPDATE routine_days SET name = '새 Push', updated_at = ? WHERE id = 101",
+      [.text(now)]
+    )
+    try database.run(
+      "UPDATE body_parts SET name = '새 가슴', updated_at = ? WHERE id = 1",
+      [.text(now)]
+    )
+
+    let snapshot = try LoofitWorkoutProjection.makeSnapshot(database: database)
+    let completed = try XCTUnwrap(snapshot.recentCompleted.first { $0.id == sessionId })
+    XCTAssertEqual(completed.title, "Push")
+    XCTAssertEqual(completed.detail, "가슴")
+  }
+
   func testSurfaceHashesRespectSevenAndThirtyDayWindows() throws {
     let today = localDate(daysFromToday: 0)
     for offset in 0..<12 {

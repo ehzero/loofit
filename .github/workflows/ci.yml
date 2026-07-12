@@ -1,0 +1,131 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typescript:
+    name: TypeScript and contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check generated contracts
+        run: npm run contracts:check
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test TypeScript and repository command parity
+        run: npx vitest run
+
+      - name: Check style tokens
+        run: npm run lint:tokens
+
+  ios:
+    name: iOS full-widget and app-only
+    runs-on: macos-26
+    timeout-minutes: 120
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check generated contracts
+        run: npm run contracts:check
+
+      - name: Generate full-widget project with native tests
+        env:
+          LOOFIT_CORE_TESTS: "1"
+        run: npm run ios:prebuild:widgets
+
+      - name: Install full-widget pods
+        working-directory: ios
+        run: pod install
+
+      - name: Verify Widget Extension isolation and optimization
+        run: npm run verify:ios:widgets
+
+      - name: Build full-widget Release
+        run: |
+          xcodebuild \
+            -workspace ios/app.xcworkspace \
+            -scheme app \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/loofit-full" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build
+
+      - name: Inspect built Widget Extension
+        run: ./scripts/verify-widget-extension-isolation.sh "$RUNNER_TEMP/loofit-full"
+
+      - name: Reclaim full-build disk space
+        run: rm -rf "$RUNNER_TEMP/loofit-full"
+
+      - name: Run native Core and shared command contract tests
+        env:
+          LOOFIT_TEST_DERIVED_DATA: ${{ runner.temp }}/loofit-native-tests
+        run: npm run test:ios-core:generated
+
+      - name: Reclaim native-test disk space
+        run: rm -rf "$RUNNER_TEMP/loofit-native-tests"
+
+      - name: Generate clean app-only project
+        run: npm run ios:prebuild:app-only
+
+      - name: Install app-only pods
+        working-directory: ios
+        env:
+          LOOFIT_APP_ONLY: "1"
+        run: pod install
+
+      - name: Verify app-only project cleanup
+        run: npm run verify:ios:app-only
+
+      - name: Build app-only Release
+        env:
+          LOOFIT_APP_ONLY: "1"
+        run: |
+          xcodebuild \
+            -workspace ios/app.xcworkspace \
+            -scheme app \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/loofit-app-only" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            build

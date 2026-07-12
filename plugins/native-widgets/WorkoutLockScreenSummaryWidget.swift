@@ -22,7 +22,11 @@ private struct LoofitWorkoutLockScreenSummaryWidgetView: View {
   let entry: LoofitWidgetEntry
 
   private var aggregates: [LoofitHeatmapDay] {
-    LoofitHeatmapProjection.days(snapshot: entry.snapshot, endingAt: entry.date, count: 7)
+    LoofitHeatmapProjection.days(
+      snapshot: entry.snapshot,
+      endingAt: entry.date,
+      count: LoofitWidgetRendererContract.LockScreen.summaryDays
+    )
   }
 
   private var workoutCount: Int {
@@ -34,30 +38,33 @@ private struct LoofitWorkoutLockScreenSummaryWidgetView: View {
   }
 
   var body: some View {
-    VStack(alignment: .center, spacing: 6) {
-      HStack(spacing: 3) {
+    VStack(alignment: .center, spacing: LoofitWidgetRendererContract.LockScreen.Summary.contentGap) {
+      HStack(spacing: LoofitWidgetRendererContract.LockScreen.Summary.cellGap) {
         ForEach(aggregates) { day in
           let active = day.durationSeconds > 0
-          RoundedRectangle(cornerRadius: 5)
+          RoundedRectangle(cornerRadius: LoofitWidgetRendererContract.LockScreen.Summary.cellRadius)
             .fill(active ? activeCellColor : .clear)
             .overlay(
-              RoundedRectangle(cornerRadius: 5)
+              RoundedRectangle(cornerRadius: LoofitWidgetRendererContract.LockScreen.Summary.cellRadius)
                 .stroke(active ? activeCellColor : inactiveCellBorderColor, lineWidth: 1)
             )
             .widgetAccentable(active)
-            .frame(width: 18, height: 18)
+            .frame(
+              width: LoofitWidgetRendererContract.LockScreen.Summary.cellSize,
+              height: LoofitWidgetRendererContract.LockScreen.Summary.cellSize
+            )
         }
       }
 
       Text("\(workoutCount)회 · 총 \(LoofitFormat.duration(durationSeconds))")
-        .font(.system(size: 15, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.LockScreen.Summary.fontSize, weight: .heavy))
         .foregroundStyle(primaryColor)
         .widgetAccentable()
         .lineLimit(1)
         .minimumScaleFactor(0.64)
         .multilineTextAlignment(.center)
     }
-    .padding(4)
+    .padding(LoofitWidgetRendererContract.LockScreen.Summary.contentPadding)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     .loofitWidgetBackground(.clear)
     .widgetURL(URL(string: "loofit://"))

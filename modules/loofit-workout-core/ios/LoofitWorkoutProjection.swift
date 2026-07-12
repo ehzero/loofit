@@ -94,11 +94,11 @@ enum LoofitWorkoutProjection {
     _ database: LoofitSQLiteDatabase
   ) throws -> LoofitWorkoutSessionSnapshot? {
     let sql = """
-      SELECT ws.id, ws.routine_id, ws.routine_day_id, COALESCE(rd.name, ''),
+      SELECT ws.id, ws.routine_id, ws.routine_day_id,
+             COALESCE(ws.routine_day_name_snapshot, ''),
              ws.started_at, ws.ended_at, ws.duration_seconds,
              sp.body_part_id, sp.body_part_name, sp.body_part_color, sp.sort_order
       FROM workout_sessions ws
-      LEFT JOIN routine_days rd ON rd.id = ws.routine_day_id
       LEFT JOIN workout_session_parts_snapshot sp ON sp.workout_session_id = ws.id
       WHERE ws.id = (
         SELECT id FROM workout_sessions WHERE status = 'active'
@@ -122,13 +122,17 @@ enum LoofitWorkoutProjection {
     let calendar = Calendar.autoupdatingCurrent
     let today = calendar.startOfDay(for: Date())
     let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: today)) ?? today
-    let rangeStart = calendar.date(byAdding: .month, value: -5, to: monthStart) ?? monthStart
+    let rangeStart = calendar.date(
+      byAdding: .month,
+      value: -(LoofitWidgetLayoutContract.Heatmap.sixMonthRangeMonths - 1),
+      to: monthStart
+    ) ?? monthStart
     let sql = """
-      SELECT ws.id, ws.routine_id, ws.routine_day_id, COALESCE(rd.name, ''),
+      SELECT ws.id, ws.routine_id, ws.routine_day_id,
+             COALESCE(ws.routine_day_name_snapshot, ''),
              ws.started_at, ws.ended_at, ws.duration_seconds,
              sp.body_part_id, sp.body_part_name, sp.body_part_color, sp.sort_order
       FROM workout_sessions ws
-      LEFT JOIN routine_days rd ON rd.id = ws.routine_day_id
       LEFT JOIN workout_session_parts_snapshot sp ON sp.workout_session_id = ws.id
       WHERE ws.status = 'completed' AND ws.started_at >= ?
       ORDER BY ws.started_at DESC, ws.id DESC, sp.sort_order ASC, sp.id ASC
@@ -268,8 +272,16 @@ enum LoofitWorkoutProjection {
       today: completedToday
     ))
     let today = Calendar.autoupdatingCurrent.startOfDay(for: Date())
-    let weekStart = Calendar.autoupdatingCurrent.date(byAdding: .day, value: -6, to: today) ?? today
-    let monthStart = Calendar.autoupdatingCurrent.date(byAdding: .day, value: -29, to: today) ?? today
+    let weekStart = Calendar.autoupdatingCurrent.date(
+      byAdding: .day,
+      value: -(LoofitWidgetLayoutContract.Heatmap.weekRangeDays - 1),
+      to: today
+    ) ?? today
+    let monthStart = Calendar.autoupdatingCurrent.date(
+      byAdding: .day,
+      value: -(LoofitWidgetLayoutContract.Heatmap.monthRangeDays - 1),
+      to: today
+    ) ?? today
     let week = daily.filter { $0.dateKey >= localDateKey(weekStart) }
     let month = daily.filter { $0.dateKey >= localDateKey(monthStart) }
     let weekHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: week, recent: recent))

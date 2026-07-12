@@ -32,6 +32,8 @@ export type WorkoutSession = {
   id: number;
   routineId: number | null;
   routineDayId: number | null;
+  /** Display title frozen when the session's final routine split was selected. */
+  routineDayNameSnapshot: string | null;
   startedAt: string;
   endedAt: string | null;
   durationSeconds: number;

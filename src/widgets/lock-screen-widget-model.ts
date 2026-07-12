@@ -4,6 +4,9 @@ import type { HeatmapDay } from '@/src/types';
 import type { ThemeColors } from '@/src/theme/tokens';
 
 import type { WorkoutLockScreenSummaryWidgetProps, WorkoutLockScreenWidgetProps } from './types';
+import { WIDGET_RENDERER_CONTRACT } from './widget-spec';
+
+const LOCK_SCREEN = WIDGET_RENDERER_CONTRACT.lockScreen;
 
 type LockScreenThemeProps = Pick<
   WorkoutLockScreenWidgetProps,
@@ -22,7 +25,7 @@ type WorkoutLockScreenDisplayInput = {
 export function buildWorkoutLockScreenProps(
   input: WorkoutLockScreenDisplayInput
 ): WorkoutLockScreenWidgetProps {
-  const title = normalizeText(input.title) || '루틴 설정 필요';
+  const title = normalizeText(input.title) || LOCK_SCREEN.copy.routineRequired;
   const detail = normalizeText(input.detail ?? '');
   const compactSource = firstPartName(detail) || firstPartName(title) || title;
   const elapsedLabel = input.startedAt
@@ -34,9 +37,9 @@ export function buildWorkoutLockScreenProps(
     return {
       state: 'active',
       brandName: BRAND.displayName,
-      inlineText: `${BRAND.displayName} · 운동 중 ${title}`,
+      inlineText: `${BRAND.displayName} · ${LOCK_SCREEN.copy.active} ${title}`,
       circularValue: elapsedLabel,
-      rectangularEyebrow: '운동 중',
+      rectangularEyebrow: LOCK_SCREEN.copy.active,
       rectangularTitle: elapsedLabel,
       rectangularDetail: title,
       startedAt: input.startedAt,
@@ -49,10 +52,10 @@ export function buildWorkoutLockScreenProps(
     return {
       state: 'completed',
       brandName: BRAND.displayName,
-      inlineText: `${BRAND.displayName} · 오운완 ${title}`,
-      circularValue: '오운완',
-      rectangularEyebrow: '오늘 완료',
-      rectangularTitle: '오운완',
+      inlineText: `${BRAND.displayName} · ${LOCK_SCREEN.copy.completedBadge} ${title}`,
+      circularValue: LOCK_SCREEN.copy.completedBadge,
+      rectangularEyebrow: LOCK_SCREEN.copy.completedEyebrow,
+      rectangularTitle: LOCK_SCREEN.copy.completedBadge,
       rectangularDetail: completedDetail,
       ...lockScreenThemeProps(input),
     };
@@ -61,9 +64,9 @@ export function buildWorkoutLockScreenProps(
   return {
     state: 'idle',
     brandName: BRAND.displayName,
-    inlineText: `${BRAND.displayName} · 다음 운동 ${title}`,
+    inlineText: `${BRAND.displayName} · ${LOCK_SCREEN.copy.idle} ${title}`,
     circularValue: compactAccessoryValue(compactSource),
-    rectangularEyebrow: '다음 운동',
+    rectangularEyebrow: LOCK_SCREEN.copy.idle,
     rectangularTitle: title,
     rectangularDetail: detail,
     ...lockScreenThemeProps(input),
@@ -81,15 +84,18 @@ export function buildWorkoutLockScreenSummaryFromCells({
   durationSeconds: number;
   workoutCount: number;
 }): WorkoutLockScreenSummaryWidgetProps {
-  const recentCells = cells.slice(-7);
+  const recentCells = cells.slice(-LOCK_SCREEN.summaryDays);
   const paddedCells = [
-    ...Array.from({ length: Math.max(0, 7 - recentCells.length) }, () => false),
+    ...Array.from(
+      { length: Math.max(0, LOCK_SCREEN.summaryDays - recentCells.length) },
+      () => false
+    ),
     ...recentCells.map((cell) => cell.durationSeconds > 0),
-  ].slice(-7);
+  ].slice(-LOCK_SCREEN.summaryDays);
 
   return {
     brandName: BRAND.displayName,
-    title: '최근 7일',
+    title: LOCK_SCREEN.copy.summaryTitle,
     streakFlags: paddedCells.map((active) => (active ? '1' : '0')).join(','),
     summaryText: `${workoutCount}회 · 총 ${formatDuration(durationSeconds)}`,
     accent: colors.accent,
@@ -118,7 +124,7 @@ function lockScreenThemeProps(input: LockScreenThemeProps): LockScreenThemeProps
 }
 
 function compactAccessoryValue(value: string): string {
-  return [...value.replace(/\s+/g, '')].slice(0, 3).join('');
+  return [...value.replace(/\s+/g, '')].slice(0, LOCK_SCREEN.compactCharacterLimit).join('');
 }
 
 function firstPartName(value: string): string {

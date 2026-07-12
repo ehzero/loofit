@@ -1,109 +1,51 @@
+import { WIDGET_RENDERER_CONTRACT } from './generated/widget-renderer-contract.generated';
+
+export { WIDGET_RENDERER_CONTRACT } from './generated/widget-renderer-contract.generated';
+
+const { card, control, heatmap, text } = WIDGET_RENDERER_CONTRACT;
+
+/**
+ * React Native preview compatibility view of the canonical renderer contract.
+ * The JSON contract is the editable source; both this shape and native Swift
+ * constants are generated/derived from it.
+ */
 export const WIDGET_PREVIEW_SPEC = {
-  screenBackground: '#0C0D10',
+  screenBackground: card.screenBackground,
   card: {
-    background: '#141418',
-    border: 'rgba(255,255,255,0.08)',
-    radius: 24,
-    padding: 16,
-    gap: 12,
+    background: card.background,
+    border: card.border,
+    radius: card.radius,
+    padding: card.contentPadding,
+    gap: card.contentGap,
   },
-  text: {
-    label: {
-      size: 11,
-      lineHeight: 14,
-      weight: '800',
-      color: '#8A8A90',
-    },
-    brand: {
-      size: 10,
-      lineHeight: 13,
-      weight: '700',
-      color: '#6B6B70',
-    },
-    calendar: {
-      weekdaySize: 8,
-      weekdayLineHeight: 10,
-      weekdayWeight: '800',
-      monthSize: 9,
-      monthLineHeight: 11,
-      color: '#6B6B70',
-      dayColor: '#9A9AA0',
-    },
-  },
-  control: {
-    cardSize: 158,
-    headerHeight: 14,
-    bodyHeight: 54,
-    bodyGap: 4,
-    activeDotSize: 7,
-    activeDotGap: 6,
-    buttonHeight: 28,
-    buttonRadius: 12,
-    buttonDarkBackground: '#26262B',
-    footerWithRangeHeight: 41,
-    footerGap: 1,
-    timerMaxHours: 8,
-    text: {
-      title: {
-        size: 19,
-        lineHeight: 24,
-        weight: '800',
-        color: '#F4F4F2',
-      },
-      timer: {
-        size: 26,
-        lineHeight: 30,
-        weight: '800',
-        color: '#F4F4F2',
-      },
-      detail: {
-        size: 13,
-        lineHeight: 18,
-        weight: '600',
-        color: '#8A8A90',
-      },
-      button: {
-        size: 13,
-        lineHeight: 18,
-        weight: '800',
-      },
-      duration: {
-        size: 22,
-        lineHeight: 26,
-        weight: '800',
-      },
-      range: {
-        size: 11,
-        lineHeight: 14,
-        weight: '600',
-        color: '#8A8A90',
-      },
-    },
-  },
+  text,
+  control,
   heatmap: {
-    week: {
-      columns: 7,
-      cellGap: 4,
-      cellRadius: 4,
-      headerGap: 8,
-      cellLabelSize: 8,
-    },
-    month: {
-      columns: 7,
-      cellGap: 3,
-      cellRadius: 3,
-      headerGap: 8,
-      cellLabelSize: 7,
-    },
+    week: previewHeatmapVariant(heatmap.variants.week),
+    month: previewHeatmapVariant(heatmap.variants.month),
     year: {
-      months: 6,
-      cellGap: 2,
-      cellRadius: 2,
-      headerGap: 8,
+      months: heatmap.variants.year.rangeMonths,
+      cellGap: heatmap.variants.year.cellGap,
+      cellRadius: heatmap.variants.year.cellRadius,
+      headerGap: heatmap.variants.year.headerGap,
+      // Month boundaries are materialized as seven explicit gap slots before
+      // row/column projection, so the legacy preview-only gap width stays zero.
       monthGapColumns: 0,
-      cellLabelSize: 0,
+      cellLabelSize: heatmap.variants.year.cellLabelSize,
     },
   },
 } as const;
+
+function previewHeatmapVariant(
+  variant: typeof heatmap.variants.week | typeof heatmap.variants.month
+) {
+  return {
+    columns: variant.columns,
+    cellGap: variant.cellGap,
+    cellRadius: variant.cellRadius,
+    headerGap: variant.headerGap,
+    cellLabelSize: variant.cellLabelSize,
+  } as const;
+}
 
 export type HeatmapWidgetVariant = keyof typeof WIDGET_PREVIEW_SPEC.heatmap;

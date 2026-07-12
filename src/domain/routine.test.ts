@@ -7,6 +7,7 @@ import {
   getRoutineDayAfterCompletion,
   hasRoutineDayAlias,
   routineDayDisplayName,
+  workoutSessionDisplayName,
 } from './routine';
 
 const days: RoutineDay[] = [
@@ -47,6 +48,26 @@ describe('routine day display name', () => {
 
   it('falls back to a placeholder when there is no alias and no parts', () => {
     expect(routineDayDisplayName({ name: '', parts: [] })).toBe('새 분할');
+  });
+});
+
+describe('historical workout session display name', () => {
+  it('prefers the frozen routine split title over body-part rows', () => {
+    expect(
+      workoutSessionDisplayName({
+        routineDayNameSnapshot: 'Push',
+        parts: [{ bodyPartName: '가슴' }, { bodyPartName: '삼두' }],
+      })
+    ).toBe('Push');
+  });
+
+  it('uses frozen body-part names for free and pre-migration sessions', () => {
+    expect(
+      workoutSessionDisplayName({
+        routineDayNameSnapshot: null,
+        parts: [{ bodyPartName: '가슴' }, { bodyPartName: '삼두' }],
+      })
+    ).toBe('가슴 · 삼두');
   });
 });
 

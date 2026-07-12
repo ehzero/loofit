@@ -32,7 +32,7 @@ import {
   lockScreenThemeFromColors,
 } from '@/src/widgets/lock-screen-widget-model';
 import { HeatmapWidgetPreview } from '@/src/widgets/preview/HeatmapWidgetPreview';
-import { WIDGET_PREVIEW_SPEC } from '@/src/widgets/widget-spec';
+import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
 import type {
   HeatmapWidgetProps,
   WorkoutLockScreenSummaryWidgetProps,
@@ -850,14 +850,20 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
 
   return {
     weekWidget: buildHeatmapWidgetProps({
-      title: formatHeatmapWidgetTitle('지난 7일', weekStats.workoutCount),
+      title: formatHeatmapWidgetTitle(
+        WIDGET_RENDERER_CONTRACT.heatmap.variants.week.title,
+        weekStats.workoutCount
+      ),
       variant: 'week',
       cells: weekCells,
       colors,
       footer: buildPreviewWeekFooter(weekStats),
     }),
     monthWidget: buildHeatmapWidgetProps({
-      title: formatHeatmapWidgetTitle('지난 30일', monthStats.workoutCount),
+      title: formatHeatmapWidgetTitle(
+        WIDGET_RENDERER_CONTRACT.heatmap.variants.month.title,
+        monthStats.workoutCount
+      ),
       variant: 'month',
       cells: monthCells,
       colors,
@@ -919,13 +925,14 @@ function buildPreviewLockScreenWidgets(colors: ThemeColors): {
 
 function buildPreviewWeekFooter(stats: RangeStats): HeatmapWidgetFooterProps {
   const hasRecentWorkout = stats.workoutCount > 0;
+  const footer = WIDGET_RENDERER_CONTRACT.heatmap.weekFooter;
 
   return {
-    footerStatLabels: '횟수,총 시간,평균',
+    footerStatLabels: footer.statLabels.join(','),
     footerStatValues: `${stats.workoutCount}회,${formatDuration(stats.durationSeconds)},${formatDuration(
       averageDurationSeconds(stats)
     )}`,
-    recentWorkoutLabel: '최근 운동',
+    recentWorkoutLabel: footer.recentLabel,
     recentWorkoutTitles: hasRecentWorkout ? 'Push · 1시간 8분,Pull · 48분' : '',
     recentWorkoutMetas: hasRecentWorkout ? '오늘,어제' : '',
   };

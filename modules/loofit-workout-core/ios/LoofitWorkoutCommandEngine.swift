@@ -96,7 +96,13 @@ enum LoofitWorkoutCommandEngine {
     guard !parts.isEmpty else {
       return .init(status: .rejected, sessionId: nil)
     }
-    return try insertSession(routineId: nil, routineDayId: nil, parts: parts, database: database)
+    return try insertSession(
+      routineId: nil,
+      routineDayId: nil,
+      routineDayNameSnapshot: nil,
+      parts: parts,
+      database: database
+    )
   }
 
   private static func changeRoutine(
@@ -117,6 +123,7 @@ enum LoofitWorkoutCommandEngine {
       activeSessionId: active.id,
       routineId: target.routineId,
       routineDayId: target.routineDayId,
+      routineDayNameSnapshot: target.title,
       parts: target.parts,
       database: database
     )
@@ -142,6 +149,7 @@ enum LoofitWorkoutCommandEngine {
       activeSessionId: active.id,
       routineId: nil,
       routineDayId: nil,
+      routineDayNameSnapshot: nil,
       parts: parts,
       database: database
     )
@@ -252,6 +260,7 @@ enum LoofitWorkoutCommandEngine {
     try insertSession(
       routineId: target.routineId,
       routineDayId: target.routineDayId,
+      routineDayNameSnapshot: target.title,
       parts: target.parts,
       database: database
     )
@@ -260,6 +269,7 @@ enum LoofitWorkoutCommandEngine {
   private static func insertSession(
     routineId: Int64?,
     routineDayId: Int64?,
+    routineDayNameSnapshot: String?,
     parts: [LoofitWorkoutPartSnapshot],
     database: LoofitSQLiteDatabase
   ) throws -> LoofitWorkoutMutationOutcome {
@@ -267,13 +277,14 @@ enum LoofitWorkoutCommandEngine {
     try database.run(
       """
       INSERT INTO workout_sessions
-        (routine_id, routine_day_id, started_at, ended_at, duration_seconds,
-         status, note, created_at, updated_at)
-      VALUES (?, ?, ?, NULL, 0, 'active', NULL, ?, ?)
+        (routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at,
+         duration_seconds, status, note, created_at, updated_at)
+      VALUES (?, ?, ?, ?, NULL, 0, 'active', NULL, ?, ?)
       """,
       [
         routineId.map(LoofitSQLiteValue.integer) ?? .null,
         routineDayId.map(LoofitSQLiteValue.integer) ?? .null,
+        routineDayNameSnapshot.map(LoofitSQLiteValue.text) ?? .null,
         .text(now),
         .text(now),
         .text(now),
@@ -288,17 +299,20 @@ enum LoofitWorkoutCommandEngine {
     activeSessionId: Int64,
     routineId: Int64?,
     routineDayId: Int64?,
+    routineDayNameSnapshot: String?,
     parts: [LoofitWorkoutPartSnapshot],
     database: LoofitSQLiteDatabase
   ) throws {
     try database.run(
       """
-      UPDATE workout_sessions SET routine_id = ?, routine_day_id = ?, updated_at = ?
+      UPDATE workout_sessions
+      SET routine_id = ?, routine_day_id = ?, routine_day_name_snapshot = ?, updated_at = ?
       WHERE id = ? AND status = 'active'
       """,
       [
         routineId.map(LoofitSQLiteValue.integer) ?? .null,
         routineDayId.map(LoofitSQLiteValue.integer) ?? .null,
+        routineDayNameSnapshot.map(LoofitSQLiteValue.text) ?? .null,
         .text(LoofitWorkoutDate.nowISO8601()),
         .integer(activeSessionId),
       ]

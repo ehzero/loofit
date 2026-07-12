@@ -14,7 +14,7 @@ class LoofitWorkoutCoreTestCase: XCTestCase {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     databaseDirectory = directory.path
     database = try LoofitSQLiteDatabase(databaseDirectory: directory.path)
-    try database.execute(Self.schema)
+    try database.execute(LoofitWorkoutSchemaContract.schemaMigrationFixtureSQL)
     try database.ensureWidgetSyncSchema()
   }
 
@@ -108,6 +108,13 @@ class LoofitWorkoutCoreTestCase: XCTestCase {
     )
   }
 
+  func routineDayNameSnapshot(of sessionId: Int64) throws -> String? {
+    try database.firstString(
+      "SELECT routine_day_name_snapshot FROM workout_sessions WHERE id = ?",
+      [.integer(sessionId)]
+    )
+  }
+
   func partNames(of sessionId: Int64) throws -> [String] {
     var names: [String] = []
     try database.query(
@@ -138,67 +145,4 @@ class LoofitWorkoutCoreTestCase: XCTestCase {
     )
   }
 
-  private static let schema = """
-  CREATE TABLE body_parts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL UNIQUE,
-    color TEXT NOT NULL,
-    sort_order INTEGER NOT NULL,
-    is_archived INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE routines (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    is_active INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE routine_days (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    routine_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
-    sort_order INTEGER NOT NULL,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE routine_day_parts (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    routine_day_id INTEGER NOT NULL,
-    body_part_id INTEGER NOT NULL,
-    sort_order INTEGER NOT NULL
-  );
-  CREATE TABLE workout_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    routine_id INTEGER,
-    routine_day_id INTEGER,
-    started_at TEXT NOT NULL,
-    ended_at TEXT,
-    duration_seconds INTEGER NOT NULL DEFAULT 0,
-    status TEXT NOT NULL CHECK (status IN ('active', 'completed', 'canceled')),
-    note TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE workout_session_parts_snapshot (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    workout_session_id INTEGER NOT NULL,
-    body_part_id INTEGER,
-    body_part_name TEXT NOT NULL,
-    body_part_color TEXT NOT NULL,
-    sort_order INTEGER NOT NULL
-  );
-  CREATE TABLE routine_progress (
-    id INTEGER PRIMARY KEY CHECK (id = 1),
-    active_routine_id INTEGER,
-    next_routine_day_id INTEGER,
-    updated_at TEXT NOT NULL
-  );
-  CREATE TABLE app_settings (
-    key TEXT PRIMARY KEY NOT NULL,
-    value TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-  );
-  """
 }

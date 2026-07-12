@@ -84,7 +84,11 @@ public enum LoofitHeatmapProjection {
     calendar: Calendar = .autoupdatingCurrent
   ) -> [LoofitHeatmapDay] {
     let end = calendar.startOfDay(for: date)
-    let rangeStart = calendar.date(byAdding: .day, value: -29, to: end) ?? end
+    let rangeStart = calendar.date(
+      byAdding: .day,
+      value: -(LoofitWidgetLayoutContract.Heatmap.monthRangeDays - 1),
+      to: end
+    ) ?? end
     let weekday = calendar.component(.weekday, from: rangeStart)
     let daysSinceSunday = weekday - 1
     let gridStart = calendar.date(
@@ -110,7 +114,11 @@ public enum LoofitHeatmapProjection {
     let currentMonth = calendar.date(
       from: calendar.dateComponents([.year, .month], from: end)
     ) ?? end
-    let rangeStart = calendar.date(byAdding: .month, value: -5, to: currentMonth) ?? currentMonth
+    let rangeStart = calendar.date(
+      byAdding: .month,
+      value: -(LoofitWidgetLayoutContract.Heatmap.sixMonthRangeMonths - 1),
+      to: currentMonth
+    ) ?? currentMonth
     let weekday = calendar.component(.weekday, from: rangeStart)
     let daysSinceSunday = weekday - 1
     let gridStart = calendar.date(
@@ -138,7 +146,7 @@ public enum LoofitHeatmapProjection {
       let isMonthStart = day.inRange && calendar.component(.day, from: day.date) == 1
       if isMonthStart {
         if hasSeenFirstMonth {
-          for offset in 0..<7 {
+          for offset in 0..<LoofitWidgetLayoutContract.Heatmap.monthBoundaryGapSlots {
             slots.append(.gap(id: "month-gap-\(day.dateKey)-\(offset)"))
           }
         } else {
@@ -148,8 +156,9 @@ public enum LoofitHeatmapProjection {
       slots.append(.day(day))
     }
 
-    let slotColumns: [[LoofitHeatmapSlot]] = stride(from: 0, to: slots.count, by: 7).map {
-      Array(slots[$0..<Swift.min($0 + 7, slots.count)])
+    let rows = LoofitWidgetLayoutContract.calendarRows
+    let slotColumns: [[LoofitHeatmapSlot]] = stride(from: 0, to: slots.count, by: rows).map {
+      Array(slots[$0..<Swift.min($0 + rows, slots.count)])
     }
     var labels = Array(repeating: "", count: slotColumns.count)
 

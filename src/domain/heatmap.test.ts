@@ -38,6 +38,7 @@ function makeSession(
     id: Math.random(),
     routineId: null,
     routineDayId: null,
+    routineDayNameSnapshot: null,
     startedAt,
     endedAt: startedAt,
     durationSeconds,

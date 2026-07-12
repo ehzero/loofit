@@ -1,5 +1,18 @@
 import ExpoModulesCore
 import Foundation
+import LoofitWorkoutCore
+
+private enum LoofitWorkoutExpoAdapterError: LocalizedError {
+  case configuration(String)
+  case invalidCommand(String)
+
+  var errorDescription: String? {
+    switch self {
+    case .configuration(let message), .invalidCommand(let message):
+      return message
+    }
+  }
+}
 
 public final class LoofitWorkoutCoreModule: Module {
   private struct SurfaceContext: Sendable {
@@ -13,6 +26,10 @@ public final class LoofitWorkoutCoreModule: Module {
 
   public func definition() -> ModuleDefinition {
     Name("LoofitWorkoutCore")
+
+    Constant("widgetsConfigured") {
+      LoofitWorkoutIntentEnvironment.widgetsAreConfigured()
+    }
 
     Constant("widgetsDirectory") {
       LoofitWorkoutIntentEnvironment.databaseDirectory()
@@ -77,11 +94,20 @@ public final class LoofitWorkoutCoreModule: Module {
   }
 
   private func resolveAndRemember(_ directory: String?, widgetsEnabled: Bool) throws -> String {
-    let databaseDirectory = try resolvedDirectory(directory)
+    let widgetsConfigured = LoofitWorkoutIntentEnvironment.widgetsAreConfigured()
+    guard widgetsConfigured == widgetsEnabled else {
+      throw LoofitWorkoutExpoAdapterError.configuration(
+        "The requested widget mode does not match the installed iOS build configuration."
+      )
+    }
+    let databaseDirectory = try resolvedDirectory(
+      directory,
+      widgetsConfigured: widgetsConfigured
+    )
     contextLock.lock()
     lastSurfaceContext = .init(
       databaseDirectory: databaseDirectory,
-      widgetsEnabled: widgetsEnabled
+      widgetsEnabled: widgetsConfigured
     )
     contextLock.unlock()
     return databaseDirectory
@@ -93,7 +119,23 @@ public final class LoofitWorkoutCoreModule: Module {
     return lastSurfaceContext
   }
 
-  private func resolvedDirectory(_ directory: String?) throws -> String {
+  private func resolvedDirectory(
+    _ directory: String?,
+    widgetsConfigured: Bool
+  ) throws -> String {
+    if widgetsConfigured {
+      let appGroupDirectory = try LoofitWorkoutIntentEnvironment.requireDatabaseDirectory()
+      if let value = directory?.trimmingCharacters(in: .whitespacesAndNewlines),
+        !value.isEmpty,
+        LoofitWorkoutPaths.normalizeDatabaseDirectory(value) != appGroupDirectory
+      {
+        throw LoofitWorkoutExpoAdapterError.configuration(
+          "The requested database directory does not match the configured App Group directory."
+        )
+      }
+      return appGroupDirectory
+    }
+
     guard let value = directory?.trimmingCharacters(in: .whitespacesAndNewlines),
           !value.isEmpty else {
       return try LoofitWorkoutPaths.defaultDatabaseDirectory()
@@ -115,14 +157,14 @@ struct LoofitWorkoutCommandRecord: Record {
       return .startNext
     case "startRoutine":
       guard let routineDayId else {
-        throw LoofitWorkoutCoreError.invalidCommand("startRoutine requires routineDayId")
+        throw LoofitWorkoutExpoAdapterError.invalidCommand("startRoutine requires routineDayId")
       }
       return .startRoutine(routineDayId: routineDayId)
     case "startFree":
       return .startFree(bodyPartIds: bodyPartIds, label: label)
     case "changeRoutine":
       guard let expectedSessionId, let routineDayId else {
-        throw LoofitWorkoutCoreError.invalidCommand(
+        throw LoofitWorkoutExpoAdapterError.invalidCommand(
           "changeRoutine requires expectedSessionId and routineDayId"
         )
       }
@@ -132,7 +174,7 @@ struct LoofitWorkoutCommandRecord: Record {
       )
     case "changeFree":
       guard let expectedSessionId else {
-        throw LoofitWorkoutCoreError.invalidCommand("changeFree requires expectedSessionId")
+        throw LoofitWorkoutExpoAdapterError.invalidCommand("changeFree requires expectedSessionId")
       }
       return .changeFree(
         expectedSessionId: expectedSessionId,
@@ -140,16 +182,16 @@ struct LoofitWorkoutCommandRecord: Record {
       )
     case "complete":
       guard let expectedSessionId else {
-        throw LoofitWorkoutCoreError.invalidCommand("complete requires expectedSessionId")
+        throw LoofitWorkoutExpoAdapterError.invalidCommand("complete requires expectedSessionId")
       }
       return .complete(expectedSessionId: expectedSessionId)
     case "cancel":
       guard let expectedSessionId else {
-        throw LoofitWorkoutCoreError.invalidCommand("cancel requires expectedSessionId")
+        throw LoofitWorkoutExpoAdapterError.invalidCommand("cancel requires expectedSessionId")
       }
       return .cancel(expectedSessionId: expectedSessionId)
     default:
-      throw LoofitWorkoutCoreError.invalidCommand("Unsupported workout command: \(type)")
+      throw LoofitWorkoutExpoAdapterError.invalidCommand("Unsupported workout command: \(type)")
     }
   }
 }

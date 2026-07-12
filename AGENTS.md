@@ -35,7 +35,7 @@
 - 다음 운동이 어긋났다면 사용자가 루틴 설정에서 다음 운동 시작점을 직접 조정한다.
 - 운동 중 운동 대상을 변경해도 같은 세션과 경과 시간을 유지하고 최종 운동 대상만 바꾼다.
 - active 세션은 앱 종료, 백그라운드, 장시간 방치와 관계없이 유지하고 앱 재실행 시 복구한다.
-- 과거 기록은 저장 시점의 운동 부위 스냅샷으로 표시하며, 이후 루틴이나 운동 부위 이름 변경의 영향을 받지 않는다.
+- 과거 기록은 저장 시점의 운동 부위와 분할 이름 스냅샷으로 표시하며, 이후 루틴·분할·운동 부위 이름 변경이나 삭제의 영향을 받지 않는다.
 
 ## 제품 경험 기준
 
@@ -96,13 +96,16 @@
 
 - `/ios`와 `/android`는 생성 산출물로 ignore되어 있다. 유지해야 하는 네이티브 변경은 config plugin, `plugins/native-widgets`, 로컬 Expo 모듈, patch-package 중 해당 원천에 남긴다.
 - `modules/loofit-workout-core`가 iOS 앱, 홈·잠금 화면 위젯, Live Activity가 공유하는 운동 명령과 surface 동기화의 단일 원천이다. 시작, 운동 대상 변경, 종료, 취소 정책은 이 모듈에서 SQLite 트랜잭션으로 처리한다.
+- `LoofitWorkoutCore` Pod는 Expo 의존성이 없는 순수 Swift Core이고 앱의 Expo bridge는 `LoofitWorkoutExpoAdapter` Pod로 분리한다. Widget Extension은 `LoofitWorkoutCore`만 링크하며 ExpoModulesCore, React Native, Hermes를 포함하지 않는다.
 - `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
 - 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
-- 앱 내 위젯 미리보기와 실제 위젯은 `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`의 표시 모델과 값을 공유한다. RN과 SwiftUI 렌더러는 분리되어 있으므로 한쪽만 변경하지 않는다.
+- 앱 내 미리보기와 SwiftUI 위젯의 레이아웃·variant·표시 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 변경 후 `npm run generate:widget-contract`로 TS, Core layout, Widget Extension Swift 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
 - 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 30일 선행 달력 칸은 빈 셀로 표시하되 통계에서 제외하고, 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
 - 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고, 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
 - 히트맵 셀 크기는 고정값이 아니라 컨테이너 너비, padding, gap, 열 수를 기준으로 동적 계산한다.
 - iOS에서 앱과 위젯은 App Group의 `widgetsDirectory`에 있는 SQLite DB를 공유한다. 기존 기본 DB는 공유 DB가 비어 있을 때 한 번 이전한다.
+- DB version, table·column, index, 위젯 sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → idempotent 후처리` 순서를 TS와 Swift가 동일하게 실행한다. 변경 후 `npm run schema:generate`로 양쪽 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.
+- 앱 DB 접근 구현은 `src/db/repositories/*`와 `src/db/queries/*`에 책임별로 둔다. 앱 계층은 호환 facade인 `src/db/repository.ts`를 통해 접근하며 repository 사이 의존성은 body part → routine → session → overview query 방향을 유지한다.
 - 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 App Group 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity를 조정한다.
 - 앱, 홈 위젯, Live Activity의 시작·종료 진입점은 모두 같은 Core pipeline을 호출한다. 앱 초기화·foreground와 루틴·기록·테마 변경 후 reconcile이 미완료 revision을 복구한다.
 - Core 명령 결과의 `status`는 DB 변경 결과(`applied`, `noop`, `stale`, `rejected`)이고 `publicationStatus`는 surface 발행 결과(`published`, `pending`, `skipped`)다. DB commit 뒤 발행이 실패해도 명령 성공을 실패로 바꾸지 않고 `pending`과 dirty revision을 반환해 다음 reconcile에서 복구한다.
@@ -111,20 +114,31 @@
 - 완료·취소·운동 대상 변경은 `expectedSessionId`가 현재 active 세션과 일치할 때만 적용해 오래된 위젯 액션이 새 세션을 변경하지 못하게 한다.
 - `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`는 앱 내 미리보기용으로 유지하며 실제 native runtime 동기화 코드로 사용하지 않는다.
 - `LOOFIT_APP_ONLY=1`은 `expo-widgets` plugin과 공유 DB 사용을 끄되 iOS 앱의 운동 명령은 같은 Core를 사용하고 surface 발행만 생략한다.
+- 설치된 iOS 바이너리는 `LoofitWidgetsEnabled` 값을 build mode의 기준으로 사용한다. 위젯 활성 빌드에서 App Group DB 디렉터리에 접근할 수 없거나 JS가 다른 build mode를 요청하면 기본 DB로 대체하지 않고 즉시 오류로 처리한다. 앱 전용 빌드만 기본 앱 DB를 정상 사용한다.
+- 운동 명령 정책을 변경하면 `contracts/workout-command-scenarios.json`을 갱신한다. Node 22 `node:sqlite` 기반 TS repository fallback 테스트와 Swift Core 테스트가 같은 시나리오를 실행해 `applied`·`noop`·`stale`·`rejected`, 중복 종료, 자유 운동, 취소 정책의 parity를 검증한다.
 
 ### 위젯 검증
 
 - 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build에서 검증한다.
 - JS/TS 표시 모델은 앱 미리보기로 빠르게 확인할 수 있지만, 실제 크기·폰트·타이머·AppIntent·자정 전환은 설치된 iOS 위젯에서 확인한다.
-- config plugin, `plugins/native-widgets`, `modules/loofit-workout-core`, `app.config.js`, `app.json` 변경 후에는 `npm run ios`로 네이티브 앱을 다시 생성·빌드한다.
+- config plugin, `plugins/native-widgets`, `modules/loofit-workout-core`, `app.config.js`, `app.json` 변경 후에는 `npm run ios:prebuild:widgets`로 네이티브 프로젝트를 동기화한 뒤 `npm run ios`로 빌드한다.
 
 ## 자주 쓰는 명령
 
 - `npm run typecheck`
 - `npm test`
+- `npm run schema:check`
+- `npm run check:widget-contract`
+- `npm run contracts:check`
+- `npm run test:command-contract`
 - `npm run test:ios-core`
+- `npm run ios:prebuild:widgets`
+- `npm run ios:prebuild:app-only`
+- `npm run ios:build`
 - `npm run ios`
 - `npm run start`
+
+GitHub Actions CI는 Node 22에서 생성 계약 drift, TypeScript, Vitest, 스타일 토큰을 검사한다. macOS 26 job은 full-widget prebuild와 Pods 설치 후 Widget Extension 의존성 격리 및 Release 최적화를 확인하고 앱 빌드와 native Core 테스트를 실행한 다음, app-only clean prebuild에 위젯·App Group 잔여물이 없는지와 앱 빌드를 검증한다.
 
 ## 빌드와 실행
 
@@ -139,15 +153,28 @@
 
 문서나 단순 스타일 변경처럼 테스트와 무관한 작업이 아니라면, 완료 전 두 명령을 우선 확인한다.
 
-### 2. iOS 시뮬레이터 빌드
+### 2. iOS 네이티브 프로젝트 생성·동기화
 
-시뮬레이터에 네이티브 앱을 새로 빌드/설치해야 할 때 사용한다.
+위젯을 포함하는 일반 iOS 프로젝트는 다음 명령으로 기존 `ios/`에 config plugin 결과를 동기화한다.
+
+- `npm run ios:prebuild:widgets`
+
+앱 전용 프로젝트로 전환할 때는 다음 명령을 사용한다. 이전 Widget Extension과 entitlement가 남지 않도록 `ios/`를 clean prebuild한다.
+
+- `npm run ios:prebuild:app-only`
+
+두 명령은 네이티브 프로젝트 생성만 수행하며 CocoaPods 설치와 앱 빌드는 다음 단계에서 수행한다. 위젯 타깃, Pod, `app.json`, `app.config.js`, config plugin, 로컬 네이티브 모듈 변경이 있으면 해당 build mode의 prebuild를 먼저 실행한다.
+
+### 3. 생성된 iOS 프로젝트 빌드
+
+이미 생성·동기화된 `ios/`를 빌드하고 설치할 때 사용한다.
 
 - `npm run ios`
+- `npm run ios:build`
 
-이 명령은 내부적으로 `expo run:ios`를 실행한다. iOS 네이티브 타깃, 위젯 타깃, Pod 변경, `app.json`, `app.config.js`, 네이티브 모듈 변경이 있으면 다시 실행한다.
+두 명령은 같은 동작을 하며 추가 인자를 그대로 `expo run:ios`에 전달한다. 예: `npm run ios -- --device '탱폰' --no-bundler`. `ios/`가 없거나 build mode 표식이 없는 오래된 산출물이면 임의로 prebuild하지 않고 어떤 prebuild 명령을 실행해야 하는지 안내하며 종료한다.
 
-### 3. Metro 실행
+### 4. Metro 실행
 
 Development Build로 설치된 앱에 JS 번들을 공급할 때 사용한다.
 
@@ -155,7 +182,7 @@ Development Build로 설치된 앱에 JS 번들을 공급할 때 사용한다.
 
 시뮬레이터에서 앱이 `Could not connect to development server` 화면을 보이면 Metro가 꺼져 있거나 Expo Go 모드로 떠 있을 가능성이 높다. 이때는 위 명령으로 dev-client 모드 Metro를 띄운 뒤 앱을 다시 연다.
 
-### 4. 빠른 새로고침
+### 5. 빠른 새로고침
 
 JS/TS 화면 코드, 컴포넌트, 스타일 변경은 대체로 재빌드가 필요 없다.
 
@@ -171,7 +198,7 @@ JS/TS 화면 코드, 컴포넌트, 스타일 변경은 대체로 재빌드가 �
 - 새 네이티브 모듈 설치
 - Pod 또는 Xcode 프로젝트 설정 변경
 
-### 5. 시뮬레이터 수동 실행
+### 6. 시뮬레이터 수동 실행
 
 Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세스를 재시작하고 dev-client URL로 다시 연다.
 
@@ -180,7 +207,7 @@ Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세
 
 현재 번들 ID는 `com.loofit.app`이다.
 
-### 6. 실기기와 EAS
+### 7. 실기기와 EAS
 
 원격 EAS 빌드는 `eas.json` 기준으로 실행한다. iOS 우선 검증 앱이므로 TestFlight 제출은 `production` 프로필을 사용한다.
 
