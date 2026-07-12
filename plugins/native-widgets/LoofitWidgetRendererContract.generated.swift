@@ -26,6 +26,7 @@ struct LoofitHeatmapRendererSpec {
   let rangeDays: Int
   let rangeMonths: Int
   let columns: Int
+  let contentPadding: CGFloat
   let cellGap: CGFloat
   let cellRadius: CGFloat
   let cellLabelSize: CGFloat
@@ -70,6 +71,7 @@ enum LoofitWidgetRendererContract {
       rangeDays: 7,
       rangeMonths: 0,
       columns: 7,
+      contentPadding: 16,
       cellGap: 4,
       cellRadius: 4,
       cellLabelSize: 8,
@@ -88,17 +90,18 @@ enum LoofitWidgetRendererContract {
       rangeDays: 30,
       rangeMonths: 0,
       columns: 7,
+      contentPadding: 12,
       cellGap: 3,
       cellRadius: 3,
       cellLabelSize: 7,
       headerGap: 8,
-      headerVisible: true,
+      headerVisible: false,
       headerFontSize: 11,
-      headerSummary: .count,
+      headerSummary: .none,
       calendarAlignment: .weekContainingRangeStart,
       showLeadingCalendarCells: true,
       monthBoundaryGapSlots: 0,
-      reservedHeaderHeight: 22,
+      reservedHeaderHeight: 0,
       reservedFooterHeight: 0
     )
     static let year = LoofitHeatmapRendererSpec(
@@ -106,6 +109,7 @@ enum LoofitWidgetRendererContract {
       rangeDays: 0,
       rangeMonths: 6,
       columns: 0,
+      contentPadding: 16,
       cellGap: 2,
       cellRadius: 2,
       cellLabelSize: 0,

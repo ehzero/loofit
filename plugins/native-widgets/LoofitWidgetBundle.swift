@@ -364,7 +364,7 @@ struct LoofitHeatmapWidgetView: View {
           Spacer(minLength: 0)
         }
       }
-      .padding(LoofitWidgetRendererContract.contentPadding)
+      .padding(rendererSpec.contentPadding)
       .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
     .loofitWidgetBackground(LoofitColor(entry.palette.card))
@@ -387,7 +387,7 @@ struct LoofitHeatmapWidgetView: View {
     let columns = max(rendererSpec.columns, 1)
     let rows = days.chunked(into: columns)
     let gap = rendererSpec.cellGap
-    let padding = LoofitWidgetRendererContract.contentPadding * 2
+    let padding = rendererSpec.contentPadding * 2
     let width = max(0, available.width - padding - gap * CGFloat(columns - 1))
     let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - rendererSpec.reservedFooterHeight - gap * CGFloat(max(rows.count - 1, 0)))
     let cell = max(0, min(width / CGFloat(columns), height / CGFloat(max(rows.count, 1))))
@@ -453,7 +453,7 @@ struct LoofitHeatmapWidgetView: View {
     let columns = LoofitHeatmapProjection.sixMonthColumns(from: days)
     let gap = rendererSpec.cellGap
     let calendarRows = max(LoofitWidgetRendererContract.Heatmap.weekdayLabels.count, 1)
-    let padding = LoofitWidgetRendererContract.contentPadding * 2
+    let padding = rendererSpec.contentPadding * 2
     let width = max(0, available.width - padding - gap * CGFloat(max(columns.count - 1, 0)))
     let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - gap * CGFloat(calendarRows - 1) - LoofitWidgetRendererContract.Heatmap.monthHeaderBottomGap)
     let cell = max(0, min(width / CGFloat(max(columns.count, 1)), height / CGFloat(calendarRows)))

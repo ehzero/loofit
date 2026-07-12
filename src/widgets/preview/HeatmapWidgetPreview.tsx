@@ -23,6 +23,7 @@ export function HeatmapWidgetPreview({
   style?: StyleProp<ViewStyle>;
 }) {
   const rows = buildHeatmapWidgetRows(widget, variant);
+  const rendererSpec = WIDGET_PREVIEW_SPEC.heatmap[variant];
   const gridGap = widget.cellGap;
   const weekdayLabels = (widget.weekdayLabels || '일,월,화,수,목,금,토').split(',').filter(Boolean);
   const showCalendarLabels = variant !== 'year';
@@ -41,7 +42,7 @@ export function HeatmapWidgetPreview({
         { backgroundColor: widget.background, gap: widget.headerGap, padding: widget.contentPadding },
         style,
       ]}>
-      {variant !== 'week' ? (
+      {rendererSpec.headerVisible ? (
         <View style={styles.header}>
           <Text
             numberOfLines={1}

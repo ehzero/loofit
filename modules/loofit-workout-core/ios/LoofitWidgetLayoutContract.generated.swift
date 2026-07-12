@@ -28,7 +28,7 @@ public enum LoofitWidgetLayoutContract {
     public static let sixMonthRangeMonths = 6
     public static let monthBoundaryGapSlots = 7
     public static let weekHeaderSummary: HeaderSummary = .none
-    public static let monthHeaderSummary: HeaderSummary = .count
+    public static let monthHeaderSummary: HeaderSummary = .none
     public static let sixMonthHeaderSummary: HeaderSummary = .countTotalAverage
     public static let weekCalendarAlignment: CalendarAlignment = .rollingDays
     public static let monthCalendarAlignment: CalendarAlignment = .weekContainingRangeStart

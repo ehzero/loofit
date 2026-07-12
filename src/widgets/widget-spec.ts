@@ -25,9 +25,11 @@ export const WIDGET_PREVIEW_SPEC = {
     month: previewHeatmapVariant(heatmap.variants.month),
     year: {
       months: heatmap.variants.year.rangeMonths,
+      contentPadding: heatmap.variants.year.contentPadding,
       cellGap: heatmap.variants.year.cellGap,
       cellRadius: heatmap.variants.year.cellRadius,
       headerGap: heatmap.variants.year.headerGap,
+      headerVisible: heatmap.variants.year.headerVisible,
       cellLabelSize: heatmap.variants.year.cellLabelSize,
     },
   },
@@ -38,9 +40,11 @@ function previewHeatmapVariant(
 ) {
   return {
     columns: variant.columns,
+    contentPadding: variant.contentPadding,
     cellGap: variant.cellGap,
     cellRadius: variant.cellRadius,
     headerGap: variant.headerGap,
+    headerVisible: variant.headerVisible,
     cellLabelSize: variant.cellLabelSize,
   } as const;
 }

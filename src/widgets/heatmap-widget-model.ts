@@ -86,7 +86,7 @@ export function buildHeatmapWidgetProps({
     weekdayLabelSize: WIDGET_PREVIEW_SPEC.text.calendar.weekdaySize,
     monthLabelSize: WIDGET_PREVIEW_SPEC.text.calendar.monthSize,
     cellLabelSize: spec.cellLabelSize,
-    contentPadding: WIDGET_PREVIEW_SPEC.card.padding,
+    contentPadding: spec.contentPadding,
     cellGap: spec.cellGap,
     cellRadius: spec.cellRadius,
     headerGap: spec.headerGap,

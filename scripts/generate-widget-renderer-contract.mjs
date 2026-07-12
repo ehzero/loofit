@@ -76,6 +76,7 @@ function validate(value) {
     'continuousMonthsWithBoundarySlots',
   ];
   for (const [name, variant] of Object.entries(variants)) {
+    assert(variant.contentPadding > 0, `${name}.contentPadding must be positive`);
     assert(
       headerSummaries.includes(variant.headerSummary),
       `${name}.headerSummary is not supported`
@@ -129,6 +130,7 @@ function renderSwift(value) {
       rangeDays: ${variant.rangeDays},
       rangeMonths: ${variant.rangeMonths},
       columns: ${variant.columns},
+      contentPadding: ${swiftNumber(variant.contentPadding)},
       cellGap: ${swiftNumber(variant.cellGap)},
       cellRadius: ${swiftNumber(variant.cellRadius)},
       cellLabelSize: ${swiftNumber(variant.cellLabelSize)},
@@ -176,6 +178,7 @@ struct LoofitHeatmapRendererSpec {
   let rangeDays: Int
   let rangeMonths: Int
   let columns: Int
+  let contentPadding: CGFloat
   let cellGap: CGFloat
   let cellRadius: CGFloat
   let cellLabelSize: CGFloat

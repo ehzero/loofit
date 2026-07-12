@@ -22,7 +22,10 @@ describe('widget renderer contract', () => {
     });
     expect(variants.month).toMatchObject({
       rangeDays: 30,
-      headerSummary: 'count',
+      contentPadding: 12,
+      headerVisible: false,
+      headerSummary: 'none',
+      reservedHeaderHeight: 0,
       calendarAlignment: 'weekContainingRangeStart',
       showLeadingCalendarCells: true,
     });
@@ -65,6 +68,9 @@ describe('widget renderer contract', () => {
     );
     expect(WIDGET_PREVIEW_SPEC.heatmap.month.cellRadius).toBe(
       WIDGET_RENDERER_CONTRACT.heatmap.variants.month.cellRadius
+    );
+    expect(WIDGET_PREVIEW_SPEC.heatmap.month.contentPadding).toBe(
+      WIDGET_RENDERER_CONTRACT.heatmap.variants.month.contentPadding
     );
     expect(WIDGET_PREVIEW_SPEC.heatmap.year.months).toBe(
       WIDGET_RENDERER_CONTRACT.heatmap.variants.year.rangeMonths
