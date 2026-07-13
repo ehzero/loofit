@@ -27,6 +27,10 @@ export const unstable_settings = {
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({
+  duration: 300,
+  fade: true,
+});
 
 export default function RootLayout() {
   const initialize = useAppStore((state) => state.initialize);
