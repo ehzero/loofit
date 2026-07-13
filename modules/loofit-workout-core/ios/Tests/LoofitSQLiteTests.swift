@@ -2,6 +2,31 @@ import XCTest
 @testable import LoofitWorkoutCore
 
 final class LoofitSQLiteTests: LoofitWorkoutCoreTestCase {
+  func testNativeConnectionLeavesWALFilesAvailableAfterClose() throws {
+    let directory = FileManager.default.temporaryDirectory
+      .appendingPathComponent("LoofitPersistentWALTests-\(UUID().uuidString)", isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: directory) }
+
+    var isolatedDatabase: LoofitSQLiteDatabase? = try LoofitSQLiteDatabase(
+      databaseDirectory: directory.path
+    )
+    XCTAssertEqual(try isolatedDatabase?.firstString("PRAGMA journal_mode = WAL"), "wal")
+    try isolatedDatabase?.execute("CREATE TABLE persistent_wal_test (id INTEGER PRIMARY KEY)")
+    try isolatedDatabase?.run("INSERT INTO persistent_wal_test DEFAULT VALUES")
+
+    let databaseURL = LoofitWorkoutPaths.databaseURL(in: directory.path)
+    let walPath = databaseURL.path + "-wal"
+    let sharedMemoryPath = databaseURL.path + "-shm"
+    XCTAssertTrue(FileManager.default.fileExists(atPath: walPath))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: sharedMemoryPath))
+
+    isolatedDatabase = nil
+
+    XCTAssertTrue(FileManager.default.fileExists(atPath: walPath))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: sharedMemoryPath))
+  }
+
   func testFreshDatabaseMigratesToCurrentSchema() throws {
     XCTAssertEqual(
       try database.firstInt64("PRAGMA user_version"),

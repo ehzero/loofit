@@ -7,6 +7,7 @@ import { RecordRow } from '@/src/components/RecordRow';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
 import { getSessions } from '@/src/db/repository';
+import { appOperationCoordinator } from '@/src/store/app-operation-coordinator';
 import { spacing } from '@/src/theme/tokens';
 import type { SessionStatus, WorkoutSession } from '@/src/types';
 
@@ -32,11 +33,13 @@ export default function RecordsScreen() {
   useFocusEffect(
     useCallback(() => {
       let cancelled = false;
-      getSessions({ limit: RECORDS_CAP }).then((rows) => {
-        if (!cancelled) {
-          setSessions(rows);
-        }
-      });
+      appOperationCoordinator
+        .runInPipeline(() => getSessions({ limit: RECORDS_CAP }))
+        .then((rows) => {
+          if (!cancelled) {
+            setSessions(rows);
+          }
+        });
       return () => {
         cancelled = true;
       };

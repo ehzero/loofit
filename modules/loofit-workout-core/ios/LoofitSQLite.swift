@@ -53,6 +53,27 @@ final class LoofitSQLiteDatabase {
     pointer = handle
     sqlite3_extended_result_codes(handle, 1)
     sqlite3_busy_timeout(handle, 500)
+
+    // Expo SQLite and the native workout core use separate SQLite builds in
+    // the app process. Without persistent WAL, closing the native connection
+    // can remove or truncate the WAL shared-memory file while Expo SQLite
+    // still has it mapped, which can terminate the app with SIGBUS on its
+    // next read. App Group readers also need these auxiliary files to remain
+    // available between short-lived native connections.
+    var persistentWAL: Int32 = 1
+    let persistenceResult = sqlite3_file_control(
+      handle,
+      "main",
+      SQLITE_FCNTL_PERSIST_WAL,
+      &persistentWAL
+    )
+    guard persistenceResult == SQLITE_OK else {
+      pointer = nil
+      sqlite3_close(handle)
+      throw LoofitWorkoutCoreError.database(
+        "SQLite persistent WAL setup failed (\(persistenceResult)): \(databaseURL.path)"
+      )
+    }
   }
 
   deinit {

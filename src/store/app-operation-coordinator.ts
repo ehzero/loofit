@@ -13,9 +13,10 @@ export type RefreshTicket = {
  * Coordinates app-originated reads and writes without making an old overview
  * response authoritative after a newer request has started.
  *
- * Mutations and surface reconciliation share one serial pipeline. Overview
- * reads may overlap that pipeline, but their tickets become obsolete as soon
- * as a newer mutation or refresh is requested.
+ * App-originated SQLite access and native Core operations routed through this
+ * coordinator share one serial pipeline. Tickets additionally prevent a
+ * queued refresh from making stale state authoritative after a newer mutation
+ * was requested.
  */
 export class AppOperationCoordinator {
   private mutationRevision = 0;
@@ -66,10 +67,6 @@ export class AppOperationCoordinator {
     );
   }
 
-  waitForPipeline(): Promise<void> {
-    return this.pipelineTail;
-  }
-
   runInPipeline<T>(operation: () => Promise<T>): Promise<T> {
     const result = this.pipelineTail.then(operation, operation);
     this.pipelineTail = result.then(
@@ -79,3 +76,5 @@ export class AppOperationCoordinator {
     return result;
   }
 }
+
+export const appOperationCoordinator = new AppOperationCoordinator();

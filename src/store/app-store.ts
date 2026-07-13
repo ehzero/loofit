@@ -42,13 +42,12 @@ import type {
 } from '@/modules/loofit-workout-core';
 
 import {
-  AppOperationCoordinator,
+  appOperationCoordinator as operationCoordinator,
   type RefreshTicket,
 } from './app-operation-coordinator';
 
 let initializationPromise: Promise<void> | null = null;
 let pendingBusyOperations = 0;
-const operationCoordinator = new AppOperationCoordinator();
 
 export type AppActionStatus = CommandStatus | 'error';
 export type OverviewStatus = 'refreshed' | 'superseded' | 'failed';
@@ -283,24 +282,20 @@ async function runRefreshAction(
   ticket: RefreshTicket,
   failureMessage: string
 ): Promise<void> {
-  await operationCoordinator.waitForPipeline();
-
-  try {
-    const overview = await getOverview();
-    if (!operationCoordinator.acceptRefreshSuccess(ticket)) {
+  await operationCoordinator.runInPipeline(async () => {
+    try {
+      const overview = await getOverview();
+      if (!operationCoordinator.acceptRefreshSuccess(ticket)) {
+        return;
+      }
+      set({ overview, isReady: true, error: null });
+    } catch (error) {
+      if (operationCoordinator.isCurrent(ticket)) {
+        set({ error: errorMessage(error, failureMessage), isReady: true });
+      }
       return;
     }
-    set({ overview, isReady: true, error: null });
-  } catch (error) {
-    if (operationCoordinator.isCurrent(ticket)) {
-      set({ error: errorMessage(error, failureMessage), isReady: true });
-    }
-    return;
-  }
 
-  // Reconciliation shares the mutation pipeline so an older foreground pass
-  // cannot overwrite a snapshot produced by a newer workout command.
-  await operationCoordinator.runInPipeline(async () => {
     if (!operationCoordinator.isLatestSuccessfulRefresh(ticket)) {
       return;
     }

@@ -42,7 +42,6 @@ export default function SettingsScreen() {
   const { colors, mode, setMode, accent, setAccent } = useTheme();
   const { showToast } = useToast();
   const resetDevData = useAppStore((state) => state.resetDevData);
-  const refresh = useAppStore((state) => state.refresh);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
   const openContactEmail = useCallback(async () => {
     const subject = encodeURIComponent(`[${BRAND.displayName}] 문의`);
@@ -56,16 +55,14 @@ export default function SettingsScreen() {
   const updateMode = useCallback(
     async (next: ThemeMode) => {
       await setMode(next);
-      await refresh();
     },
-    [refresh, setMode]
+    [setMode]
   );
   const updateAccent = useCallback(
     async (next: string) => {
       await setAccent(next);
-      await refresh();
     },
-    [refresh, setAccent]
+    [setAccent]
   );
 
   return (

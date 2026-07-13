@@ -4,12 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type PropsWithChildren,
 } from 'react';
 import { useColorScheme } from 'react-native';
 
 import { getAppSetting, setAppSetting } from '@/src/db/repository';
+import { appOperationCoordinator } from '@/src/store/app-operation-coordinator';
 import { updateAppWidgetTheme } from '@/src/widgets/pipeline';
 
 import {
@@ -39,43 +41,63 @@ export function ThemeProvider({ children }: PropsWithChildren) {
   const [mode, setModeState] = useState<ThemeMode>('system');
   const [accent, setAccentState] = useState<string>(DEFAULT_ACCENT);
   const [isHydrated, setIsHydrated] = useState(false);
+  const modeSelectionRevision = useRef(0);
+  const accentSelectionRevision = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const [savedMode, savedAccent] = await Promise.all([
-        getAppSetting(MODE_KEY),
-        getAppSetting(ACCENT_KEY),
-      ]);
-      if (cancelled) {
-        return;
-      }
-      if (savedMode === 'system' || savedMode === 'dark' || savedMode === 'light') {
-        setModeState(savedMode);
-      }
-      if (savedAccent) {
-        setAccentState(savedAccent);
-      }
-      setIsHydrated(true);
-    })().catch(() => {
-      /* fall back to defaults if settings can't be read */
-      if (!cancelled) {
+    const requestedModeRevision = modeSelectionRevision.current;
+    const requestedAccentRevision = accentSelectionRevision.current;
+
+    appOperationCoordinator
+      .runInPipeline(async () => {
+        const savedMode = await getAppSetting(MODE_KEY);
+        const savedAccent = await getAppSetting(ACCENT_KEY);
+        return { savedMode, savedAccent };
+      })
+      .then(({ savedMode, savedAccent }) => {
+        if (cancelled) {
+          return;
+        }
+        if (
+          modeSelectionRevision.current === requestedModeRevision &&
+          (savedMode === 'system' || savedMode === 'dark' || savedMode === 'light')
+        ) {
+          setModeState(savedMode);
+        }
+        if (accentSelectionRevision.current === requestedAccentRevision && savedAccent) {
+          setAccentState(savedAccent);
+        }
         setIsHydrated(true);
-      }
-    });
+      })
+      .catch(() => {
+        /* fall back to defaults if settings can't be read */
+        if (!cancelled) {
+          setIsHydrated(true);
+        }
+      });
+
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const setMode = useCallback(async (next: ThemeMode) => {
+  const setMode = useCallback((next: ThemeMode) => {
+    modeSelectionRevision.current += 1;
+    const persistence = appOperationCoordinator.runInPipeline(() =>
+      setAppSetting(MODE_KEY, next).catch(() => {})
+    );
     setModeState(next);
-    await setAppSetting(MODE_KEY, next).catch(() => {});
+    return persistence;
   }, []);
 
-  const setAccent = useCallback(async (next: string) => {
+  const setAccent = useCallback((next: string) => {
+    accentSelectionRevision.current += 1;
+    const persistence = appOperationCoordinator.runInPipeline(() =>
+      setAppSetting(ACCENT_KEY, next).catch(() => {})
+    );
     setAccentState(next);
-    await setAppSetting(ACCENT_KEY, next).catch(() => {});
+    return persistence;
   }, []);
 
   const scheme: ThemeScheme =
@@ -87,11 +109,15 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     if (!isHydrated) {
       return;
     }
-    updateAppWidgetTheme(colors).catch((error) => {
-      // Theme persistence in app_settings already succeeded (or is using the
-      // saved value). A later foreground reconcile will retry surface output.
-      console.warn('Widget theme update deferred', error);
-    });
+    appOperationCoordinator
+      .runInPipeline(async () => {
+        await updateAppWidgetTheme(colors);
+      })
+      .catch((error) => {
+        // Theme persistence in app_settings already succeeded (or is using the
+        // saved value). A later foreground reconcile will retry surface output.
+        console.warn('Widget theme update deferred', error);
+      });
   }, [colors, isHydrated]);
 
   const value = useMemo<ThemeContextValue>(

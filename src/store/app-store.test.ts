@@ -316,7 +316,7 @@ describe('app workout pipeline', () => {
     }
   );
 
-  it('does not let an old foreground refresh overwrite a newer mutation result', async () => {
+  it('serializes a foreground refresh with a newer mutation and keeps the mutation result', async () => {
     const oldRead = deferred<AppOverview>();
     const newOverview = overviewWithSession(42);
     repositoryMocks.getOverview
@@ -329,17 +329,19 @@ describe('app workout pipeline', () => {
     const mutationPromise = useAppStore
       .getState()
       .start({ kind: 'routine', routineDayId: 7 });
-    await mutationPromise;
-    expect(useAppStore.getState().overview).toBe(newOverview);
+    await Promise.resolve();
+
+    expect(pipelineMocks.executeAppWorkoutCommand).not.toHaveBeenCalled();
+    expect(repositoryMocks.getOverview).toHaveBeenCalledTimes(1);
 
     oldRead.resolve(overviewWithSession(7));
-    await refreshPromise;
+    await Promise.all([refreshPromise, mutationPromise]);
 
     expect(useAppStore.getState().overview).toBe(newOverview);
     expect(pipelineMocks.reconcileAppWorkoutSurfaces).not.toHaveBeenCalled();
   });
 
-  it('keeps only the newest overlapping refresh result', async () => {
+  it('serializes refresh reads in request order and ends with the newest result', async () => {
     const oldRead = deferred<AppOverview>();
     const newOverview = overviewWithSession(42);
     repositoryMocks.getOverview
@@ -350,16 +352,17 @@ describe('app workout pipeline', () => {
     await vi.waitFor(() => expect(repositoryMocks.getOverview).toHaveBeenCalledTimes(1));
     const second = useAppStore.getState().refresh();
 
-    await second;
-    expect(useAppStore.getState().overview).toBe(newOverview);
+    await Promise.resolve();
+    expect(repositoryMocks.getOverview).toHaveBeenCalledTimes(1);
+
     oldRead.resolve(overviewWithSession(7));
-    await first;
+    await Promise.all([first, second]);
 
     expect(useAppStore.getState().overview).toBe(newOverview);
-    expect(pipelineMocks.reconcileAppWorkoutSurfaces).toHaveBeenCalledTimes(1);
+    expect(pipelineMocks.reconcileAppWorkoutSurfaces).toHaveBeenCalledTimes(2);
   });
 
-  it('uses an older successful refresh when the newer overlapping read fails', async () => {
+  it('retains an earlier serialized refresh when the next read fails', async () => {
     const oldRead = deferred<AppOverview>();
     const fallbackOverview = overviewWithSession(7);
     repositoryMocks.getOverview
@@ -369,14 +372,12 @@ describe('app workout pipeline', () => {
     const first = useAppStore.getState().refresh();
     await vi.waitFor(() => expect(repositoryMocks.getOverview).toHaveBeenCalledTimes(1));
     const second = useAppStore.getState().refresh();
-    await second;
-    expect(useAppStore.getState().error).toBe('new read failed');
 
     oldRead.resolve(fallbackOverview);
-    await first;
+    await Promise.all([first, second]);
 
     expect(useAppStore.getState().overview).toBe(fallbackOverview);
-    expect(useAppStore.getState().error).toBeNull();
+    expect(useAppStore.getState().error).toBe('new read failed');
     expect(pipelineMocks.reconcileAppWorkoutSurfaces).toHaveBeenCalledTimes(1);
   });
 

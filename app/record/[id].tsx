@@ -19,6 +19,7 @@ import {
   shouldDismissAfterAction,
   useAppStore,
 } from '@/src/store/app-store';
+import { appOperationCoordinator } from '@/src/store/app-operation-coordinator';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import { radius, spacing } from '@/src/theme/tokens';
@@ -54,7 +55,7 @@ export default function RecordDetailScreen() {
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
 
   useEffect(() => {
-    getSessionById(id).then((record) => {
+    appOperationCoordinator.runInPipeline(() => getSessionById(id)).then((record) => {
       if (!record) {
         return;
       }
@@ -65,7 +66,9 @@ export default function RecordDetailScreen() {
       setIsFree(record.routineDayId === null);
       setRoutineDayId(record.routineDayId);
       setFreePartIds(
-        record.parts.map((part) => part.bodyPartId).filter((partId): partId is number => !!partId)
+        record.parts
+          .map((part) => part.bodyPartId)
+          .filter((partId): partId is number => !!partId)
       );
       setLoaded(true);
     });
