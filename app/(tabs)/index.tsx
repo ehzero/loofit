@@ -19,6 +19,7 @@ import { Screen } from '@/src/components/Screen';
 import { SectionHeader } from '@/src/components/SectionHeader';
 import { StatTiles } from '@/src/components/StatTiles';
 import { BRAND } from '@/src/config/brand';
+import { ROUTINE_TEMPLATE_OPTIONS } from '@/src/config/routine-templates';
 import {
   formatClock,
   formatDateFull,
@@ -35,14 +36,6 @@ import {
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import { radius, spacing } from '@/src/theme/tokens';
-import type { RoutineTemplate } from '@/src/types';
-
-const TEMPLATES: Array<{ key: RoutineTemplate; name: string; desc: string }> = [
-  { key: 'threeSplit', name: '3분할', desc: '가슴·삼두 / 등·이두 / 하체·어깨' },
-  { key: 'fourSplit', name: '4분할', desc: '가슴·삼두 / 등·이두 / 어깨 / 하체' },
-  { key: 'upperLower', name: '2분할', desc: '상체 / 하체+코어' },
-  { key: 'ppl', name: 'PPL', desc: 'Push · Pull · Legs' },
-];
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -111,48 +104,59 @@ export default function HomeScreen() {
   // ---- Onboarding: no routine yet ----
   if (!overview.activeRoutine) {
     return (
-      <Screen>
-        <View style={styles.onboardHero}>
-          <View style={[styles.onboardIcon, { backgroundColor: colors.card }]}>
-            <Icon name="dumbbell" size={26} color={colors.accent} />
+      <>
+        <Screen>
+          <View style={styles.onboardHero}>
+            <View style={[styles.onboardIcon, { backgroundColor: colors.card }]}>
+              <Icon name="dumbbell" size={26} color={colors.accent} />
+            </View>
+            <AppText variant="display">아직 루틴이 없어요</AppText>
+            <AppText variant="item" weight="500" tone="tertiary" style={styles.onboardDesc}>
+              루틴을 만들면 다음에 할 운동을{'\n'}{BRAND.displayName}이 자동으로 알려드려요.
+            </AppText>
           </View>
-          <AppText variant="display">아직 루틴이 없어요</AppText>
-          <AppText variant="item" weight="500" tone="tertiary" style={styles.onboardDesc}>
-            루틴을 만들면 다음에 할 운동을{'\n'}{BRAND.displayName}이 자동으로 알려드려요.
-          </AppText>
-        </View>
-        <View style={styles.onboardList}>
-          {TEMPLATES.map((template) => (
+          <View style={styles.onboardList}>
+            {ROUTINE_TEMPLATE_OPTIONS.map((template) => (
+              <ListRow
+                key={template.key}
+                variant="card"
+                surface="card"
+                chevron
+                title={template.name}
+                subtitle={template.description}
+                onPress={() =>
+                  setConfirm({
+                    title: `${template.name}로 시작할까요?`,
+                    description: `${template.description} 순서로 분할을 만들어요. 만든 뒤에도 루틴 설정에서 자유롭게 편집할 수 있어요.`,
+                    confirmLabel: '루틴 만들기',
+                    onConfirm: async () => {
+                      const result = await createTemplate(template.key);
+                      if (isActionSuccessful(result)) {
+                        showToast(`${template.name} 루틴을 만들었어요`);
+                      }
+                      return shouldDismissAfterAction(result);
+                    },
+                  })
+                }
+              />
+            ))}
             <ListRow
-              key={template.key}
               variant="card"
               surface="card"
               chevron
-              title={template.name}
-              subtitle={template.desc}
+              title="직접 만들기"
+              subtitle="빈 루틴에서 시작"
               onPress={async () => {
-                const result = await createTemplate(template.key);
-                if (isActionSuccessful(result)) {
-                  showToast(`${template.name} 루틴을 만들었어요`);
+                const result = await createCustom();
+                if (shouldDismissAfterAction(result)) {
+                  router.push('/routine');
                 }
               }}
             />
-          ))}
-          <ListRow
-            variant="card"
-            surface="card"
-            chevron
-            title="직접 만들기"
-            subtitle="빈 루틴에서 시작"
-            onPress={async () => {
-              const result = await createCustom();
-              if (shouldDismissAfterAction(result)) {
-                router.push('/routine');
-              }
-            }}
-          />
-        </View>
-      </Screen>
+          </View>
+        </Screen>
+        <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      </>
     );
   }
 

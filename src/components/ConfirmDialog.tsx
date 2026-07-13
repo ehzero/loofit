@@ -59,8 +59,15 @@ export function ConfirmDialog({
     <Modal visible={!!config} transparent animationType="fade" onRequestClose={close}>
       <View style={styles.backdrop}>
         <View style={[styles.dialog, { backgroundColor: colors.card, borderColor: colors.border2 }]}>
-          <AppText variant="title">{config?.title}</AppText>
-          <AppText variant="footnote" weight="500" tone="tertiary" style={styles.description}>
+          <AppText variant="title" wordBreak>
+            {config?.title}
+          </AppText>
+          <AppText
+            variant="footnote"
+            weight="500"
+            tone="tertiary"
+            wordBreak
+            style={styles.description}>
             {config?.description}
           </AppText>
           <View style={styles.actions}>

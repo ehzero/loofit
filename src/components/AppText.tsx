@@ -47,12 +47,15 @@ type AppTextProps = TextProps & {
   tone?: TextTone;
   /** Override the variant's default weight without leaving the type scale. */
   weight?: TextStyle['fontWeight'];
+  /** Keep Korean and other space-delimited phrases together when wrapping. */
+  wordBreak?: boolean;
 };
 
 export function AppText({
   variant = 'body',
   tone = 'default',
   weight,
+  wordBreak = false,
   style,
   ...rest
 }: AppTextProps) {
@@ -60,6 +63,13 @@ export function AppText({
   return (
     <Text
       {...rest}
+      {...(wordBreak
+        ? {
+            lineBreakStrategyIOS: 'hangul-word' as const,
+            textBreakStrategy: 'highQuality' as const,
+            android_hyphenationFrequency: 'none' as const,
+          }
+        : null)}
       style={[
         typeScale[variant],
         { color: toneColor(colors, tone) },

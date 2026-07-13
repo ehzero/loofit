@@ -1,3 +1,6 @@
+import 'react-native-gesture-handler';
+import 'react-native-reanimated';
+
 import { useFonts } from 'expo-font';
 import {
   Stack,
@@ -8,9 +11,8 @@ import {
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useRef } from 'react';
-import { AppState } from 'react-native';
-import 'react-native-gesture-handler';
-import 'react-native-reanimated';
+import { AppState, StyleSheet } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useAppStore } from '@/src/store/app-store';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
@@ -78,12 +80,14 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider>
-      <ToastProvider>
-        <StoreErrorPresenter />
-        <RootLayoutNav />
-      </ToastProvider>
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <ThemeProvider>
+        <ToastProvider>
+          <StoreErrorPresenter />
+          <RootLayoutNav />
+        </ToastProvider>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   );
 }
 
@@ -131,3 +135,9 @@ function RootLayoutNav() {
     </NavigationThemeProvider>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

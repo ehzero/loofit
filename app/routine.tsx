@@ -6,9 +6,12 @@ import { AppText } from '@/src/components/AppText';
 import { Button } from '@/src/components/Button';
 import { Callout } from '@/src/components/Callout';
 import { Chip } from '@/src/components/Chip';
+import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
 import { IconButton } from '@/src/components/IconButton';
 import { Input } from '@/src/components/Input';
+import { ListRow } from '@/src/components/ListRow';
 import { Screen } from '@/src/components/Screen';
+import { ROUTINE_TEMPLATE_OPTIONS } from '@/src/config/routine-templates';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
 import {
   isActionSuccessful,
@@ -27,6 +30,7 @@ export default function RoutineScreen() {
 
   const overview = useAppStore((state) => state.overview);
   const addEmptyDay = useAppStore((state) => state.addEmptyDay);
+  const createTemplate = useAppStore((state) => state.createTemplate);
   const moveDay = useAppStore((state) => state.moveDay);
   const deleteDay = useAppStore((state) => state.deleteDay);
   const chooseNextDay = useAppStore((state) => state.chooseNextDay);
@@ -35,6 +39,8 @@ export default function RoutineScreen() {
 
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newPart, setNewPart] = useState('');
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
 
   if (!overview) {
     return <Screen title="루틴 설정" onBack={() => router.back()} isLoading />;
@@ -57,78 +63,124 @@ export default function RoutineScreen() {
   }
 
   return (
-    <Screen title="루틴 설정" onBack={() => router.back()}>
-      <Callout icon="bolt" tone="accent">
-        다음 운동은{' '}
-        <AppText variant="footnote" weight="800" tone="accent">
-          {nextName}
-        </AppText>{' '}
-        이에요. 각 분할의 <AppText variant="footnote" weight="800">다음 시작</AppText> 버튼으로
-        시작점을 바꿀 수 있어요.
-      </Callout>
+    <>
+      <Screen title="루틴 설정" onBack={() => router.back()}>
+        <Callout icon="bolt" tone="accent">
+          다음 운동은{' '}
+          <AppText variant="footnote" weight="800" tone="accent">
+            {nextName}
+          </AppText>{' '}
+          이에요. 각 분할의 <AppText variant="footnote" weight="800">다음 시작</AppText>{' '}
+          버튼으로 시작점을 바꿀 수 있어요.
+        </Callout>
 
-      <View style={styles.splitList}>
-        {days.map((day, index) => (
-          <SplitCard
-            key={day.id}
-            day={day}
-            order={index + 1}
-            isNext={day.id === overview.nextRoutineDay?.id}
-            isFirst={index === 0}
-            isLast={index === days.length - 1}
-            isEditing={editingId === day.id}
-            bodyParts={overview.bodyParts}
-            onUp={() => moveDay(day.id, -1)}
-            onDown={() => moveDay(day.id, 1)}
-            onDelete={async () => {
-              const result = await deleteDay(day.id);
-              if (editingId === day.id && shouldDismissAfterAction(result)) {
-                setEditingId(null);
-              }
-            }}
-            onSetNext={async () => {
-              const result = await chooseNextDay(day.id);
-              if (isActionSuccessful(result)) {
-                showToast('다음 운동 시작점을 바꿨어요');
-              }
-            }}
-            onToggleEdit={() => setEditingId((current) => (current === day.id ? null : day.id))}
-          />
-        ))}
-
-        <Pressable
-          onPress={() => addEmptyDay('')}
-          style={[styles.addSplit, { borderColor: colors.border2 }]}>
-          <AppText variant="body" weight="700" tone="tertiary">
-            + 분할 추가
-          </AppText>
-        </Pressable>
-      </View>
-
-      <View style={styles.manageBlock}>
-        <AppText variant="footnote" weight="800">
-          운동 부위 관리
-        </AppText>
-        <View style={styles.chipWrap}>
-          {overview.bodyParts.map((part) => (
-            <Chip key={part.id} label={part.name} onRemove={() => archivePart(part.id)} />
-          ))}
-        </View>
-        <View style={styles.addPartRow}>
-          <Input
-            value={newPart}
-            onChangeText={setNewPart}
-            placeholder="새 부위 이름"
-            onSubmitEditing={submitPart}
-            returnKeyType="done"
-            style={styles.addPartInput}
-          />
-          <Button size="md" variant="neutral" onPress={submitPart}>
-            추가
+        <View style={styles.templateBlock}>
+          <Button
+            size="md"
+            variant="neutral"
+            onPress={() => setShowTemplates((current) => !current)}>
+            {showTemplates ? '템플릿 닫기' : '분할 템플릿 다시 선택'}
           </Button>
+          {showTemplates ? (
+            <View style={styles.templateList}>
+              {ROUTINE_TEMPLATE_OPTIONS.map((template) => (
+                <ListRow
+                  key={template.key}
+                  variant="card"
+                  surface="card"
+                  chevron
+                  title={template.name}
+                  subtitle={template.description}
+                  onPress={() =>
+                    setConfirm({
+                      title: `${template.name}로 다시 설정할까요?`,
+                      description:
+                        '현재 분할 설정은 선택한 템플릿으로 교체되고 다음 운동은 첫 분할로 바뀌어요. 과거 운동 기록은 그대로 유지돼요.',
+                      confirmLabel: '템플릿 적용',
+                      danger: true,
+                      onConfirm: async () => {
+                        const result = await createTemplate(template.key);
+                        if (isActionSuccessful(result)) {
+                          setEditingId(null);
+                          setShowTemplates(false);
+                          showToast(`${template.name} 템플릿을 적용했어요`);
+                        }
+                        return shouldDismissAfterAction(result);
+                      },
+                    })
+                  }
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
-      </View>
-    </Screen>
+
+        <View style={styles.splitList}>
+          {days.map((day, index) => (
+            <SplitCard
+              key={day.id}
+              day={day}
+              order={index + 1}
+              isNext={day.id === overview.nextRoutineDay?.id}
+              isFirst={index === 0}
+              isLast={index === days.length - 1}
+              isEditing={editingId === day.id}
+              bodyParts={overview.bodyParts}
+              onUp={() => moveDay(day.id, -1)}
+              onDown={() => moveDay(day.id, 1)}
+              onDelete={async () => {
+                const result = await deleteDay(day.id);
+                if (editingId === day.id && shouldDismissAfterAction(result)) {
+                  setEditingId(null);
+                }
+              }}
+              onSetNext={async () => {
+                const result = await chooseNextDay(day.id);
+                if (isActionSuccessful(result)) {
+                  showToast('다음 운동 시작점을 바꿨어요');
+                }
+              }}
+              onToggleEdit={() =>
+                setEditingId((current) => (current === day.id ? null : day.id))
+              }
+            />
+          ))}
+
+          <Pressable
+            onPress={() => addEmptyDay('')}
+            style={[styles.addSplit, { borderColor: colors.border2 }]}>
+            <AppText variant="body" weight="700" tone="tertiary">
+              + 분할 추가
+            </AppText>
+          </Pressable>
+        </View>
+
+        <View style={styles.manageBlock}>
+          <AppText variant="footnote" weight="800">
+            운동 부위 관리
+          </AppText>
+          <View style={styles.chipWrap}>
+            {overview.bodyParts.map((part) => (
+              <Chip key={part.id} label={part.name} onRemove={() => archivePart(part.id)} />
+            ))}
+          </View>
+          <View style={styles.addPartRow}>
+            <Input
+              value={newPart}
+              onChangeText={setNewPart}
+              placeholder="새 부위 이름"
+              onSubmitEditing={submitPart}
+              returnKeyType="done"
+              style={styles.addPartInput}
+            />
+            <Button size="md" variant="neutral" onPress={submitPart}>
+              추가
+            </Button>
+          </View>
+        </View>
+      </Screen>
+      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+    </>
   );
 }
 
@@ -274,6 +326,12 @@ function SplitCard({
 }
 
 const styles = StyleSheet.create({
+  templateBlock: {
+    gap: spacing.sm,
+  },
+  templateList: {
+    gap: spacing.xs,
+  },
   splitList: {
     gap: spacing.sm,
   },

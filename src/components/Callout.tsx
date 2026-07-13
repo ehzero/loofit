@@ -25,7 +25,12 @@ export function Callout({
   return (
     <View style={[styles.box, { backgroundColor: colors.card, borderColor: colors.border }]}>
       <Icon name={icon} size={18} color={tone === 'accent' ? colors.accent : colors.tx4} />
-      <AppText variant="footnote" weight="500" tone="secondary" style={styles.text}>
+      <AppText
+        variant="footnote"
+        weight="500"
+        tone="secondary"
+        wordBreak
+        style={styles.text}>
         {children}
       </AppText>
     </View>
