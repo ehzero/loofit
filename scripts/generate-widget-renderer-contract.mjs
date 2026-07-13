@@ -20,7 +20,9 @@ const coreSwiftPath = path.join(
   'modules/loofit-workout-core/ios/LoofitWidgetLayoutContract.generated.swift'
 );
 
-const contract = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+const sourceContract = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+validateTokenSource(sourceContract);
+const contract = applyComponentRecipes(resolveTokenReferences(sourceContract));
 validate(contract);
 
 const outputs = new Map([
@@ -53,6 +55,16 @@ if (process.argv.includes('--check')) {
 function validate(value) {
   assert(value.version === 1, 'version must be 1');
   assert(value.card?.contentPadding > 0, 'card.contentPadding must be positive');
+  assert(
+    value.control?.verticalDistribution === 'spaceBetween',
+    'small control widget regions must use responsive space-between distribution'
+  );
+  for (const legacySlot of ['headerHeight', 'bodyHeight', 'footerWithRangeHeight']) {
+    assert(
+      value.control[legacySlot] === undefined,
+      `control.${legacySlot} must not reserve a fixed region height`
+    );
+  }
 
   const variants = value.heatmap?.variants;
   assert(
@@ -60,13 +72,35 @@ function validate(value) {
     'heatmap variants must be week, month, and year in that order'
   );
   assert(value.heatmap.weekdayLabels?.length === 7, 'heatmap must have seven weekday labels');
+  assert(
+    value.heatmap.weekdayLabelHeightInCells === 1,
+    'heatmap weekday label height must match one grid cell'
+  );
+  const weekdayLabelColorPolicy = value.heatmap.weekdayLabelColorPolicy;
+  assert(
+    weekdayLabelColorPolicy?.weekendLabels?.length === 2 &&
+      weekdayLabelColorPolicy.weekendLabels.every((label) =>
+        value.heatmap.weekdayLabels.includes(label)
+      ),
+    'heatmap weekend labels must contain two known weekday labels'
+  );
+  assert(
+    weekdayLabelColorPolicy.weekendRole === 'textWeekend',
+    'heatmap weekend labels must use the textWeekend role'
+  );
   assert(variants.week.rangeDays === 7, 'week range must be seven days');
   assert(variants.month.rangeDays === 0, 'five-week range must not use rolling days');
   assert(variants.month.rangeWeeks === 5, 'month variant must cover five calendar weeks');
   assert(variants.month.showLeadingCalendarCells === false, 'five-week range has no leading cells');
+  for (const key of ['columns', 'contentPadding', 'cellGap', 'cellRadius', 'cellLabelSize']) {
+    assert(
+      variants.week[key] === variants.month[key],
+      `week and five-week heatmaps must share ${key}`
+    );
+  }
   assert(variants.year.rangeMonths === 6, 'year variant must represent six months');
   const cellLabelColorPolicy = value.heatmap.cellLabelColorPolicy;
-  const cellLabelColorRoles = ['detail', 'title', 'accentText'];
+  const cellLabelColorRoles = ['textLow', 'textHigh', 'onAccent'];
   assert(cellLabelColorPolicy, 'heatmap.cellLabelColorPolicy is required');
   for (const key of ['empty', 'filled', 'strongFilled']) {
     assert(
@@ -89,6 +123,26 @@ function validate(value) {
     'six-month month boundaries must insert one seven-slot column'
   );
   assert(variants.week.headerVisible === false, 'week header must remain hidden');
+  assert(variants.week.style === 'detailed', 'week must use the detailed heatmap style');
+  assert(variants.month.style === 'detailed', 'five weeks must use the detailed heatmap style');
+  assert(variants.year.style === 'compact', 'six months must use the compact heatmap style');
+  const currentMonthPreview = value.heatmap.previewVariants?.currentMonth;
+  assert(
+    currentMonthPreview?.style === 'detailed' && currentMonthPreview.maxRows === 6,
+    'current-month preview must use the detailed style with up to six rows'
+  );
+  assert(
+    currentMonthPreview.todayIndicator?.style === 'border' &&
+      currentMonthPreview.todayIndicator.colorRole === 'todayIndicator' &&
+      currentMonthPreview.todayIndicator.width > 0,
+    'current-month preview must use the theme-aware today indicator border'
+  );
+  assert(
+    Object.values(variants).every(
+      (variant) => variant.contentPadding === value.designSystem.contentPadding
+    ),
+    'home-screen heatmaps must share the canonical content padding'
+  );
   const headerSummaries = ['none', 'count', 'countTotalAverage'];
   const calendarAlignments = [
     'rollingDays',
@@ -176,6 +230,141 @@ function validate(value) {
   }
 }
 
+function validateTokenSource(value) {
+  const designSystem = value.designSystem;
+  assert(designSystem?.spacing, 'designSystem.spacing is required');
+  assert(designSystem?.radius, 'designSystem.radius is required');
+  assert(designSystem?.typography, 'designSystem.typography is required');
+  assert(designSystem?.fontWeight, 'designSystem.fontWeight is required');
+  assert(designSystem?.opacity, 'designSystem.opacity is required');
+  assert(designSystem?.minimumScale, 'designSystem.minimumScale is required');
+  assert(designSystem?.colorRoles, 'designSystem.colorRoles is required');
+
+  for (const [name, spacing] of Object.entries(designSystem.spacing)) {
+    assert(Number.isFinite(spacing) && spacing >= 0, `designSystem.spacing.${name} must be non-negative`);
+  }
+  for (const [name, radius] of Object.entries(designSystem.radius)) {
+    assert(Number.isFinite(radius) && radius >= 0, `designSystem.radius.${name} must be non-negative`);
+  }
+  assert(
+    Object.keys(designSystem.spacing).join(',') === 'xs,sm,md,lg',
+    'designSystem.spacing must contain only xs, sm, md, and lg'
+  );
+  assert(
+    Object.keys(designSystem.radius).join(',') === 'cell,control,container',
+    'designSystem.radius must contain only cell, control, and container'
+  );
+  assert(
+    Object.keys(designSystem.typography).join(',') === 'sm,md,lg,xl',
+    'designSystem.typography must contain only sm, md, lg, and xl'
+  );
+  for (const [name, typography] of Object.entries(designSystem.typography)) {
+    assert(typography.size > 0, `designSystem.typography.${name}.size must be positive`);
+    assert(
+      typography.lineHeight >= typography.size,
+      `designSystem.typography.${name}.lineHeight must fit its font size`
+    );
+  }
+  assert(
+    Object.keys(designSystem.fontWeight).join(',') === 'bold,medium,light' &&
+      Object.values(designSystem.fontWeight).join(',') === '800,700,600',
+    'designSystem.fontWeight must contain bold 800, medium 700, and light 600'
+  );
+  for (const [name, opacity] of Object.entries(designSystem.opacity)) {
+    assert(opacity > 0 && opacity <= 1, `designSystem.opacity.${name} must be in (0, 1]`);
+  }
+  for (const [name, scale] of Object.entries(designSystem.minimumScale)) {
+    assert(scale > 0 && scale <= 1, `designSystem.minimumScale.${name} must be in (0, 1]`);
+  }
+
+  const expectedColorRoles = [
+    'surface',
+    'raisedSurface',
+    'textHigh',
+    'textMedium',
+    'textLow',
+    'textWeekend',
+    'todayIndicator',
+    'accent',
+    'onAccent',
+    'heatmapBase',
+    'heatmapEmpty',
+  ];
+  assert(
+    Object.keys(designSystem.colorRoles).join(',') === expectedColorRoles.join(','),
+    'designSystem.colorRoles must expose the canonical semantic roles in order'
+  );
+
+  for (const path of [
+    ['card', 'radius'],
+    ['card', 'contentPadding'],
+    ['card', 'contentGap'],
+    ['heatmap', 'styles', 'detailed', 'contentPadding'],
+    ['heatmap', 'styles', 'detailed', 'cellGap'],
+    ['heatmap', 'styles', 'detailed', 'cellRadius'],
+    ['heatmap', 'styles', 'compact', 'contentPadding'],
+    ['heatmap', 'styles', 'compact', 'cellGap'],
+    ['heatmap', 'styles', 'compact', 'cellRadius'],
+  ]) {
+    const raw = valueAtPath(value, path);
+    assert(isTokenReference(raw), `${path.join('.')} must reference a design token`);
+  }
+}
+
+function applyComponentRecipes(value) {
+  const styles = value.heatmap.styles;
+  const variants = Object.fromEntries(
+    Object.entries(value.heatmap.variants).map(([name, variant]) => {
+      const style = styles[variant.style];
+      assert(style, `unknown heatmap style for ${name}: ${variant.style}`);
+      return [name, { ...style, ...variant }];
+    })
+  );
+  return {
+    ...value,
+    heatmap: {
+      ...value.heatmap,
+      variants,
+    },
+  };
+}
+
+function resolveTokenReferences(source) {
+  const tokenRoot = source.designSystem;
+
+  function resolve(value, stack = []) {
+    if (isTokenReference(value)) {
+      const tokenPath = value.slice(1, -1);
+      assert(!stack.includes(tokenPath), `circular design token reference: ${[...stack, tokenPath].join(' -> ')}`);
+      const token = valueAtPath(tokenRoot, tokenPath.split('.'));
+      assert(token !== undefined, `unknown design token reference: ${value}`);
+      return resolve(token, [...stack, tokenPath]);
+    }
+    if (Array.isArray(value)) {
+      return value.map((item) => resolve(item, stack));
+    }
+    if (value && typeof value === 'object') {
+      return Object.fromEntries(
+        Object.entries(value).map(([key, item]) => [key, resolve(item, stack)])
+      );
+    }
+    return value;
+  }
+
+  return resolve(source);
+}
+
+function isTokenReference(value) {
+  return typeof value === 'string' && /^\{[A-Za-z0-9_.-]+\}$/.test(value);
+}
+
+function valueAtPath(value, path) {
+  return path.reduce(
+    (current, key) => (current && typeof current === 'object' ? current[key] : undefined),
+    value
+  );
+}
+
 function assert(condition, message) {
   if (!condition) {
     throw new Error(`Invalid widget renderer contract: ${message}`);
@@ -217,8 +406,11 @@ function renderSwift(value) {
   const control = value.control;
   const lock = value.lockScreen;
   const summary = lock.summary;
+  const banner = value.liveActivity.banner;
   const compact = value.liveActivity.compact;
+  const minimal = value.liveActivity.minimal;
   const expanded = value.liveActivity.expanded;
+  const fontWeight = value.designSystem.fontWeight;
 
   return `// Generated by scripts/generate-widget-renderer-contract.mjs. Do not edit.
 // Edit src/widgets/widget-renderer-contract.json and regenerate instead.
@@ -246,9 +438,9 @@ enum LoofitHeatmapStat {
 }
 
 enum LoofitHeatmapCellLabelColorRole {
-  case detail
-  case title
-  case accentText
+  case textLow
+  case textHigh
+  case onAccent
 }
 
 struct LoofitHeatmapRendererSpec {
@@ -276,15 +468,41 @@ enum LoofitWidgetRendererContract {
   static let version = ${value.version}
   static let contentPadding: CGFloat = ${swiftNumber(value.card.contentPadding)}
 
+  enum FontWeight {
+    static let bold: Font.Weight = .${swiftFontWeight(fontWeight.bold)}
+    static let medium: Font.Weight = .${swiftFontWeight(fontWeight.medium)}
+    static let light: Font.Weight = .${swiftFontWeight(fontWeight.light)}
+  }
+
+  enum Spacing {
+    static let xs: CGFloat = ${swiftNumber(value.designSystem.spacing.xs)}
+    static let sm: CGFloat = ${swiftNumber(value.designSystem.spacing.sm)}
+    static let md: CGFloat = ${swiftNumber(value.designSystem.spacing.md)}
+    static let lg: CGFloat = ${swiftNumber(value.designSystem.spacing.lg)}
+  }
+
+  enum Radius {
+    static let cell: CGFloat = ${swiftNumber(value.designSystem.radius.cell)}
+    static let control: CGFloat = ${swiftNumber(value.designSystem.radius.control)}
+    static let container: CGFloat = ${swiftNumber(value.designSystem.radius.container)}
+  }
+
+  enum Opacity {
+    static let defaultValue: Double = ${swiftNumber(value.designSystem.opacity.default)}
+    static let muted: Double = ${swiftNumber(value.designSystem.opacity.muted)}
+  }
+
+  enum MinimumScale {
+    static let dense: CGFloat = ${swiftNumber(value.designSystem.minimumScale.dense)}
+    static let defaultValue: CGFloat = ${swiftNumber(value.designSystem.minimumScale.default)}
+  }
+
   enum Control {
-    static let headerHeight: CGFloat = ${swiftNumber(control.headerHeight)}
-    static let bodyHeight: CGFloat = ${swiftNumber(control.bodyHeight)}
     static let bodyGap: CGFloat = ${swiftNumber(control.bodyGap)}
     static let activeDotSize: CGFloat = ${swiftNumber(control.activeDotSize)}
     static let activeDotGap: CGFloat = ${swiftNumber(control.activeDotGap)}
     static let buttonHeight: CGFloat = ${swiftNumber(control.buttonHeight)}
     static let buttonRadius: CGFloat = ${swiftNumber(control.buttonRadius)}
-    static let footerHeight: CGFloat = ${swiftNumber(control.footerWithRangeHeight)}
     static let footerGap: CGFloat = ${swiftNumber(control.footerGap)}
     static let titleSize: CGFloat = ${swiftNumber(control.text.title.size)}
     static let timerSize: CGFloat = ${swiftNumber(control.text.timer.size)}
@@ -295,10 +513,26 @@ enum LoofitWidgetRendererContract {
   }
 
   enum LiveActivity {
+    enum Banner {
+      static let contentPadding: CGFloat = ${swiftNumber(banner.contentPadding)}
+      static let contentGap: CGFloat = ${swiftNumber(banner.contentGap)}
+      static let rowGap: CGFloat = ${swiftNumber(banner.rowGap)}
+      static let titleFontSize: CGFloat = ${swiftNumber(banner.titleFontSize)}
+      static let statusFontSize: CGFloat = ${swiftNumber(banner.statusFontSize)}
+      static let timerFontSize: CGFloat = ${swiftNumber(banner.timerFontSize)}
+      static let buttonWidth: CGFloat = ${swiftNumber(banner.buttonWidth)}
+      static let buttonHeight: CGFloat = ${swiftNumber(banner.buttonHeight)}
+      static let buttonFontSize: CGFloat = ${swiftNumber(banner.buttonFontSize)}
+    }
+
     enum Compact {
       static let leadingWidth: CGFloat = ${swiftNumber(compact.leadingWidth)}
       static let trailingWidth: CGFloat = ${swiftNumber(compact.trailingWidth)}
       static let fontSize: CGFloat = ${swiftNumber(compact.fontSize)}
+    }
+
+    enum Minimal {
+      static let fontSize: CGFloat = ${swiftNumber(minimal.fontSize)}
     }
 
     enum Expanded {
@@ -320,6 +554,8 @@ enum LoofitWidgetRendererContract {
 
   enum Heatmap {
     static let weekdayLabels = ${swiftStringArray(value.heatmap.weekdayLabels)}
+    static let weekdayLabelHeightInCells: CGFloat = ${swiftNumber(value.heatmap.weekdayLabelHeightInCells)}
+    static let weekendWeekdayLabels = ${swiftStringArray(value.heatmap.weekdayLabelColorPolicy.weekendLabels)}
     static let weekdayLabelSize: CGFloat = ${swiftNumber(value.text.calendar.weekdaySize)}
     static let emptyCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .${swiftCase(value.heatmap.cellLabelColorPolicy.empty)}
     static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .${swiftCase(value.heatmap.cellLabelColorPolicy.filled)}
@@ -366,11 +602,11 @@ enum LoofitWidgetRendererContract {
     static let summaryTitle = ${swiftString(copy.summaryTitle)}
     static let compactCharacterLimit = ${lock.compactCharacterLimit}
     static let summaryDays = ${lock.summaryDays}
-    static let inlineFontSize: CGFloat = ${swiftNumber(lock.inlineFontSize)}
-    static let circularDefaultFontSize: CGFloat = ${swiftNumber(lock.circularDefaultFontSize)}
-    static let circularCompletedFontSize: CGFloat = ${swiftNumber(lock.circularCompletedFontSize)}
-    static let rectangularTitleFontSize: CGFloat = ${swiftNumber(lock.rectangularTitleFontSize)}
-    static let rectangularDetailFontSize: CGFloat = ${swiftNumber(lock.rectangularDetailFontSize)}
+    static let inlineFontSize: CGFloat = ${swiftNumber(lock.text.inline.size)}
+    static let circularDefaultFontSize: CGFloat = ${swiftNumber(lock.text.circular.size)}
+    static let circularCompletedFontSize: CGFloat = ${swiftNumber(lock.text.circular.size)}
+    static let rectangularTitleFontSize: CGFloat = ${swiftNumber(lock.text.rectangularTitle.size)}
+    static let rectangularDetailFontSize: CGFloat = ${swiftNumber(lock.text.rectangularDetail.size)}
 
     enum Summary {
       static let cellSize: CGFloat = ${swiftNumber(summary.cellSize)}
@@ -439,6 +675,19 @@ function swiftNumber(value) {
     throw new Error(`Cannot render non-finite Swift number: ${value}`);
   }
   return Number.isInteger(value) ? `${value}` : `${value}`;
+}
+
+function swiftFontWeight(value) {
+  const weights = {
+    '600': 'semibold',
+    '700': 'bold',
+    '800': 'heavy',
+  };
+  const weight = weights[value];
+  if (!weight) {
+    throw new Error(`Cannot render unsupported Swift font weight: ${value}`);
+  }
+  return weight;
 }
 
 function swiftString(value) {

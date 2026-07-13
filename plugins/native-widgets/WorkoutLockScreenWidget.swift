@@ -79,7 +79,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
 
   private var inline: some View {
     Text(inlineText)
-      .font(.system(size: LoofitWidgetRendererContract.LockScreen.inlineFontSize, weight: .semibold))
+      .font(.system(size: LoofitWidgetRendererContract.LockScreen.inlineFontSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
       .foregroundStyle(primaryColor)
       .lineLimit(1)
       .minimumScaleFactor(0.75)
@@ -98,7 +98,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
         size: presentation.state == .completed
           ? LoofitWidgetRendererContract.LockScreen.circularCompletedFontSize
           : LoofitWidgetRendererContract.LockScreen.circularDefaultFontSize,
-        weight: .heavy
+        weight: LoofitWidgetRendererContract.FontWeight.bold
       )
     )
     .foregroundStyle(primaryColor)
@@ -111,7 +111,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
   }
 
   private var rectangular: some View {
-    VStack(alignment: .center, spacing: 1) {
+    VStack(alignment: .center, spacing: LoofitWidgetRendererContract.Spacing.xs) {
       Group {
         if presentation.state == .active, let startedAt = presentation.startedAt {
           Text(startedAt, style: .timer)
@@ -120,14 +120,14 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
           Text(rectangularTitle)
         }
       }
-      .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularTitleFontSize, weight: .heavy))
+      .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularTitleFontSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
       .foregroundStyle(primaryColor)
       .widgetAccentable()
       .lineLimit(1)
       .minimumScaleFactor(0.62)
 
       Text(rectangularDetail)
-        .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularDetailFontSize, weight: .semibold))
+        .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularDetailFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
         .foregroundStyle(secondaryColor)
         .lineLimit(1)
         .minimumScaleFactor(0.68)

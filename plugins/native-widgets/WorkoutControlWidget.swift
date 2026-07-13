@@ -54,12 +54,11 @@ private struct LoofitWorkoutControlWidgetView: View {
           )
       }
       Text(label)
-        .font(.system(size: LoofitWidgetRendererContract.Control.rangeSize, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.Control.rangeSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
         .foregroundStyle(LoofitColor(active ? palette.accent : palette.tx3))
         .lineLimit(1)
       Spacer(minLength: 0)
     }
-    .frame(height: LoofitWidgetRendererContract.Control.headerHeight)
   }
 
   private func activeView(palette: LoofitWidgetPalette) -> some View {
@@ -69,23 +68,22 @@ private struct LoofitWorkoutControlWidgetView: View {
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         if let startedAt = presentation.startedAt {
           Text(startedAt, style: .timer)
-            .font(.system(size: LoofitWidgetRendererContract.Control.timerSize, weight: .heavy, design: .rounded))
+            .font(.system(size: LoofitWidgetRendererContract.Control.timerSize, weight: LoofitWidgetRendererContract.FontWeight.bold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(LoofitColor(palette.tx))
             .lineLimit(1)
             .minimumScaleFactor(0.72)
         } else {
           Text("0:00")
-            .font(.system(size: LoofitWidgetRendererContract.Control.timerSize, weight: .heavy, design: .rounded))
+            .font(.system(size: LoofitWidgetRendererContract.Control.timerSize, weight: LoofitWidgetRendererContract.FontWeight.bold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(LoofitColor(palette.tx))
         }
         Text(presentation.title)
-          .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: .semibold))
+          .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: LoofitWidgetRendererContract.FontWeight.light))
           .foregroundStyle(LoofitColor(palette.tx3))
           .lineLimit(1)
       }
-      .frame(height: LoofitWidgetRendererContract.Control.bodyHeight, alignment: .leading)
       Spacer(minLength: 0)
       if #available(iOS 17.0, *), let sessionId = presentation.sessionId {
         Button(intent: LoofitEndWorkoutIntent(sessionId: sessionId)) {
@@ -114,32 +112,30 @@ private struct LoofitWorkoutControlWidgetView: View {
       Spacer(minLength: 0)
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         Text(presentation.title)
-          .font(.system(size: LoofitWidgetRendererContract.Control.titleSize, weight: .heavy))
+          .font(.system(size: LoofitWidgetRendererContract.Control.titleSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(palette.tx))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
         if !presentation.detail.isEmpty, presentation.detail != presentation.title {
           Text(presentation.detail)
-            .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: .semibold))
+            .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: LoofitWidgetRendererContract.FontWeight.light))
             .foregroundStyle(LoofitColor(palette.tx3))
             .lineLimit(1)
         }
       }
-      .frame(height: LoofitWidgetRendererContract.Control.bodyHeight, alignment: .leading)
       Spacer(minLength: 0)
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.footerGap) {
         Text(LoofitFormat.duration(presentation.durationSeconds))
-          .font(.system(size: LoofitWidgetRendererContract.Control.durationSize, weight: .heavy))
+          .font(.system(size: LoofitWidgetRendererContract.Control.durationSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(palette.accent))
           .lineLimit(1)
         if !presentation.timeRange.isEmpty {
           Text(presentation.timeRange)
-            .font(.system(size: LoofitWidgetRendererContract.Control.rangeSize, weight: .semibold))
+            .font(.system(size: LoofitWidgetRendererContract.Control.rangeSize, weight: LoofitWidgetRendererContract.FontWeight.light))
             .foregroundStyle(LoofitColor(palette.tx3))
             .lineLimit(1)
         }
       }
-      .frame(height: LoofitWidgetRendererContract.Control.footerHeight, alignment: .topLeading)
     }
   }
 
@@ -149,18 +145,17 @@ private struct LoofitWorkoutControlWidgetView: View {
       Spacer(minLength: 0)
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         Text(presentation.title)
-          .font(.system(size: LoofitWidgetRendererContract.Control.titleSize, weight: .heavy))
+          .font(.system(size: LoofitWidgetRendererContract.Control.titleSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(palette.tx))
           .lineLimit(1)
           .minimumScaleFactor(0.75)
         if !presentation.detail.isEmpty, presentation.detail != presentation.title {
           Text(presentation.detail)
-            .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: .semibold))
+            .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: LoofitWidgetRendererContract.FontWeight.light))
             .foregroundStyle(LoofitColor(palette.tx3))
             .lineLimit(1)
         }
       }
-      .frame(height: LoofitWidgetRendererContract.Control.bodyHeight, alignment: .leading)
       Spacer(minLength: 0)
       if #available(iOS 17.0, *), presentation.canStart {
         Button(intent: LoofitStartNextWorkoutIntent()) {
@@ -191,7 +186,7 @@ private struct LoofitControlButtonLabel: View {
 
   var body: some View {
     Text(title)
-      .font(.system(size: LoofitWidgetRendererContract.Control.buttonTextSize, weight: .heavy))
+      .font(.system(size: LoofitWidgetRendererContract.Control.buttonTextSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
       .foregroundStyle(LoofitColor(foreground))
       .frame(
         maxWidth: .infinity,

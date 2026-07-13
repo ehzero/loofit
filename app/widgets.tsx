@@ -20,6 +20,7 @@ import { addLocalDays, formatDuration, startOfLocalDay, toLocalDateKey } from '@
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { spacing, type ThemeColors } from '@/src/theme/tokens';
 import type { HeatmapBucket, HeatmapDay, HeatmapGridCell, RangeStats } from '@/src/types';
+import { buildCurrentMonthHeatmapModel } from '@/src/widgets/current-month-heatmap-model';
 import {
   buildHeatmapWidgetProps,
   formatHeatmapWidgetTitle,
@@ -32,6 +33,7 @@ import {
   lockScreenThemeFromColors,
 } from '@/src/widgets/lock-screen-widget-model';
 import { HeatmapWidgetPreview } from '@/src/widgets/preview/HeatmapWidgetPreview';
+import { widgetColor } from '@/src/widgets/widget-design-system';
 import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
 import type {
   HeatmapWidgetProps,
@@ -40,13 +42,21 @@ import type {
 } from '@/src/widgets/types';
 
 const CONTROL = WIDGET_PREVIEW_SPEC.control;
+const WIDGET_DESIGN = WIDGET_RENDERER_CONTRACT.designSystem;
+const WIDGET_TYPE = WIDGET_DESIGN.typography;
+const WIDGET_WEIGHT = WIDGET_DESIGN.fontWeight;
+const WIDGET_SPACE = WIDGET_DESIGN.spacing;
+const WIDGET_RADIUS = WIDGET_DESIGN.radius;
+const LOCK_SCREEN_TEXT = WIDGET_RENDERER_CONTRACT.lockScreen.text;
+const LIVE_ACTIVITY_BANNER = WIDGET_RENDERER_CONTRACT.liveActivity.banner;
 const LIVE_ACTIVITY_COMPACT = WIDGET_RENDERER_CONTRACT.liveActivity.compact;
+const LIVE_ACTIVITY_MINIMAL = WIDGET_RENDERER_CONTRACT.liveActivity.minimal;
 const LIVE_ACTIVITY_EXPANDED = WIDGET_RENDERER_CONTRACT.liveActivity.expanded;
 const LIVE_ACTIVITY_PREVIEW = {
   banner: {
-    buttonWidth: 88,
-    buttonHeight: 32,
-    buttonTextSize: 13,
+    buttonWidth: LIVE_ACTIVITY_BANNER.buttonWidth,
+    buttonHeight: LIVE_ACTIVITY_BANNER.buttonHeight,
+    buttonTextSize: LIVE_ACTIVITY_BANNER.buttonFontSize,
   },
   compact: {
     width: LIVE_ACTIVITY_COMPACT.previewWidth,
@@ -56,7 +66,7 @@ const LIVE_ACTIVITY_PREVIEW = {
     fontSize: LIVE_ACTIVITY_COMPACT.fontSize,
   },
   minimal: {
-    size: 46,
+    size: LIVE_ACTIVITY_MINIMAL.previewSize,
   },
   expanded: {
     width: LIVE_ACTIVITY_EXPANDED.previewWidth,
@@ -67,7 +77,7 @@ const LIVE_ACTIVITY_PREVIEW = {
     buttonWidth: LIVE_ACTIVITY_EXPANDED.buttonWidth,
     buttonHeight: LIVE_ACTIVITY_EXPANDED.buttonHeight,
     buttonTextSize: LIVE_ACTIVITY_EXPANDED.buttonFontSize,
-    gap: 7,
+    gap: LIVE_ACTIVITY_EXPANDED.contentGap,
   },
 } as const;
 
@@ -115,7 +125,7 @@ export default function WidgetsScreen() {
   const { accent, colors } = useTheme();
   const [guideVisible, setGuideVisible] = useState(false);
   const previewTheme = useMemo(() => buildWidgetPreviewTheme(colors), [colors]);
-  const { weekWidget, monthWidget, yearWidget } = useMemo(
+  const { currentMonthTitle, currentMonthWidget, weekWidget, monthWidget, yearWidget } = useMemo(
     () => buildPreviewHeatmapWidgets(colors),
     [colors]
   );
@@ -211,6 +221,24 @@ export default function WidgetsScreen() {
                 title={monthWidget.title}
                 variant="month"
                 widget={monthWidget}
+                style={styles.typeSquareWidget}
+              />
+            </WidgetTypePreview>
+          </View>
+
+          <View style={styles.smallRow}>
+            <WidgetTypePreview
+              label="Small · 이번 달 캘린더"
+              labelColor={previewTheme.typeLabelColor}
+              style={styles.smallSquareSingle}
+            >
+              <HeatmapWidgetPreview
+                title={currentMonthTitle}
+                variant="month"
+                widget={currentMonthWidget}
+                showHeader={
+                  WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.headerVisible
+                }
                 style={styles.typeSquareWidget}
               />
             </WidgetTypePreview>
@@ -363,11 +391,7 @@ function ControlCompletedPreview({
         </Text>
       </View>
 
-      <View
-        style={[
-          styles.completedFooterSlot,
-          { height: range ? CONTROL.footerWithRangeHeight : CONTROL.buttonHeight },
-        ]}>
+      <View style={styles.completedFooterSlot}>
         <Text style={[styles.smallDur, { color: accent }]}>{duration}</Text>
         {range ? (
           <Text style={[styles.smallRange, { color: previewTheme.detailColor }]} numberOfLines={1}>
@@ -758,7 +782,7 @@ function DynamicIslandPreview({
             <Text
               style={[
                 styles.liveExpandedTitle,
-                { color: WIDGET_PREVIEW_SPEC.control.text.title.color },
+                { color: previewTheme.titleColor },
               ]}
               numberOfLines={1}
               adjustsFontSizeToFit
@@ -823,18 +847,20 @@ function minimalWorkoutTitle(title: string): string {
 
 function buildWidgetPreviewTheme(colors: ThemeColors): WidgetPreviewTheme {
   return {
-    cardBackground: colors.card,
+    cardBackground: widgetColor(colors, 'surface'),
     cardBorder: colors.border,
-    labelColor: colors.tx3,
-    titleColor: colors.tx,
-    detailColor: colors.tx3,
-    neutralButtonBackground: colors.surface2,
-    neutralButtonText: colors.tx,
-    typeLabelColor: colors.tx4,
+    labelColor: widgetColor(colors, 'textMedium'),
+    titleColor: widgetColor(colors, 'textHigh'),
+    detailColor: widgetColor(colors, 'textMedium'),
+    neutralButtonBackground: widgetColor(colors, 'raisedSurface'),
+    neutralButtonText: widgetColor(colors, 'textHigh'),
+    typeLabelColor: widgetColor(colors, 'textLow'),
   };
 }
 
 function buildPreviewHeatmapWidgets(colors: ThemeColors): {
+  currentMonthTitle: string;
+  currentMonthWidget: HeatmapWidgetProps;
   weekWidget: HeatmapWidgetProps;
   monthWidget: HeatmapWidgetProps;
   yearWidget: HeatmapWidgetProps;
@@ -845,12 +871,20 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
     source,
     WIDGET_RENDERER_CONTRACT.heatmap.variants.month.rangeWeeks
   );
+  const currentMonth = buildCurrentMonthHeatmapModel(source);
   const yearCells = buildPreviewHeatmapGrid(source, 365);
   const weekStats = rangeStatsFromCells(weekCells);
   const monthStats = rangeStatsFromCells(monthCells);
   const sixMonthStats = rangeStatsFromCells(recentSixMonthCells(yearCells));
 
   return {
+    currentMonthTitle: currentMonth.title,
+    currentMonthWidget: buildHeatmapWidgetProps({
+      title: currentMonth.title,
+      variant: 'month',
+      cells: currentMonth.cells,
+      colors,
+    }),
     weekWidget: buildHeatmapWidgetProps({
       title: formatHeatmapWidgetTitle(
         WIDGET_RENDERER_CONTRACT.heatmap.variants.week.title,
@@ -1239,7 +1273,7 @@ const styles = StyleSheet.create({
     gap: 7,
   },
   livePreviewItem: {
-    gap: 7,
+    gap: WIDGET_SPACE.md,
   },
   lockScreenPreviewList: {
     gap: spacing.md,
@@ -1247,19 +1281,19 @@ const styles = StyleSheet.create({
   lockInlineWidget: {
     height: LOCK_SCREEN_WIDGET_PREVIEW.inline.height,
     borderRadius: LOCK_SCREEN_WIDGET_PREVIEW.inline.height / 2,
-    paddingHorizontal: spacing.sm,
+    paddingHorizontal: WIDGET_SPACE.sm,
     justifyContent: 'center',
   },
   lockInlineText: {
-    fontSize: 13,
-    lineHeight: 17,
-    fontWeight: '800',
+    fontSize: LOCK_SCREEN_TEXT.inline.size,
+    lineHeight: LOCK_SCREEN_TEXT.inline.lineHeight,
+    fontWeight: LOCK_SCREEN_TEXT.inline.weight,
     textAlign: 'center',
   },
   lockCircularStateRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: spacing.sm,
+    gap: WIDGET_SPACE.sm,
   },
   lockCircularStateItem: {
     alignItems: 'center',
@@ -1273,9 +1307,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   lockCircularValue: {
-    fontSize: 18,
-    lineHeight: 22,
-    fontWeight: '900',
+    fontSize: LOCK_SCREEN_TEXT.circular.size,
+    lineHeight: LOCK_SCREEN_TEXT.circular.lineHeight,
+    fontWeight: LOCK_SCREEN_TEXT.circular.weight,
     fontVariant: ['tabular-nums'],
   },
   lockRectangularWidget: {
@@ -1289,11 +1323,11 @@ const styles = StyleSheet.create({
   },
   lockRectangularStatusWidget: {
     justifyContent: 'center',
-    gap: 1,
+    gap: WIDGET_SPACE.xs,
   },
   lockRectangularSummaryWidget: {
     justifyContent: 'center',
-    gap: 6,
+    gap: WIDGET_SPACE.md,
   },
   lockRectStateRow: {
     flexDirection: 'row',
@@ -1303,75 +1337,75 @@ const styles = StyleSheet.create({
   },
   lockRectStatusTitle: {
     alignSelf: 'stretch',
-    fontSize: 30,
-    lineHeight: 33,
-    fontWeight: '900',
+    fontSize: LOCK_SCREEN_TEXT.rectangularTitle.size,
+    lineHeight: LOCK_SCREEN_TEXT.rectangularTitle.lineHeight,
+    fontWeight: LOCK_SCREEN_TEXT.rectangularTitle.weight,
     textAlign: 'center',
   },
   lockRectStatusDetail: {
     alignSelf: 'stretch',
-    fontSize: 18,
-    lineHeight: 21,
-    fontWeight: '800',
+    fontSize: LOCK_SCREEN_TEXT.rectangularDetail.size,
+    lineHeight: LOCK_SCREEN_TEXT.rectangularDetail.lineHeight,
+    fontWeight: LOCK_SCREEN_TEXT.rectangularDetail.weight,
     textAlign: 'center',
   },
   lockRectStreakRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 3,
+    gap: WIDGET_SPACE.sm,
   },
   lockRectStreakCell: {
     width: 18,
     height: 18,
-    borderRadius: 5,
+    borderRadius: WIDGET_RADIUS.cell,
     borderWidth: 1,
   },
   lockRectSummaryText: {
     alignSelf: 'stretch',
-    fontSize: 15,
-    lineHeight: 18,
-    fontWeight: '900',
+    fontSize: LOCK_SCREEN_TEXT.summary.size,
+    lineHeight: LOCK_SCREEN_TEXT.summary.lineHeight,
+    fontWeight: LOCK_SCREEN_TEXT.summary.weight,
     textAlign: 'center',
   },
   liveBanner: {
-    minHeight: 104,
-    borderRadius: 24,
+    minHeight: LIVE_ACTIVITY_BANNER.minHeight,
+    borderRadius: WIDGET_RADIUS.container,
     borderWidth: StyleSheet.hairlineWidth,
-    padding: 14,
-    gap: 7,
+    padding: LIVE_ACTIVITY_BANNER.contentPadding,
+    gap: LIVE_ACTIVITY_BANNER.contentGap,
     justifyContent: 'center',
   },
   liveBannerHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: LIVE_ACTIVITY_BANNER.rowGap,
   },
   liveBannerFooter: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: spacing.sm,
+    gap: LIVE_ACTIVITY_BANNER.rowGap,
   },
   liveStatusText: {
     flexShrink: 0,
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
+    fontSize: LIVE_ACTIVITY_BANNER.statusFontSize,
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
   },
   liveBannerTitle: {
     flex: 1,
     flexShrink: 1,
-    fontSize: 17,
-    lineHeight: 22,
-    fontWeight: '800',
+    fontSize: LIVE_ACTIVITY_BANNER.titleFontSize,
+    lineHeight: WIDGET_TYPE.lg.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
   },
   liveBannerTimer: {
     flex: 1,
-    fontSize: 32,
-    lineHeight: 38,
-    fontWeight: '800',
+    fontSize: LIVE_ACTIVITY_BANNER.timerFontSize,
+    lineHeight: WIDGET_TYPE.xl.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
     fontVariant: ['tabular-nums'],
   },
   liveStopPill: {
@@ -1388,12 +1422,12 @@ const styles = StyleSheet.create({
   },
   liveStopLabel: {
     fontSize: LIVE_ACTIVITY_PREVIEW.banner.buttonTextSize,
-    lineHeight: 17,
-    fontWeight: '800',
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
   },
   liveStopLabelCompact: {
     fontSize: LIVE_ACTIVITY_PREVIEW.expanded.buttonTextSize,
-    lineHeight: 14,
+    lineHeight: WIDGET_TYPE.md.lineHeight,
   },
   liveIslandScroller: {
     alignItems: 'center',
@@ -1413,14 +1447,14 @@ const styles = StyleSheet.create({
   },
   liveCompactLeadingText: {
     fontSize: LIVE_ACTIVITY_PREVIEW.compact.fontSize,
-    lineHeight: 16,
-    fontWeight: '800',
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
   },
   liveCompactTrailingText: {
     width: LIVE_ACTIVITY_PREVIEW.compact.timerWidth,
     fontSize: LIVE_ACTIVITY_PREVIEW.compact.fontSize,
-    lineHeight: 16,
-    fontWeight: '800',
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
     fontVariant: ['tabular-nums'],
     textAlign: 'right',
   },
@@ -1433,9 +1467,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   liveMinimalText: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
+    fontSize: LIVE_ACTIVITY_MINIMAL.fontSize,
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
   },
   liveIslandExpanded: {
     width: LIVE_ACTIVITY_PREVIEW.expanded.width,
@@ -1454,8 +1488,8 @@ const styles = StyleSheet.create({
   liveExpandedTitle: {
     width: LIVE_ACTIVITY_PREVIEW.expanded.titleWidth,
     fontSize: LIVE_ACTIVITY_EXPANDED.titleFontSize,
-    lineHeight: 18,
-    fontWeight: '800',
+    lineHeight: WIDGET_TYPE.lg.lineHeight,
+    fontWeight: WIDGET_WEIGHT.bold,
   },
   liveIslandExpandedCenter: {
     flex: 1,
@@ -1466,7 +1500,7 @@ const styles = StyleSheet.create({
     width: '100%',
     fontSize: LIVE_ACTIVITY_EXPANDED.timerFontSize,
     lineHeight: LIVE_ACTIVITY_PREVIEW.expanded.timerLineHeight,
-    fontWeight: '800',
+    fontWeight: WIDGET_WEIGHT.bold,
     fontVariant: ['tabular-nums'],
     textAlign: LIVE_ACTIVITY_EXPANDED.timerHorizontalAlignment === 'trailing' ? 'right' : 'center',
   },
@@ -1489,6 +1523,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
+  smallSquareSingle: {
+    width: '48%',
+    minWidth: 0,
+  },
   smallName: {
     fontSize: CONTROL.text.title.size,
     lineHeight: CONTROL.text.title.lineHeight,
@@ -1503,8 +1541,6 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   controlContentSlot: {
-    height: CONTROL.bodyHeight,
-    justifyContent: 'center',
     gap: CONTROL.bodyGap,
   },
   smallRange: {
@@ -1555,7 +1591,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    height: CONTROL.headerHeight,
   },
   tinyLabel: {
     fontSize: WIDGET_PREVIEW_SPEC.text.label.size,

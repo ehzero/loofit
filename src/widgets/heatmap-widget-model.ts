@@ -4,6 +4,7 @@ import { heatColor, type ThemeColors } from '@/src/theme/tokens';
 import type { HeatmapDay, RangeStats } from '@/src/types';
 
 import type { HeatmapWidgetProps } from './types';
+import { widgetColor } from './widget-design-system';
 import {
   WIDGET_PREVIEW_SPEC,
   WIDGET_RENDERER_CONTRACT,
@@ -13,6 +14,7 @@ import {
 type HeatmapCellInput = Pick<HeatmapDay, 'bucket' | 'dateKey'> & {
   inRange?: boolean;
   isGap?: boolean;
+  isToday?: boolean;
 };
 
 const TRANSPARENT_CELL = '#00000000';
@@ -23,6 +25,7 @@ export type HeatmapWidgetCell = {
   color: string;
   label: string;
   labelColor: string;
+  isToday: boolean;
 };
 
 export type HeatmapWidgetFooterProps = Pick<
@@ -64,6 +67,7 @@ export function buildHeatmapWidgetProps({
     colors: widgetCells.map((cell) => heatmapCellColor(colors, cell)).join(','),
     labels: widgetCells.map((cell) => (cell.isGap ? '' : dayOfMonthLabel(cell.dateKey))).join(','),
     labelColors: widgetCells.map((cell) => heatmapCellLabelColor(colors, cell)).join(','),
+    todayFlags: widgetCells.map((cell) => (cell.isToday ? '1' : '0')).join(','),
     weekdayLabels: heatmapWeekdayLabels(variant, widgetCells).join(','),
     monthLabels: monthLabels.join(','),
     brandName: BRAND.displayName,
@@ -76,11 +80,16 @@ export function buildHeatmapWidgetProps({
         : ''),
     recentWorkoutTitles: footer?.recentWorkoutTitles ?? '',
     recentWorkoutMetas: footer?.recentWorkoutMetas ?? '',
-    background: colors.card,
-    titleColor: colors.tx3,
-    brandColor: colors.tx5,
-    footerValueColor: colors.tx2,
-    weekdayLabelColor: colors.tx4,
+    background: widgetColor(colors, 'surface'),
+    titleColor: widgetColor(colors, 'textMedium'),
+    brandColor: widgetColor(colors, 'textLow'),
+    footerValueColor: widgetColor(colors, 'textMedium'),
+    weekdayLabelColor: widgetColor(colors, 'textLow'),
+    weekendWeekdayLabelColor: widgetColor(colors, 'textWeekend'),
+    todayIndicatorColor: widgetColor(
+      colors,
+      WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.todayIndicator.colorRole
+    ),
     titleSize: WIDGET_PREVIEW_SPEC.text.label.size,
     brandSize: WIDGET_PREVIEW_SPEC.text.brand.size,
     weekdayLabelSize: WIDGET_PREVIEW_SPEC.text.calendar.weekdaySize,
@@ -89,6 +98,8 @@ export function buildHeatmapWidgetProps({
     contentPadding: spec.contentPadding,
     cellGap: spec.cellGap,
     cellRadius: spec.cellRadius,
+    todayIndicatorWidth:
+      WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.todayIndicator.width,
     headerGap: spec.headerGap,
     columns: 'columns' in spec ? spec.columns : 0,
   };
@@ -115,10 +126,12 @@ export function buildHeatmapWidgetRows(
   const colors = parseHeatmapWidgetList(props.colors).filter(Boolean);
   const labels = parseHeatmapWidgetList(props.labels);
   const labelColors = parseHeatmapWidgetList(props.labelColors);
+  const todayFlags = parseHeatmapWidgetList(props.todayFlags);
   const cells = colors.map<HeatmapWidgetCell>((color, index) => ({
     color,
     label: labels[index] ?? '',
     labelColor: labelColors[index] ?? props.weekdayLabelColor,
+    isToday: todayFlags[index] === '1',
   }));
   const columns =
     props.columns > 0
@@ -157,6 +170,7 @@ function transparentWidgetCell(props: HeatmapWidgetProps): HeatmapWidgetCell {
     color: TRANSPARENT_CELL,
     label: '',
     labelColor: props.weekdayLabelColor,
+    isToday: false,
   };
 }
 
@@ -197,15 +211,15 @@ function heatmapLabelColor(colors: ThemeColors, bucket: number): string {
 
 function heatmapLabelColorForRole(
   colors: ThemeColors,
-  role: 'detail' | 'title' | 'accentText'
+  role: 'textLow' | 'textHigh' | 'onAccent'
 ): string {
   switch (role) {
-    case 'title':
-      return colors.tx;
-    case 'accentText':
-      return colors.accentText;
+    case 'textHigh':
+      return widgetColor(colors, 'textHigh');
+    case 'onAccent':
+      return widgetColor(colors, 'onAccent');
     default:
-      return colors.tx3;
+      return widgetColor(colors, 'textLow');
   }
 }
 
@@ -214,7 +228,7 @@ function heatmapCellColor(colors: ThemeColors, cell: HeatmapCellInput): string {
 }
 
 function heatmapCellLabelColor(colors: ThemeColors, cell: HeatmapCellInput): string {
-  return cell.isGap ? colors.tx3 : heatmapLabelColor(colors, cell.bucket);
+  return cell.isGap ? widgetColor(colors, 'textLow') : heatmapLabelColor(colors, cell.bucket);
 }
 
 function buildRecentMonthCells(cells: HeatmapCellInput[], months: number): HeatmapCellInput[] {

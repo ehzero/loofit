@@ -57,7 +57,7 @@ private struct LoofitWorkoutLockScreenSummaryWidgetView: View {
       }
 
       Text("\(workoutCount)회 · 총 \(LoofitFormat.duration(durationSeconds))")
-        .font(.system(size: LoofitWidgetRendererContract.LockScreen.Summary.fontSize, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.LockScreen.Summary.fontSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
         .foregroundStyle(primaryColor)
         .widgetAccentable()
         .lineLimit(1)

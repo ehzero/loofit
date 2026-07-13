@@ -4,6 +4,7 @@ import type { HeatmapDay } from '@/src/types';
 import type { ThemeColors } from '@/src/theme/tokens';
 
 import type { WorkoutLockScreenSummaryWidgetProps, WorkoutLockScreenWidgetProps } from './types';
+import { widgetColor } from './widget-design-system';
 import { WIDGET_RENDERER_CONTRACT } from './widget-spec';
 
 const LOCK_SCREEN = WIDGET_RENDERER_CONTRACT.lockScreen;
@@ -98,19 +99,19 @@ export function buildWorkoutLockScreenSummaryFromCells({
     title: LOCK_SCREEN.copy.summaryTitle,
     streakFlags: paddedCells.map((active) => (active ? '1' : '0')).join(','),
     summaryText: `${workoutCount}회 · 총 ${formatDuration(durationSeconds)}`,
-    accent: colors.accent,
-    background: colors.surface2,
-    titleColor: colors.tx,
-    detailColor: colors.tx3,
+    accent: widgetColor(colors, 'accent'),
+    background: widgetColor(colors, 'raisedSurface'),
+    titleColor: widgetColor(colors, 'textHigh'),
+    detailColor: widgetColor(colors, 'textMedium'),
   };
 }
 
 export function lockScreenThemeFromColors(colors: ThemeColors): LockScreenThemeProps {
   return {
-    accent: colors.accent,
-    background: colors.surface2,
-    titleColor: colors.tx,
-    detailColor: colors.tx3,
+    accent: widgetColor(colors, 'accent'),
+    background: widgetColor(colors, 'raisedSurface'),
+    titleColor: widgetColor(colors, 'textHigh'),
+    detailColor: widgetColor(colors, 'textMedium'),
   };
 }
 

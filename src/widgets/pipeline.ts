@@ -14,6 +14,7 @@ import {
 import { BRAND } from '@/src/config/brand';
 import type { ThemeColors } from '@/src/theme/tokens';
 import { resolveIosNativeBuildMode } from './ios-build-mode';
+import { widgetColor } from './widget-design-system';
 
 type NativePipelineOptions = {
   databaseDirectory: string | null;
@@ -58,23 +59,24 @@ export async function updateAppWidgetTheme(colors: ThemeColors): Promise<Command
 export function buildWidgetThemeSnapshot(colors: ThemeColors): WidgetThemeSnapshot {
   return {
     brandName: BRAND.displayName,
-    accent: colors.accent,
-    accentText: colors.accentText,
-    background: colors.card,
-    labelColor: colors.tx3,
-    brandColor: colors.tx5,
-    titleColor: colors.tx,
-    detailColor: colors.tx3,
-    secondaryButtonBackground: colors.surface2,
-    secondaryButtonText: colors.tx,
-    heatmapBackground: colors.card,
-    heatmapTitleColor: colors.tx3,
-    heatmapBrandColor: colors.tx5,
-    heatmapFooterValueColor: colors.tx2,
-    heatmapWeekdayLabelColor: colors.tx4,
-    heatmapDayLabelColor: colors.tx3,
-    heatmapBaseColor: colors.heatbase,
-    heatmapEmptyColor: colors.heat0,
+    accent: widgetColor(colors, 'accent'),
+    accentText: widgetColor(colors, 'onAccent'),
+    background: widgetColor(colors, 'surface'),
+    labelColor: widgetColor(colors, 'textMedium'),
+    brandColor: widgetColor(colors, 'textLow'),
+    titleColor: widgetColor(colors, 'textHigh'),
+    detailColor: widgetColor(colors, 'textMedium'),
+    secondaryButtonBackground: widgetColor(colors, 'raisedSurface'),
+    secondaryButtonText: widgetColor(colors, 'textHigh'),
+    heatmapBackground: widgetColor(colors, 'surface'),
+    heatmapTitleColor: widgetColor(colors, 'textMedium'),
+    heatmapBrandColor: widgetColor(colors, 'textLow'),
+    heatmapFooterValueColor: widgetColor(colors, 'textMedium'),
+    heatmapWeekdayLabelColor: widgetColor(colors, 'textLow'),
+    heatmapWeekendLabelColor: widgetColor(colors, 'textWeekend'),
+    heatmapDayLabelColor: widgetColor(colors, 'textLow'),
+    heatmapBaseColor: widgetColor(colors, 'heatmapBase'),
+    heatmapEmptyColor: widgetColor(colors, 'heatmapEmpty'),
     heatmapGapColor: '#00000000',
   };
 }

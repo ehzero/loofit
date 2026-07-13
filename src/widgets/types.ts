@@ -11,6 +11,8 @@ export type HeatmapWidgetProps = {
   labels: string;
   /** Per-cell label colors aligned 1:1 with `colors`, joined with commas. */
   labelColors: string;
+  /** Per-cell current-day flags aligned 1:1 with `colors`, encoded as 1 or 0. */
+  todayFlags: string;
   /** Calendar weekday labels for 7-column widgets, Sunday-first. */
   weekdayLabels: string;
   /** Month labels aligned to week columns for the medium heatmap widget. */
@@ -31,6 +33,8 @@ export type HeatmapWidgetProps = {
   brandColor: string;
   footerValueColor: string;
   weekdayLabelColor: string;
+  weekendWeekdayLabelColor: string;
+  todayIndicatorColor: string;
   titleSize: number;
   brandSize: number;
   weekdayLabelSize: number;
@@ -39,6 +43,7 @@ export type HeatmapWidgetProps = {
   contentPadding: number;
   cellGap: number;
   cellRadius: number;
+  todayIndicatorWidth: number;
   headerGap: number;
   columns: number;
 };

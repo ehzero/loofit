@@ -9,6 +9,11 @@ import {
   type HeatmapWidgetVariant,
 } from '@/src/widgets/widget-spec';
 
+const DESIGN_SYSTEM = WIDGET_RENDERER_CONTRACT.designSystem;
+const TYPOGRAPHY = DESIGN_SYSTEM.typography;
+const FONT_WEIGHT = DESIGN_SYSTEM.fontWeight;
+const WEEK_FOOTER = WIDGET_RENDERER_CONTRACT.heatmap.weekFooter;
+
 export function HeatmapWidgetPreview({
   title,
   variant,
@@ -16,6 +21,7 @@ export function HeatmapWidgetPreview({
   footerSummary,
   footerRecords,
   footerStats,
+  showHeader = false,
   style,
 }: {
   title: string;
@@ -24,12 +30,16 @@ export function HeatmapWidgetPreview({
   footerSummary?: string;
   footerRecords?: Array<{ when: string; title: string; value: string }>;
   footerStats?: Array<{ label: string; value: string }>;
+  showHeader?: boolean;
   style?: StyleProp<ViewStyle>;
 }) {
+  const [cardSize, setCardSize] = useState({ height: 0, width: 0 });
   const rows = buildHeatmapWidgetRows(widget, variant);
   const rendererSpec = WIDGET_PREVIEW_SPEC.heatmap[variant];
   const gridGap = widget.cellGap;
   const weekdayLabels = (widget.weekdayLabels || '일,월,화,수,목,금,토').split(',').filter(Boolean);
+  const weekendWeekdayLabels: readonly string[] =
+    WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabelColorPolicy.weekendLabels;
   const showCalendarLabels = variant !== 'year';
   const resolvedFooterStats = footerStats ?? parseFooterStats(widget);
   const resolvedFooterRecords = footerRecords ?? parseFooterRecords(widget);
@@ -40,26 +50,54 @@ export function HeatmapWidgetPreview({
     resolvedFooterStats.length > 0 ||
     Boolean(widget.recentWorkoutLabel) ||
     resolvedFooterRecords.length > 0;
+  const fitsVariableMonthRows = variant === 'month' && showHeader && !hasFooter;
+  const fittedCellSize = useMemo(() => {
+    if (!fitsVariableMonthRows || cardSize.width <= 0 || cardSize.height <= 0) {
+      return 0;
+    }
+    const contentWidth = cardSize.width - widget.contentPadding * 2;
+    const contentHeight =
+      cardSize.height -
+      widget.contentPadding * 2 -
+      WIDGET_PREVIEW_SPEC.text.label.lineHeight -
+      widget.headerGap;
+    const widthCell = (contentWidth - gridGap * 6) / 7;
+    const calendarRowCount = rows.length + 1;
+    const heightCell =
+      (contentHeight - gridGap * rows.length) / Math.max(calendarRowCount, 1);
+    return Math.max(0, Math.min(widthCell, heightCell));
+  }, [cardSize, fitsVariableMonthRows, gridGap, rows.length, widget]);
+  const fittedCalendarWidth = fittedCellSize > 0 ? fittedCellSize * 7 + gridGap * 6 : undefined;
+  const fittedCellStyle =
+    fittedCellSize > 0
+      ? { aspectRatio: undefined, flex: 0, height: fittedCellSize, width: fittedCellSize }
+      : undefined;
 
   return (
     <View
+      onLayout={(event) => {
+        const { height, width } = event.nativeEvent.layout;
+        setCardSize((current) =>
+          current.height === height && current.width === width ? current : { height, width }
+        );
+      }}
       style={[
         styles.card,
         { backgroundColor: widget.background, gap: widget.headerGap, padding: widget.contentPadding },
         style,
       ]}>
-      {rendererSpec.headerVisible ? (
+      {rendererSpec.headerVisible || showHeader ? (
         <View style={styles.header}>
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.75}
+            minimumFontScale={DESIGN_SYSTEM.minimumScale.default}
             style={[
               styles.title,
               {
                 color: widget.titleColor,
-                fontSize: Math.max(widget.titleSize - 1, 9),
-                lineHeight: Math.max(WIDGET_PREVIEW_SPEC.text.label.lineHeight - 1, 12),
+                fontSize: widget.titleSize,
+                lineHeight: WIDGET_PREVIEW_SPEC.text.label.lineHeight,
               },
             ]}
           >
@@ -71,22 +109,41 @@ export function HeatmapWidgetPreview({
         {variant === 'year' ? (
           <YearHeatmapPreview rows={rows} widget={widget} />
         ) : (
-          <View style={[styles.calendar, { gap: gridGap }]}>
+          <View
+            style={[
+              styles.calendar,
+              { gap: gridGap },
+              fittedCalendarWidth ? { alignSelf: 'center', width: fittedCalendarWidth } : null,
+            ]}
+          >
             <View style={[styles.weekdayHeader, { gap: gridGap }]}>
               {weekdayLabels.map((label) => (
-                <Text
+                <View
                   key={label}
                   style={[
-                    styles.weekdayLabel,
+                    styles.weekdayLabelCell,
                     {
-                      color: widget.weekdayLabelColor,
-                      fontSize: widget.weekdayLabelSize,
-                      lineHeight: WIDGET_PREVIEW_SPEC.text.calendar.weekdayLineHeight,
+                      aspectRatio:
+                        1 / WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabelHeightInCells,
                     },
+                    fittedCellStyle,
                   ]}
                 >
-                  {label}
-                </Text>
+                  <Text
+                    style={[
+                      styles.weekdayLabel,
+                      {
+                        color: weekendWeekdayLabels.includes(label)
+                          ? widget.weekendWeekdayLabelColor
+                          : widget.weekdayLabelColor,
+                        fontSize: widget.weekdayLabelSize,
+                        lineHeight: WIDGET_PREVIEW_SPEC.text.calendar.weekdayLineHeight,
+                      },
+                    ]}
+                  >
+                    {label}
+                  </Text>
+                </View>
               ))}
             </View>
 
@@ -102,6 +159,13 @@ export function HeatmapWidgetPreview({
                           borderRadius: widget.cellRadius,
                           backgroundColor: cell.color,
                         },
+                        cell.isToday
+                          ? {
+                              borderColor: widget.todayIndicatorColor,
+                              borderWidth: widget.todayIndicatorWidth,
+                            }
+                          : null,
+                        fittedCellStyle,
                       ]}>
                       {showCalendarLabels && cell.label ? (
                         <Text
@@ -110,7 +174,7 @@ export function HeatmapWidgetPreview({
                             {
                               color: cell.labelColor,
                               fontSize: widget.cellLabelSize,
-                              lineHeight: widget.cellLabelSize + 2,
+                              lineHeight: TYPOGRAPHY.sm.lineHeight,
                             },
                           ]}
                         >
@@ -131,7 +195,7 @@ export function HeatmapWidgetPreview({
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
-                minimumFontScale={0.75}
+                minimumFontScale={DESIGN_SYSTEM.minimumScale.default}
                 style={[
                   styles.footerSummary,
                   {
@@ -146,7 +210,7 @@ export function HeatmapWidgetPreview({
               <Text
                 numberOfLines={1}
                 adjustsFontSizeToFit
-                minimumFontScale={0.68}
+                minimumFontScale={DESIGN_SYSTEM.minimumScale.dense}
                 style={[
                   styles.monthSummary,
                   {
@@ -193,7 +257,7 @@ export function HeatmapWidgetPreview({
                       <Text
                         numberOfLines={1}
                         adjustsFontSizeToFit
-                        minimumFontScale={0.75}
+                        minimumFontScale={DESIGN_SYSTEM.minimumScale.default}
                         style={[
                           styles.footerRecordValue,
                           {
@@ -221,7 +285,7 @@ export function HeatmapWidgetPreview({
                     <Text
                       numberOfLines={1}
                       adjustsFontSizeToFit
-                      minimumFontScale={0.75}
+                      minimumFontScale={DESIGN_SYSTEM.minimumScale.default}
                       style={[
                         styles.footerRecordValue,
                         {
@@ -256,8 +320,6 @@ function HeatmapFooterStat({
       <Text style={[styles.footerStatLabel, { color: widget.brandColor }]}>{stat.label}</Text>
       <Text
         numberOfLines={1}
-        adjustsFontSizeToFit
-        minimumFontScale={0.88}
         style={[styles.footerStatValue, { color: widget.footerValueColor }]}
       >
         {stat.value}
@@ -381,9 +443,9 @@ const styles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontWeight: '700',
+    fontWeight: FONT_WEIGHT.medium,
     letterSpacing: 0,
-    opacity: 0.72,
+    opacity: DESIGN_SYSTEM.opacity.muted,
   },
   body: {
     flex: 1,
@@ -402,8 +464,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     width: '100%',
   },
-  weekdayLabel: {
+  weekdayLabelCell: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  weekdayLabel: {
     fontWeight: WIDGET_PREVIEW_SPEC.text.calendar.weekdayWeight,
     letterSpacing: 0,
     textAlign: 'center',
@@ -423,7 +489,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cellLabel: {
-    fontWeight: '800',
+    fontWeight: FONT_WEIGHT.bold,
     letterSpacing: 0,
     textAlign: 'center',
   },
@@ -431,8 +497,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   yearMonthHeader: {
-    height: WIDGET_PREVIEW_SPEC.text.calendar.monthLineHeight,
-    marginBottom: 4,
+    height: WIDGET_RENDERER_CONTRACT.heatmap.sixMonth.monthLabelHeight,
+    marginBottom: WIDGET_PREVIEW_SPEC.heatmap.year.cellGap,
     position: 'relative',
   },
   yearMonthLabel: {
@@ -451,53 +517,53 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
   },
   footerSummary: {
-    fontSize: 11,
-    lineHeight: 14,
-    fontWeight: '800',
+    fontSize: TYPOGRAPHY.md.size,
+    lineHeight: TYPOGRAPHY.md.lineHeight,
+    fontWeight: FONT_WEIGHT.bold,
     letterSpacing: 0,
   },
   monthSummary: {
-    fontWeight: '600',
+    fontWeight: FONT_WEIGHT.light,
     letterSpacing: 0,
-    opacity: 0.82,
+    opacity: DESIGN_SYSTEM.opacity.muted,
   },
   footerRecords: {
-    gap: 2,
+    gap: WEEK_FOOTER.recentRowGap,
   },
   footerRecordsLabel: {
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: '800',
+    fontSize: WEEK_FOOTER.recentLabelSize,
+    lineHeight: TYPOGRAPHY.sm.lineHeight,
+    fontWeight: FONT_WEIGHT.bold,
     letterSpacing: 0,
   },
   footerRecord: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 6,
+    gap: DESIGN_SYSTEM.spacing.md,
     width: '100%',
   },
   footerRecordValue: {
     flex: 1,
-    fontSize: 10,
-    lineHeight: 13,
-    fontWeight: '800',
+    fontSize: WEEK_FOOTER.recentValueSize,
+    lineHeight: TYPOGRAPHY.md.lineHeight,
+    fontWeight: FONT_WEIGHT.bold,
     letterSpacing: 0,
   },
   footerRecordMeta: {
-    fontSize: 9,
-    lineHeight: 12,
-    fontWeight: '800',
+    fontSize: WEEK_FOOTER.recentMetaSize,
+    lineHeight: TYPOGRAPHY.sm.lineHeight,
+    fontWeight: FONT_WEIGHT.medium,
     letterSpacing: 0,
   },
   footerStatsTopRow: {
     flexDirection: 'row',
-    gap: 4,
+    gap: WEEK_FOOTER.statGap,
   },
   footerStat: {
     flexDirection: 'row',
     alignItems: 'baseline',
-    gap: 4,
+    gap: WEEK_FOOTER.statGap,
   },
   footerStatCountItem: {
     flex: 0.7,
@@ -506,15 +572,15 @@ const styles = StyleSheet.create({
     flex: 1.3,
   },
   footerStatLabel: {
-    fontSize: 8,
-    lineHeight: 10,
-    fontWeight: '800',
+    fontSize: WEEK_FOOTER.statLabelSize,
+    lineHeight: TYPOGRAPHY.sm.lineHeight,
+    fontWeight: FONT_WEIGHT.medium,
     letterSpacing: 0,
   },
   footerStatValue: {
-    fontSize: 14,
-    lineHeight: 17,
-    fontWeight: '800',
+    fontSize: WEEK_FOOTER.statValueSize,
+    lineHeight: TYPOGRAPHY.lg.lineHeight,
+    fontWeight: FONT_WEIGHT.bold,
     letterSpacing: 0,
   },
 });

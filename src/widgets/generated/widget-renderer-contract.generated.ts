@@ -3,95 +3,158 @@
 
 export const WIDGET_RENDERER_CONTRACT = {
   "version": 1,
+  "designSystem": {
+    "spacing": {
+      "xs": 2,
+      "sm": 4,
+      "md": 8,
+      "lg": 12
+    },
+    "radius": {
+      "cell": 3,
+      "control": 12,
+      "container": 24
+    },
+    "typography": {
+      "sm": {
+        "size": 8,
+        "lineHeight": 10
+      },
+      "md": {
+        "size": 12,
+        "lineHeight": 16
+      },
+      "lg": {
+        "size": 16,
+        "lineHeight": 21
+      },
+      "xl": {
+        "size": 26,
+        "lineHeight": 31
+      }
+    },
+    "fontWeight": {
+      "bold": "800",
+      "medium": "700",
+      "light": "600"
+    },
+    "opacity": {
+      "default": 1,
+      "muted": 0.72
+    },
+    "minimumScale": {
+      "dense": 0.68,
+      "default": 0.75
+    },
+    "colorRoles": {
+      "surface": "card",
+      "raisedSurface": "surface2",
+      "textHigh": "tx",
+      "textMedium": "tx2",
+      "textLow": "tx4",
+      "textWeekend": "danger",
+      "todayIndicator": "todayIndicator",
+      "accent": "accent",
+      "onAccent": "accentText",
+      "heatmapBase": "heatbase",
+      "heatmapEmpty": "heat0"
+    },
+    "contentPadding": 12
+  },
   "card": {
     "screenBackground": "#0C0D10",
     "background": "#141418",
     "border": "rgba(255,255,255,0.08)",
     "radius": 24,
-    "contentPadding": 16,
+    "contentPadding": 12,
     "contentGap": 12
   },
   "text": {
     "label": {
-      "size": 11,
-      "lineHeight": 14,
-      "weight": "800",
-      "color": "#8A8A90"
+      "size": 12,
+      "lineHeight": 16,
+      "weight": "800"
     },
     "brand": {
-      "size": 10,
-      "lineHeight": 13,
-      "weight": "700",
-      "color": "#6B6B70"
+      "size": 8,
+      "lineHeight": 10,
+      "weight": "700"
     },
     "calendar": {
       "weekdaySize": 8,
       "weekdayLineHeight": 10,
       "weekdayWeight": "800",
-      "monthSize": 9,
-      "monthLineHeight": 11,
-      "color": "#6B6B70",
-      "dayColor": "#9A9AA0"
+      "monthSize": 8,
+      "monthLineHeight": 10
     }
   },
   "control": {
     "cardSize": 158,
-    "headerHeight": 14,
-    "bodyHeight": 54,
+    "verticalDistribution": "spaceBetween",
     "bodyGap": 4,
     "activeDotSize": 7,
-    "activeDotGap": 6,
+    "activeDotGap": 8,
     "buttonHeight": 28,
     "buttonRadius": 12,
-    "buttonDarkBackground": "#26262B",
-    "footerWithRangeHeight": 41,
-    "footerGap": 1,
+    "footerGap": 2,
     "timerMaxHours": 8,
     "text": {
       "title": {
-        "size": 19,
-        "lineHeight": 24,
-        "weight": "800",
-        "color": "#F4F4F2"
+        "size": 16,
+        "lineHeight": 21,
+        "weight": "800"
       },
       "timer": {
         "size": 26,
-        "lineHeight": 30,
-        "weight": "800",
-        "color": "#F4F4F2"
+        "lineHeight": 31,
+        "weight": "800"
       },
       "detail": {
-        "size": 13,
-        "lineHeight": 18,
-        "weight": "600",
-        "color": "#8A8A90"
+        "size": 12,
+        "lineHeight": 16,
+        "weight": "600"
       },
       "button": {
-        "size": 13,
-        "lineHeight": 18,
+        "size": 12,
+        "lineHeight": 16,
         "weight": "800"
       },
       "duration": {
-        "size": 22,
-        "lineHeight": 26,
+        "size": 26,
+        "lineHeight": 31,
         "weight": "800"
       },
       "range": {
-        "size": 11,
-        "lineHeight": 14,
-        "weight": "600",
-        "color": "#8A8A90"
+        "size": 12,
+        "lineHeight": 16,
+        "weight": "600"
       }
     }
   },
   "liveActivity": {
+    "banner": {
+      "minHeight": 104,
+      "contentPadding": 12,
+      "contentGap": 8,
+      "rowGap": 4,
+      "titleFontSize": 16,
+      "statusFontSize": 12,
+      "timerFontSize": 26,
+      "buttonWidth": 88,
+      "buttonHeight": 32,
+      "buttonFontSize": 12
+    },
     "compact": {
       "leadingWidth": 48,
       "trailingWidth": 48,
-      "fontSize": 11,
+      "fontSize": 12,
       "previewWidth": 230,
       "previewHeight": 37,
       "previewHorizontalPadding": 7
+    },
+    "minimal": {
+      "previewSize": 46,
+      "fontSize": 12
     },
     "expanded": {
       "regions": {
@@ -106,13 +169,14 @@ export const WIDGET_RENDERER_CONTRACT = {
       "previewHeight": 84,
       "horizontalPadding": 12,
       "titleWidth": 72,
-      "titleFontSize": 14,
-      "titleMinimumScaleFactor": 0.76,
-      "timerFontSize": 14,
-      "timerLineHeight": 14,
+      "titleFontSize": 16,
+      "titleMinimumScaleFactor": 0.75,
+      "timerFontSize": 26,
+      "timerLineHeight": 31,
       "buttonWidth": 60,
       "buttonHeight": 26,
-      "buttonFontSize": 11
+      "buttonFontSize": 12,
+      "contentGap": 8
     }
   },
   "heatmap": {
@@ -125,15 +189,63 @@ export const WIDGET_RENDERER_CONTRACT = {
       "금",
       "토"
     ],
+    "weekdayLabelHeightInCells": 1,
+    "weekdayLabelColorPolicy": {
+      "weekendLabels": [
+        "일",
+        "토"
+      ],
+      "weekendRole": "textWeekend"
+    },
     "cellLabelColorPolicy": {
-      "empty": "detail",
-      "filled": "title",
-      "strongFilled": "accentText",
+      "empty": "textLow",
+      "filled": "textHigh",
+      "strongFilled": "onAccent",
       "strongMinimumBucket": 3,
       "strongMinimumDurationSeconds": 3600
     },
+    "styles": {
+      "detailed": {
+        "columns": 7,
+        "contentPadding": 12,
+        "cellGap": 4,
+        "cellRadius": 3,
+        "cellLabelSize": 8,
+        "headerGap": 8,
+        "headerFontSize": 12
+      },
+      "compact": {
+        "columns": 0,
+        "contentPadding": 12,
+        "cellGap": 2,
+        "cellRadius": 3,
+        "cellLabelSize": 0,
+        "headerGap": 8,
+        "headerFontSize": 8
+      }
+    },
+    "previewVariants": {
+      "currentMonth": {
+        "style": "detailed",
+        "headerVisible": true,
+        "maxRows": 6,
+        "todayIndicator": {
+          "style": "border",
+          "colorRole": "todayIndicator",
+          "width": 1.5
+        }
+      }
+    },
     "variants": {
       "week": {
+        "columns": 7,
+        "contentPadding": 12,
+        "cellGap": 4,
+        "cellRadius": 3,
+        "cellLabelSize": 8,
+        "headerGap": 8,
+        "headerFontSize": 12,
+        "style": "detailed",
         "nativeCase": "week",
         "kindAccessor": "heatmapWeek",
         "title": "지난 7일",
@@ -141,14 +253,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "rangeDays": 7,
         "rangeWeeks": 0,
         "rangeMonths": 0,
-        "columns": 7,
-        "contentPadding": 16,
-        "cellGap": 4,
-        "cellRadius": 4,
-        "cellLabelSize": 8,
-        "headerGap": 8,
         "headerVisible": false,
-        "headerFontSize": 11,
         "headerSummary": "none",
         "calendarAlignment": "rollingDays",
         "showLeadingCalendarCells": false,
@@ -157,6 +262,14 @@ export const WIDGET_RENDERER_CONTRACT = {
         "reservedFooterHeight": 63
       },
       "month": {
+        "columns": 7,
+        "contentPadding": 12,
+        "cellGap": 4,
+        "cellRadius": 3,
+        "cellLabelSize": 8,
+        "headerGap": 8,
+        "headerFontSize": 12,
+        "style": "detailed",
         "nativeCase": "month",
         "kindAccessor": "heatmapMonth",
         "title": "지난 5주",
@@ -164,14 +277,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "rangeDays": 0,
         "rangeWeeks": 5,
         "rangeMonths": 0,
-        "columns": 7,
-        "contentPadding": 12,
-        "cellGap": 3,
-        "cellRadius": 3,
-        "cellLabelSize": 7,
-        "headerGap": 8,
         "headerVisible": false,
-        "headerFontSize": 11,
         "headerSummary": "none",
         "calendarAlignment": "calendarWeeks",
         "showLeadingCalendarCells": false,
@@ -180,6 +286,14 @@ export const WIDGET_RENDERER_CONTRACT = {
         "reservedFooterHeight": 18
       },
       "year": {
+        "columns": 0,
+        "contentPadding": 12,
+        "cellGap": 2,
+        "cellRadius": 3,
+        "cellLabelSize": 0,
+        "headerGap": 8,
+        "headerFontSize": 8,
+        "style": "compact",
         "nativeCase": "sixMonths",
         "kindAccessor": "heatmapSixMonths",
         "title": "지난 6개월",
@@ -187,14 +301,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "rangeDays": 0,
         "rangeWeeks": 0,
         "rangeMonths": 6,
-        "columns": 0,
-        "contentPadding": 16,
-        "cellGap": 2,
-        "cellRadius": 2,
-        "cellLabelSize": 0,
-        "headerGap": 8,
         "headerVisible": true,
-        "headerFontSize": 10,
         "headerSummary": "countTotalAverage",
         "calendarAlignment": "continuousMonthsWithBoundarySlots",
         "showLeadingCalendarCells": true,
@@ -204,9 +311,9 @@ export const WIDGET_RENDERER_CONTRACT = {
       }
     },
     "sixMonth": {
-      "monthLabelSize": 9,
-      "monthLabelHeight": 12,
-      "monthHeaderBottomGap": 12
+      "monthLabelSize": 8,
+      "monthLabelHeight": 16,
+      "monthHeaderBottomGap": 8
     },
     "weekFooter": {
       "statOrder": [
@@ -227,10 +334,10 @@ export const WIDGET_RENDERER_CONTRACT = {
       "statGap": 4,
       "recentRowGap": 2,
       "statLabelSize": 8,
-      "statValueSize": 14,
+      "statValueSize": 16,
       "recentLabelSize": 8,
-      "recentValueSize": 10,
-      "recentMetaSize": 9
+      "recentValueSize": 12,
+      "recentMetaSize": 8
     },
     "monthFooter": {
       "statOrder": [
@@ -252,17 +359,39 @@ export const WIDGET_RENDERER_CONTRACT = {
     },
     "compactCharacterLimit": 3,
     "summaryDays": 7,
-    "inlineFontSize": 13,
-    "circularDefaultFontSize": 18,
-    "circularCompletedFontSize": 15,
-    "rectangularTitleFontSize": 30,
-    "rectangularDetailFontSize": 18,
+    "text": {
+      "inline": {
+        "size": 12,
+        "lineHeight": 16,
+        "weight": "800"
+      },
+      "circular": {
+        "size": 16,
+        "lineHeight": 21,
+        "weight": "800"
+      },
+      "rectangularTitle": {
+        "size": 26,
+        "lineHeight": 31,
+        "weight": "800"
+      },
+      "rectangularDetail": {
+        "size": 16,
+        "lineHeight": 21,
+        "weight": "700"
+      },
+      "summary": {
+        "size": 16,
+        "lineHeight": 21,
+        "weight": "800"
+      }
+    },
     "summary": {
       "cellSize": 18,
-      "cellGap": 3,
-      "cellRadius": 5,
-      "fontSize": 15,
-      "contentGap": 6,
+      "cellGap": 4,
+      "cellRadius": 3,
+      "fontSize": 16,
+      "contentGap": 8,
       "contentPadding": 4
     }
   }

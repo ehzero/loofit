@@ -200,6 +200,7 @@ struct LoofitWidgetPalette {
   let tx2: String
   let tx3: String
   let tx4: String
+  let textWeekend: String
   let tx5: String
   let surface2: String
   let secondaryButtonText: String
@@ -217,6 +218,7 @@ struct LoofitWidgetPalette {
     tx2 = theme.heatmapFooterValueColor
     tx3 = theme.detailColor
     tx4 = theme.heatmapWeekdayLabelColor
+    textWeekend = theme.heatmapWeekendLabelColor
     tx5 = theme.heatmapBrandColor
     surface2 = theme.secondaryButtonBackground
     secondaryButtonText = theme.secondaryButtonText
@@ -342,7 +344,7 @@ struct LoofitHeatmapWidgetView: View {
       VStack(alignment: .leading, spacing: rendererSpec.headerVisible ? rendererSpec.headerGap : 0) {
         if rendererSpec.headerVisible, rendererSpec.headerSummary != .none {
           Text(headerTitle)
-            .font(.system(size: rendererSpec.headerFontSize, weight: .semibold))
+            .font(.system(size: rendererSpec.headerFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
             .foregroundStyle(LoofitColor(entry.palette.tx3))
             .opacity(0.82)
             .lineLimit(1)
@@ -396,8 +398,10 @@ struct LoofitHeatmapWidgetView: View {
     let gap = rendererSpec.cellGap
     let padding = rendererSpec.contentPadding * 2
     let width = max(0, available.width - padding - gap * CGFloat(columns - 1))
-    let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - rendererSpec.reservedFooterHeight - gap * CGFloat(max(rows.count - 1, 0)))
-    let cell = max(0, min(width / CGFloat(columns), height / CGFloat(max(rows.count, 1))))
+    let weekdayLabelHeightInCells = LoofitWidgetRendererContract.Heatmap.weekdayLabelHeightInCells
+    let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - rendererSpec.reservedFooterHeight - gap * CGFloat(rows.count))
+    let gridHeightInCells = CGFloat(max(rows.count, 1)) + weekdayLabelHeightInCells
+    let cell = max(0, min(width / CGFloat(columns), height / gridHeightInCells))
     return VStack(alignment: .leading, spacing: gap) {
       HStack(spacing: gap) {
         if rendererSpec.calendarAlignment == .rollingDays {
@@ -421,7 +425,7 @@ struct LoofitHeatmapWidgetView: View {
                 .fill(color(for: day))
               if day.inRange || rendererSpec.showLeadingCalendarCells {
                 Text("\(Calendar.current.component(.day, from: day.date))")
-                  .font(.system(size: rendererSpec.cellLabelSize, weight: .heavy))
+                  .font(.system(size: rendererSpec.cellLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
                   .foregroundStyle(labelColor(for: day))
                   .minimumScaleFactor(0.6)
               }
@@ -445,15 +449,21 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private func weekdayLabel(_ label: String, cell: CGFloat) -> some View {
-    Text(label)
+    let color = LoofitWidgetRendererContract.Heatmap.weekendWeekdayLabels.contains(label)
+      ? LoofitColor(entry.palette.textWeekend)
+      : LoofitColor(entry.palette.tx4)
+    return Text(label)
       .font(
         .system(
           size: LoofitWidgetRendererContract.Heatmap.weekdayLabelSize,
-          weight: .heavy
+          weight: LoofitWidgetRendererContract.FontWeight.bold
         )
       )
-      .foregroundStyle(LoofitColor(entry.palette.tx4))
-      .frame(width: cell)
+      .foregroundStyle(color)
+      .frame(
+        width: cell,
+        height: cell * LoofitWidgetRendererContract.Heatmap.weekdayLabelHeightInCells
+      )
   }
 
   private func sixMonthGrid(available: CGSize) -> some View {
@@ -468,7 +478,7 @@ struct LoofitHeatmapWidgetView: View {
       ForEach(columns) { column in
         VStack(alignment: .leading, spacing: gap) {
           Text(column.monthLabel)
-            .font(.system(size: LoofitWidgetRendererContract.Heatmap.monthLabelSize, weight: .heavy))
+            .font(.system(size: LoofitWidgetRendererContract.Heatmap.monthLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
             .foregroundStyle(LoofitColor(entry.palette.tx4))
             .lineLimit(1)
             .fixedSize(horizontal: true, vertical: false)
@@ -507,13 +517,13 @@ struct LoofitHeatmapWidgetView: View {
       .font(
         .system(
           size: LoofitWidgetRendererContract.Heatmap.year.headerFontSize,
-          weight: .semibold
+          weight: LoofitWidgetRendererContract.FontWeight.light
         )
       )
       .foregroundStyle(LoofitColor(entry.palette.tx3))
-      .opacity(0.82)
+      .opacity(LoofitWidgetRendererContract.Opacity.muted)
       .lineLimit(1)
-      .minimumScaleFactor(0.68)
+      .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.dense)
   }
 
   private var monthSummary: String {
@@ -564,24 +574,24 @@ struct LoofitHeatmapWidgetView: View {
   private var weekRecent: some View {
     VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentRowGap) {
       Text(LoofitWidgetRendererContract.Heatmap.WeekFooter.recentLabel)
-        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentLabelSize, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
         .foregroundStyle(LoofitColor(entry.palette.tx5))
       if recentWeekWorkouts.isEmpty {
         Text(LoofitWidgetRendererContract.Heatmap.WeekFooter.emptyRecentLabel)
-          .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentValueSize, weight: .heavy))
+          .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentValueSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(entry.palette.tx2))
           .lineLimit(1)
       } else {
         ForEach(recentWeekWorkouts, id: \.id) { session in
           HStack(spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.statGap) {
             Text("\(session.title) · \(LoofitFormat.duration(session.durationSeconds))")
-              .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentValueSize, weight: .heavy))
+              .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentValueSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
               .foregroundStyle(LoofitColor(entry.palette.tx2))
               .lineLimit(1)
             Spacer(minLength: 0)
             if let date = session.startedDate {
               Text(LoofitFormat.relativeDay(date, now: entry.date))
-                .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentMetaSize, weight: .heavy))
+                .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.recentMetaSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
                 .foregroundStyle(LoofitColor(entry.palette.tx5))
             }
           }
@@ -593,10 +603,10 @@ struct LoofitHeatmapWidgetView: View {
   private func stat(label: String, value: String) -> some View {
     HStack(alignment: .firstTextBaseline, spacing: LoofitWidgetRendererContract.Heatmap.WeekFooter.statGap) {
       Text(label)
-        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.statLabelSize, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.statLabelSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
         .foregroundStyle(LoofitColor(entry.palette.tx5))
       Text(value)
-        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.statValueSize, weight: .heavy))
+        .font(.system(size: LoofitWidgetRendererContract.Heatmap.WeekFooter.statValueSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
         .foregroundStyle(LoofitColor(entry.palette.tx2))
         .lineLimit(1)
         .allowsTightening(true)
@@ -635,12 +645,12 @@ struct LoofitHeatmapWidgetView: View {
     }
 
     switch role {
-    case .title:
+    case .textHigh:
       return LoofitColor(entry.palette.tx)
-    case .accentText:
+    case .onAccent:
       return LoofitColor(entry.palette.accentText)
-    case .detail:
-      return LoofitColor(entry.palette.tx3)
+    case .textLow:
+      return LoofitColor(entry.palette.tx4)
     }
   }
 }
@@ -671,7 +681,7 @@ struct LoofitWorkoutLiveActivity: Widget {
           Text(context.state.title)
             .font(.system(
               size: LoofitWidgetRendererContract.LiveActivity.Expanded.titleFontSize,
-              weight: .heavy
+              weight: LoofitWidgetRendererContract.FontWeight.bold
             ))
             .foregroundStyle(.white)
             .lineLimit(1)
@@ -718,7 +728,7 @@ struct LoofitWorkoutLiveActivity: Widget {
         Text("🏋️ " + context.state.title.replacingOccurrences(of: " · ", with: "·"))
           .font(.system(
             size: LoofitWidgetRendererContract.LiveActivity.Compact.fontSize,
-            weight: .heavy
+            weight: LoofitWidgetRendererContract.FontWeight.bold
           ))
           .foregroundStyle(LoofitColor(context.state.accent))
           .lineLimit(1)
@@ -735,7 +745,10 @@ struct LoofitWorkoutLiveActivity: Widget {
         .frame(width: LoofitWidgetRendererContract.LiveActivity.Compact.trailingWidth)
       } minimal: {
         Text(String(context.state.title.prefix(4)))
-          .font(.system(size: 10, weight: .heavy))
+          .font(.system(
+            size: LoofitWidgetRendererContract.LiveActivity.Minimal.fontSize,
+            weight: LoofitWidgetRendererContract.FontWeight.bold
+          ))
           .foregroundStyle(LoofitColor(context.state.accent))
           .lineLimit(1)
       }
@@ -749,32 +762,41 @@ private struct LoofitWorkoutActivityBanner: View {
   let context: ActivityViewContext<LoofitWorkoutActivityAttributes>
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 7) {
-      HStack(spacing: 4) {
+    VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.LiveActivity.Banner.contentGap) {
+      HStack(spacing: LoofitWidgetRendererContract.LiveActivity.Banner.rowGap) {
         Text(context.state.title)
-          .font(.system(size: 17, weight: .heavy))
+          .font(.system(
+            size: LoofitWidgetRendererContract.LiveActivity.Banner.titleFontSize,
+            weight: LoofitWidgetRendererContract.FontWeight.bold
+          ))
           .foregroundStyle(LoofitColor(context.state.titleColor))
           .lineLimit(1)
-          .minimumScaleFactor(0.78)
+          .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.defaultValue)
         Spacer(minLength: 0)
         Text("운동 중")
-          .font(.system(size: 11, weight: .heavy))
+          .font(.system(
+            size: LoofitWidgetRendererContract.LiveActivity.Banner.statusFontSize,
+            weight: LoofitWidgetRendererContract.FontWeight.bold
+          ))
           .foregroundStyle(LoofitColor(context.state.accent))
       }
-      HStack(spacing: 10) {
-        LoofitActivityTimer(state: context.state, size: 32)
+      HStack(spacing: LoofitWidgetRendererContract.LiveActivity.Banner.rowGap) {
+        LoofitActivityTimer(
+          state: context.state,
+          size: LoofitWidgetRendererContract.LiveActivity.Banner.timerFontSize
+        )
         Spacer(minLength: 0)
         LoofitActivityEndButton(
           sessionId: context.attributes.sessionId,
           accent: context.state.accent,
           accentText: context.state.accentText,
-          width: 88,
-          height: 32,
-          fontSize: 13
+          width: LoofitWidgetRendererContract.LiveActivity.Banner.buttonWidth,
+          height: LoofitWidgetRendererContract.LiveActivity.Banner.buttonHeight,
+          fontSize: LoofitWidgetRendererContract.LiveActivity.Banner.buttonFontSize
         )
       }
     }
-    .padding(14)
+    .padding(LoofitWidgetRendererContract.LiveActivity.Banner.contentPadding)
   }
 }
 
@@ -790,7 +812,7 @@ private struct LoofitActivityTimer: View {
         Text("0:00")
       }
     }
-    .font(.system(size: size, weight: .heavy, design: .rounded))
+    .font(.system(size: size, weight: LoofitWidgetRendererContract.FontWeight.bold, design: .rounded))
     .monospacedDigit()
     .foregroundStyle(LoofitColor(state.accent))
     .lineLimit(1)
@@ -820,10 +842,10 @@ private struct LoofitActivityEndButton: View {
 
   private var label: some View {
     Text("운동 종료")
-      .font(.system(size: fontSize, weight: .heavy))
+      .font(.system(size: fontSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
       .foregroundStyle(LoofitColor(accentText))
       .lineLimit(1)
-      .minimumScaleFactor(0.8)
+      .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.defaultValue)
       .frame(width: width, height: height)
       .background(LoofitColor(accent))
       .clipShape(Capsule())

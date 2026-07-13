@@ -24,9 +24,9 @@ enum LoofitHeatmapStat {
 }
 
 enum LoofitHeatmapCellLabelColorRole {
-  case detail
-  case title
-  case accentText
+  case textLow
+  case textHigh
+  case onAccent
 }
 
 struct LoofitHeatmapRendererSpec {
@@ -52,31 +52,73 @@ struct LoofitHeatmapRendererSpec {
 
 enum LoofitWidgetRendererContract {
   static let version = 1
-  static let contentPadding: CGFloat = 16
+  static let contentPadding: CGFloat = 12
+
+  enum FontWeight {
+    static let bold: Font.Weight = .heavy
+    static let medium: Font.Weight = .bold
+    static let light: Font.Weight = .semibold
+  }
+
+  enum Spacing {
+    static let xs: CGFloat = 2
+    static let sm: CGFloat = 4
+    static let md: CGFloat = 8
+    static let lg: CGFloat = 12
+  }
+
+  enum Radius {
+    static let cell: CGFloat = 3
+    static let control: CGFloat = 12
+    static let container: CGFloat = 24
+  }
+
+  enum Opacity {
+    static let defaultValue: Double = 1
+    static let muted: Double = 0.72
+  }
+
+  enum MinimumScale {
+    static let dense: CGFloat = 0.68
+    static let defaultValue: CGFloat = 0.75
+  }
 
   enum Control {
-    static let headerHeight: CGFloat = 14
-    static let bodyHeight: CGFloat = 54
     static let bodyGap: CGFloat = 4
     static let activeDotSize: CGFloat = 7
-    static let activeDotGap: CGFloat = 6
+    static let activeDotGap: CGFloat = 8
     static let buttonHeight: CGFloat = 28
     static let buttonRadius: CGFloat = 12
-    static let footerHeight: CGFloat = 41
-    static let footerGap: CGFloat = 1
-    static let titleSize: CGFloat = 19
+    static let footerGap: CGFloat = 2
+    static let titleSize: CGFloat = 16
     static let timerSize: CGFloat = 26
-    static let detailSize: CGFloat = 13
-    static let buttonTextSize: CGFloat = 13
-    static let durationSize: CGFloat = 22
-    static let rangeSize: CGFloat = 11
+    static let detailSize: CGFloat = 12
+    static let buttonTextSize: CGFloat = 12
+    static let durationSize: CGFloat = 26
+    static let rangeSize: CGFloat = 12
   }
 
   enum LiveActivity {
+    enum Banner {
+      static let contentPadding: CGFloat = 12
+      static let contentGap: CGFloat = 8
+      static let rowGap: CGFloat = 4
+      static let titleFontSize: CGFloat = 16
+      static let statusFontSize: CGFloat = 12
+      static let timerFontSize: CGFloat = 26
+      static let buttonWidth: CGFloat = 88
+      static let buttonHeight: CGFloat = 32
+      static let buttonFontSize: CGFloat = 12
+    }
+
     enum Compact {
       static let leadingWidth: CGFloat = 48
       static let trailingWidth: CGFloat = 48
-      static let fontSize: CGFloat = 11
+      static let fontSize: CGFloat = 12
+    }
+
+    enum Minimal {
+      static let fontSize: CGFloat = 12
     }
 
     enum Expanded {
@@ -86,22 +128,24 @@ enum LoofitWidgetRendererContract {
       static let sideRegionAlignment: Alignment = .center
       static let timerAlignment: Alignment = .trailing
       static let timerRegionPriority: Double = 1
-      static let titleFontSize: CGFloat = 14
-      static let titleMinimumScaleFactor: CGFloat = 0.76
-      static let timerFontSize: CGFloat = 14
-      static let timerLineHeight: CGFloat = 14
+      static let titleFontSize: CGFloat = 16
+      static let titleMinimumScaleFactor: CGFloat = 0.75
+      static let timerFontSize: CGFloat = 26
+      static let timerLineHeight: CGFloat = 31
       static let buttonWidth: CGFloat = 60
       static let buttonHeight: CGFloat = 26
-      static let buttonFontSize: CGFloat = 11
+      static let buttonFontSize: CGFloat = 12
     }
   }
 
   enum Heatmap {
     static let weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"]
+    static let weekdayLabelHeightInCells: CGFloat = 1
+    static let weekendWeekdayLabels = ["일", "토"]
     static let weekdayLabelSize: CGFloat = 8
-    static let emptyCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .detail
-    static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .title
-    static let strongFilledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .accentText
+    static let emptyCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .textLow
+    static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .textHigh
+    static let strongFilledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .onAccent
     static let strongCellLabelMinimumDurationSeconds = 3600
     static let week = LoofitHeatmapRendererSpec(
       title: "지난 7일",
@@ -109,13 +153,13 @@ enum LoofitWidgetRendererContract {
       rangeWeeks: 0,
       rangeMonths: 0,
       columns: 7,
-      contentPadding: 16,
+      contentPadding: 12,
       cellGap: 4,
-      cellRadius: 4,
+      cellRadius: 3,
       cellLabelSize: 8,
       headerGap: 8,
       headerVisible: false,
-      headerFontSize: 11,
+      headerFontSize: 12,
       headerSummary: .none,
       calendarAlignment: .rollingDays,
       showLeadingCalendarCells: false,
@@ -130,12 +174,12 @@ enum LoofitWidgetRendererContract {
       rangeMonths: 0,
       columns: 7,
       contentPadding: 12,
-      cellGap: 3,
+      cellGap: 4,
       cellRadius: 3,
-      cellLabelSize: 7,
+      cellLabelSize: 8,
       headerGap: 8,
       headerVisible: false,
-      headerFontSize: 11,
+      headerFontSize: 12,
       headerSummary: .none,
       calendarAlignment: .calendarWeeks,
       showLeadingCalendarCells: false,
@@ -149,13 +193,13 @@ enum LoofitWidgetRendererContract {
       rangeWeeks: 0,
       rangeMonths: 6,
       columns: 0,
-      contentPadding: 16,
+      contentPadding: 12,
       cellGap: 2,
-      cellRadius: 2,
+      cellRadius: 3,
       cellLabelSize: 0,
       headerGap: 8,
       headerVisible: true,
-      headerFontSize: 10,
+      headerFontSize: 8,
       headerSummary: .countTotalAverage,
       calendarAlignment: .continuousMonthsWithBoundarySlots,
       showLeadingCalendarCells: true,
@@ -164,9 +208,9 @@ enum LoofitWidgetRendererContract {
       reservedFooterHeight: 0
     )
 
-    static let monthLabelSize: CGFloat = 9
-    static let monthLabelHeight: CGFloat = 12
-    static let monthHeaderBottomGap: CGFloat = 12
+    static let monthLabelSize: CGFloat = 8
+    static let monthLabelHeight: CGFloat = 16
+    static let monthHeaderBottomGap: CGFloat = 8
 
     enum WeekFooter {
       static let statOrder: [LoofitHeatmapStat] = [.count, .totalDuration, .averageDuration]
@@ -179,10 +223,10 @@ enum LoofitWidgetRendererContract {
       static let statGap: CGFloat = 4
       static let recentRowGap: CGFloat = 2
       static let statLabelSize: CGFloat = 8
-      static let statValueSize: CGFloat = 14
+      static let statValueSize: CGFloat = 16
       static let recentLabelSize: CGFloat = 8
-      static let recentValueSize: CGFloat = 10
-      static let recentMetaSize: CGFloat = 9
+      static let recentValueSize: CGFloat = 12
+      static let recentMetaSize: CGFloat = 8
     }
 
     enum MonthFooter {
@@ -201,18 +245,18 @@ enum LoofitWidgetRendererContract {
     static let summaryTitle = "지난 7일"
     static let compactCharacterLimit = 3
     static let summaryDays = 7
-    static let inlineFontSize: CGFloat = 13
-    static let circularDefaultFontSize: CGFloat = 18
-    static let circularCompletedFontSize: CGFloat = 15
-    static let rectangularTitleFontSize: CGFloat = 30
-    static let rectangularDetailFontSize: CGFloat = 18
+    static let inlineFontSize: CGFloat = 12
+    static let circularDefaultFontSize: CGFloat = 16
+    static let circularCompletedFontSize: CGFloat = 16
+    static let rectangularTitleFontSize: CGFloat = 26
+    static let rectangularDetailFontSize: CGFloat = 16
 
     enum Summary {
       static let cellSize: CGFloat = 18
-      static let cellGap: CGFloat = 3
-      static let cellRadius: CGFloat = 5
-      static let fontSize: CGFloat = 15
-      static let contentGap: CGFloat = 6
+      static let cellGap: CGFloat = 4
+      static let cellRadius: CGFloat = 3
+      static let fontSize: CGFloat = 16
+      static let contentGap: CGFloat = 8
       static let contentPadding: CGFloat = 4
     }
   }

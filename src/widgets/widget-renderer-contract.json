@@ -1,94 +1,145 @@
 {
   "version": 1,
+  "designSystem": {
+    "spacing": {
+      "xs": 2,
+      "sm": 4,
+      "md": 8,
+      "lg": 12
+    },
+    "radius": {
+      "cell": 3,
+      "control": 12,
+      "container": 24
+    },
+    "typography": {
+      "sm": { "size": 8, "lineHeight": 10 },
+      "md": { "size": 12, "lineHeight": 16 },
+      "lg": { "size": 16, "lineHeight": 21 },
+      "xl": { "size": 26, "lineHeight": 31 }
+    },
+    "fontWeight": {
+      "bold": "800",
+      "medium": "700",
+      "light": "600"
+    },
+    "opacity": {
+      "default": 1,
+      "muted": 0.72
+    },
+    "minimumScale": {
+      "dense": 0.68,
+      "default": 0.75
+    },
+    "colorRoles": {
+      "surface": "card",
+      "raisedSurface": "surface2",
+      "textHigh": "tx",
+      "textMedium": "tx2",
+      "textLow": "tx4",
+      "textWeekend": "danger",
+      "todayIndicator": "todayIndicator",
+      "accent": "accent",
+      "onAccent": "accentText",
+      "heatmapBase": "heatbase",
+      "heatmapEmpty": "heat0"
+    },
+    "contentPadding": "{spacing.lg}"
+  },
   "card": {
     "screenBackground": "#0C0D10",
     "background": "#141418",
     "border": "rgba(255,255,255,0.08)",
-    "radius": 24,
-    "contentPadding": 16,
-    "contentGap": 12
+    "radius": "{radius.container}",
+    "contentPadding": "{contentPadding}",
+    "contentGap": "{spacing.lg}"
   },
   "text": {
     "label": {
-      "size": 11,
-      "lineHeight": 14,
-      "weight": "800",
-      "color": "#8A8A90"
+      "size": "{typography.md.size}",
+      "lineHeight": "{typography.md.lineHeight}",
+      "weight": "{fontWeight.bold}"
     },
     "brand": {
-      "size": 10,
-      "lineHeight": 13,
-      "weight": "700",
-      "color": "#6B6B70"
+      "size": "{typography.sm.size}",
+      "lineHeight": "{typography.sm.lineHeight}",
+      "weight": "{fontWeight.medium}"
     },
     "calendar": {
-      "weekdaySize": 8,
-      "weekdayLineHeight": 10,
-      "weekdayWeight": "800",
-      "monthSize": 9,
-      "monthLineHeight": 11,
-      "color": "#6B6B70",
-      "dayColor": "#9A9AA0"
+      "weekdaySize": "{typography.sm.size}",
+      "weekdayLineHeight": "{typography.sm.lineHeight}",
+      "weekdayWeight": "{fontWeight.bold}",
+      "monthSize": "{typography.sm.size}",
+      "monthLineHeight": "{typography.sm.lineHeight}"
     }
   },
   "control": {
     "cardSize": 158,
-    "headerHeight": 14,
-    "bodyHeight": 54,
-    "bodyGap": 4,
+    "verticalDistribution": "spaceBetween",
+    "bodyGap": "{spacing.sm}",
     "activeDotSize": 7,
-    "activeDotGap": 6,
+    "activeDotGap": "{spacing.md}",
     "buttonHeight": 28,
-    "buttonRadius": 12,
-    "buttonDarkBackground": "#26262B",
-    "footerWithRangeHeight": 41,
-    "footerGap": 1,
+    "buttonRadius": "{radius.control}",
+    "footerGap": "{spacing.xs}",
     "timerMaxHours": 8,
     "text": {
       "title": {
-        "size": 19,
-        "lineHeight": 24,
-        "weight": "800",
-        "color": "#F4F4F2"
+        "size": "{typography.lg.size}",
+        "lineHeight": "{typography.lg.lineHeight}",
+        "weight": "{fontWeight.bold}"
       },
       "timer": {
-        "size": 26,
-        "lineHeight": 30,
-        "weight": "800",
-        "color": "#F4F4F2"
+        "size": "{typography.xl.size}",
+        "lineHeight": "{typography.xl.lineHeight}",
+        "weight": "{fontWeight.bold}"
       },
       "detail": {
-        "size": 13,
-        "lineHeight": 18,
-        "weight": "600",
-        "color": "#8A8A90"
+        "size": "{typography.md.size}",
+        "lineHeight": "{typography.md.lineHeight}",
+        "weight": "{fontWeight.light}"
       },
       "button": {
-        "size": 13,
-        "lineHeight": 18,
-        "weight": "800"
+        "size": "{typography.md.size}",
+        "lineHeight": "{typography.md.lineHeight}",
+        "weight": "{fontWeight.bold}"
       },
       "duration": {
-        "size": 22,
-        "lineHeight": 26,
-        "weight": "800"
+        "size": "{typography.xl.size}",
+        "lineHeight": "{typography.xl.lineHeight}",
+        "weight": "{fontWeight.bold}"
       },
       "range": {
-        "size": 11,
-        "lineHeight": 14,
-        "weight": "600",
-        "color": "#8A8A90"
+        "size": "{typography.md.size}",
+        "lineHeight": "{typography.md.lineHeight}",
+        "weight": "{fontWeight.light}"
       }
     }
   },
   "liveActivity": {
+    "banner": {
+      "minHeight": 104,
+      "contentPadding": "{contentPadding}",
+      "contentGap": "{spacing.md}",
+      "rowGap": "{spacing.sm}",
+      "titleFontSize": "{typography.lg.size}",
+      "statusFontSize": "{typography.md.size}",
+      "timerFontSize": "{typography.xl.size}",
+      "buttonWidth": 88,
+      "buttonHeight": 32,
+      "buttonFontSize": "{typography.md.size}"
+    },
     "compact": {
       "leadingWidth": 48,
       "trailingWidth": 48,
-      "fontSize": 11,
+      "fontSize": "{typography.md.size}",
       "previewWidth": 230,
       "previewHeight": 37,
       "previewHorizontalPadding": 7
+    },
+    "minimal": {
+      "previewSize": 46,
+      "fontSize": "{typography.md.size}"
     },
     "expanded": {
       "regions": {
@@ -103,26 +154,65 @@
       "previewHeight": 84,
       "horizontalPadding": 12,
       "titleWidth": 72,
-      "titleFontSize": 14,
-      "titleMinimumScaleFactor": 0.76,
-      "timerFontSize": 14,
-      "timerLineHeight": 14,
+      "titleFontSize": "{typography.lg.size}",
+      "titleMinimumScaleFactor": "{minimumScale.default}",
+      "timerFontSize": "{typography.xl.size}",
+      "timerLineHeight": "{typography.xl.lineHeight}",
       "buttonWidth": 60,
       "buttonHeight": 26,
-      "buttonFontSize": 11
+      "buttonFontSize": "{typography.md.size}",
+      "contentGap": "{spacing.md}"
     }
   },
   "heatmap": {
     "weekdayLabels": ["일", "월", "화", "수", "목", "금", "토"],
+    "weekdayLabelHeightInCells": 1,
+    "weekdayLabelColorPolicy": {
+      "weekendLabels": ["일", "토"],
+      "weekendRole": "textWeekend"
+    },
     "cellLabelColorPolicy": {
-      "empty": "detail",
-      "filled": "title",
-      "strongFilled": "accentText",
+      "empty": "textLow",
+      "filled": "textHigh",
+      "strongFilled": "onAccent",
       "strongMinimumBucket": 3,
       "strongMinimumDurationSeconds": 3600
     },
+    "styles": {
+      "detailed": {
+        "columns": 7,
+        "contentPadding": "{contentPadding}",
+        "cellGap": "{spacing.sm}",
+        "cellRadius": "{radius.cell}",
+        "cellLabelSize": "{typography.sm.size}",
+        "headerGap": "{spacing.md}",
+        "headerFontSize": "{typography.md.size}"
+      },
+      "compact": {
+        "columns": 0,
+        "contentPadding": "{contentPadding}",
+        "cellGap": "{spacing.xs}",
+        "cellRadius": "{radius.cell}",
+        "cellLabelSize": 0,
+        "headerGap": "{spacing.md}",
+        "headerFontSize": "{typography.sm.size}"
+      }
+    },
+    "previewVariants": {
+      "currentMonth": {
+        "style": "detailed",
+        "headerVisible": true,
+        "maxRows": 6,
+        "todayIndicator": {
+          "style": "border",
+          "colorRole": "todayIndicator",
+          "width": 1.5
+        }
+      }
+    },
     "variants": {
       "week": {
+        "style": "detailed",
         "nativeCase": "week",
         "kindAccessor": "heatmapWeek",
         "title": "지난 7일",
@@ -130,14 +220,7 @@
         "rangeDays": 7,
         "rangeWeeks": 0,
         "rangeMonths": 0,
-        "columns": 7,
-        "contentPadding": 16,
-        "cellGap": 4,
-        "cellRadius": 4,
-        "cellLabelSize": 8,
-        "headerGap": 8,
         "headerVisible": false,
-        "headerFontSize": 11,
         "headerSummary": "none",
         "calendarAlignment": "rollingDays",
         "showLeadingCalendarCells": false,
@@ -146,6 +229,7 @@
         "reservedFooterHeight": 63
       },
       "month": {
+        "style": "detailed",
         "nativeCase": "month",
         "kindAccessor": "heatmapMonth",
         "title": "지난 5주",
@@ -153,14 +237,7 @@
         "rangeDays": 0,
         "rangeWeeks": 5,
         "rangeMonths": 0,
-        "columns": 7,
-        "contentPadding": 12,
-        "cellGap": 3,
-        "cellRadius": 3,
-        "cellLabelSize": 7,
-        "headerGap": 8,
         "headerVisible": false,
-        "headerFontSize": 11,
         "headerSummary": "none",
         "calendarAlignment": "calendarWeeks",
         "showLeadingCalendarCells": false,
@@ -169,6 +246,7 @@
         "reservedFooterHeight": 18
       },
       "year": {
+        "style": "compact",
         "nativeCase": "sixMonths",
         "kindAccessor": "heatmapSixMonths",
         "title": "지난 6개월",
@@ -176,14 +254,7 @@
         "rangeDays": 0,
         "rangeWeeks": 0,
         "rangeMonths": 6,
-        "columns": 0,
-        "contentPadding": 16,
-        "cellGap": 2,
-        "cellRadius": 2,
-        "cellLabelSize": 0,
-        "headerGap": 8,
         "headerVisible": true,
-        "headerFontSize": 10,
         "headerSummary": "countTotalAverage",
         "calendarAlignment": "continuousMonthsWithBoundarySlots",
         "showLeadingCalendarCells": true,
@@ -193,9 +264,9 @@
       }
     },
     "sixMonth": {
-      "monthLabelSize": 9,
-      "monthLabelHeight": 12,
-      "monthHeaderBottomGap": 12
+      "monthLabelSize": "{typography.sm.size}",
+      "monthLabelHeight": "{typography.md.lineHeight}",
+      "monthHeaderBottomGap": "{spacing.md}"
     },
     "weekFooter": {
       "statOrder": ["count", "totalDuration", "averageDuration"],
@@ -204,14 +275,14 @@
       "emptyRecentLabel": "아직 기록 없음",
       "alwaysShowRecent": true,
       "recentLimit": 2,
-      "topRowGap": 8,
-      "statGap": 4,
-      "recentRowGap": 2,
-      "statLabelSize": 8,
-      "statValueSize": 14,
-      "recentLabelSize": 8,
-      "recentValueSize": 10,
-      "recentMetaSize": 9
+      "topRowGap": "{spacing.md}",
+      "statGap": "{spacing.sm}",
+      "recentRowGap": "{spacing.xs}",
+      "statLabelSize": "{typography.sm.size}",
+      "statValueSize": "{typography.lg.size}",
+      "recentLabelSize": "{typography.sm.size}",
+      "recentValueSize": "{typography.md.size}",
+      "recentMetaSize": "{typography.sm.size}"
     },
     "monthFooter": {
       "statOrder": ["count", "totalDuration"],
@@ -230,18 +301,40 @@
     },
     "compactCharacterLimit": 3,
     "summaryDays": 7,
-    "inlineFontSize": 13,
-    "circularDefaultFontSize": 18,
-    "circularCompletedFontSize": 15,
-    "rectangularTitleFontSize": 30,
-    "rectangularDetailFontSize": 18,
+    "text": {
+      "inline": {
+        "size": "{typography.md.size}",
+        "lineHeight": "{typography.md.lineHeight}",
+        "weight": "{fontWeight.bold}"
+      },
+      "circular": {
+        "size": "{typography.lg.size}",
+        "lineHeight": "{typography.lg.lineHeight}",
+        "weight": "{fontWeight.bold}"
+      },
+      "rectangularTitle": {
+        "size": "{typography.xl.size}",
+        "lineHeight": "{typography.xl.lineHeight}",
+        "weight": "{fontWeight.bold}"
+      },
+      "rectangularDetail": {
+        "size": "{typography.lg.size}",
+        "lineHeight": "{typography.lg.lineHeight}",
+        "weight": "{fontWeight.medium}"
+      },
+      "summary": {
+        "size": "{typography.lg.size}",
+        "lineHeight": "{typography.lg.lineHeight}",
+        "weight": "{fontWeight.bold}"
+      }
+    },
     "summary": {
       "cellSize": 18,
-      "cellGap": 3,
-      "cellRadius": 5,
-      "fontSize": 15,
-      "contentGap": 6,
-      "contentPadding": 4
+      "cellGap": "{spacing.sm}",
+      "cellRadius": "{radius.cell}",
+      "fontSize": "{typography.lg.size}",
+      "contentGap": "{spacing.md}",
+      "contentPadding": "{spacing.sm}"
     }
   }
 }

@@ -13,11 +13,78 @@ import { buildWorkoutLockScreenSummaryFromCells } from './lock-screen-widget-mod
 import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from './widget-spec';
 
 describe('widget renderer contract', () => {
+  it('keeps the widget design system intentionally minimal', () => {
+    const design = WIDGET_RENDERER_CONTRACT.designSystem;
+
+    expect(design.typography).toEqual({
+      sm: { size: 8, lineHeight: 10 },
+      md: { size: 12, lineHeight: 16 },
+      lg: { size: 16, lineHeight: 21 },
+      xl: { size: 26, lineHeight: 31 },
+    });
+    expect(design.fontWeight).toEqual({ bold: '800', medium: '700', light: '600' });
+    expect(design.spacing).toEqual({ xs: 2, sm: 4, md: 8, lg: 12 });
+    expect(design.radius).toEqual({ cell: 3, control: 12, container: 24 });
+    expect(Object.keys(design.colorRoles)).toEqual([
+      'surface',
+      'raisedSurface',
+      'textHigh',
+      'textMedium',
+      'textLow',
+      'textWeekend',
+      'todayIndicator',
+      'accent',
+      'onAccent',
+      'heatmapBase',
+      'heatmapEmpty',
+    ]);
+  });
+
+  it('resolves shared design tokens into platform recipes', () => {
+    const source = JSON.parse(
+      fs.readFileSync('src/widgets/widget-renderer-contract.json', 'utf8')
+    );
+
+    expect(source.card.contentPadding).toBe('{contentPadding}');
+    expect(source.control.verticalDistribution).toBe('spaceBetween');
+    expect(source.control).not.toHaveProperty('headerHeight');
+    expect(source.control).not.toHaveProperty('bodyHeight');
+    expect(source.control).not.toHaveProperty('footerWithRangeHeight');
+    expect(source.heatmap.styles.detailed.cellGap).toBe('{spacing.sm}');
+    expect(source.heatmap.variants.week.style).toBe('detailed');
+    expect(source.heatmap.variants.month.style).toBe('detailed');
+    expect(source.heatmap.variants.year.style).toBe('compact');
+    expect(source.heatmap.previewVariants.currentMonth).toEqual({
+      style: 'detailed',
+      headerVisible: true,
+      maxRows: 6,
+      todayIndicator: {
+        style: 'border',
+        colorRole: 'todayIndicator',
+        width: 1.5,
+      },
+    });
+    expect(
+      WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.todayIndicator
+    ).toEqual({
+      style: 'border',
+      colorRole: 'todayIndicator',
+      width: 1.5,
+    });
+    expect(WIDGET_RENDERER_CONTRACT.card.contentPadding).toBe(
+      WIDGET_RENDERER_CONTRACT.designSystem.contentPadding
+    );
+    expect(WIDGET_RENDERER_CONTRACT.heatmap.variants.week.cellGap).toBe(
+      WIDGET_RENDERER_CONTRACT.designSystem.spacing.sm
+    );
+  });
+
   it('keeps the 7-day/5-week/6-month surface policies explicit', () => {
     const { variants } = WIDGET_RENDERER_CONTRACT.heatmap;
 
     expect(Object.keys(variants)).toEqual(['week', 'month', 'year']);
     expect(variants.week).toMatchObject({
+      style: 'detailed',
       rangeDays: 7,
       headerVisible: false,
       headerSummary: 'none',
@@ -25,6 +92,7 @@ describe('widget renderer contract', () => {
       family: 'systemSmall',
     });
     expect(variants.month).toMatchObject({
+      style: 'detailed',
       title: '지난 5주',
       rangeDays: 0,
       rangeWeeks: 5,
@@ -37,6 +105,7 @@ describe('widget renderer contract', () => {
       showLeadingCalendarCells: false,
     });
     expect(variants.year).toMatchObject({
+      style: 'compact',
       nativeCase: 'sixMonths',
       rangeMonths: 6,
       headerSummary: 'countTotalAverage',
@@ -44,6 +113,14 @@ describe('widget renderer contract', () => {
       monthBoundaryGapSlots: 7,
       family: 'systemMedium',
     });
+    expect(variants.week).toMatchObject({
+      columns: variants.month.columns,
+      contentPadding: variants.month.contentPadding,
+      cellGap: variants.month.cellGap,
+      cellRadius: variants.month.cellRadius,
+      cellLabelSize: variants.month.cellLabelSize,
+    });
+    expect(variants.year.contentPadding).toBe(variants.week.contentPadding);
   });
 
   it('keeps the 5-week footer as an unlabeled count and total duration summary', () => {
@@ -61,6 +138,8 @@ describe('widget renderer contract', () => {
       recentLabel: '최근 운동',
       emptyRecentLabel: '아직 기록 없음',
       alwaysShowRecent: true,
+      statLabelSize: WIDGET_RENDERER_CONTRACT.designSystem.typography.sm.size,
+      statValueSize: WIDGET_RENDERER_CONTRACT.designSystem.typography.lg.size,
     });
 
     const props = buildHeatmapWidgetProps({
@@ -86,14 +165,14 @@ describe('widget renderer contract', () => {
     const lightProps = buildHeatmapWidgetProps({ variant: 'week', cells, colors: light });
 
     expect(parseHeatmapWidgetList(darkProps.labelColors)).toEqual([
-      dark.tx3,
+      dark.tx4,
       dark.tx,
       dark.tx,
       dark.accentText,
       dark.accentText,
     ]);
     expect(parseHeatmapWidgetList(lightProps.labelColors)).toEqual([
-      light.tx3,
+      light.tx4,
       light.tx,
       light.tx,
       light.accentText,
@@ -101,11 +180,36 @@ describe('widget renderer contract', () => {
     ]);
   });
 
+  it('uses the shared red policy for Sunday and Saturday labels', () => {
+    const colors = makeColors('dark', '#CFF56A');
+    const policy = WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabelColorPolicy;
+    const props = buildHeatmapWidgetProps({
+      variant: 'month',
+      cells: dailyCells(new Date(2026, 6, 5), new Date(2026, 6, 11)),
+      colors,
+    });
+
+    expect(policy.weekendLabels).toEqual(['일', '토']);
+    expect(policy.weekendRole).toBe('textWeekend');
+    expect(props.weekendWeekdayLabelColor).toBe(colors.danger);
+
+    const renderer = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
+    expect(renderer).toContain('Heatmap.weekendWeekdayLabels.contains(label)');
+    expect(renderer).toContain('entry.palette.textWeekend');
+  });
+
+  it('keeps the weekday label row as tall as one heatmap cell', () => {
+    expect(WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabelHeightInCells).toBe(1);
+
+    const renderer = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
+    expect(renderer).toContain('height: cell * LoofitWidgetRendererContract.Heatmap.weekdayLabelHeightInCells');
+  });
+
   it('keeps compact Live Activity content balanced at the system preview size', () => {
     expect(WIDGET_RENDERER_CONTRACT.liveActivity.compact).toEqual({
       leadingWidth: 48,
       trailingWidth: 48,
-      fontSize: 11,
+      fontSize: 12,
       previewWidth: 230,
       previewHeight: 37,
       previewHorizontalPadding: 7,
@@ -128,8 +232,8 @@ describe('widget renderer contract', () => {
       sideRegionVerticalAlignment: 'center',
       timerHorizontalAlignment: 'trailing',
       timerRegionPriority: 1,
-      timerFontSize: 14,
-      timerLineHeight: 14,
+      timerFontSize: 26,
+      timerLineHeight: 31,
     });
 
     const renderer = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
@@ -246,7 +350,7 @@ describe('widget renderer contract', () => {
     );
     expect(extensionContract).toContain('static let alwaysShowRecent = true');
     expect(extensionContract).toContain(
-      'static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .title'
+      'static let filledCellLabelColorRole: LoofitHeatmapCellLabelColorRole = .textHigh'
     );
     expect(extensionContract).toContain('strongCellLabelMinimumDurationSeconds = 3600');
     expect(coreContract).toContain('weekHeaderSummary: HeaderSummary = .none');

@@ -65,6 +65,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
   public let heatmapBrandColor: String
   public let heatmapFooterValueColor: String
   public let heatmapWeekdayLabelColor: String
+  public let heatmapWeekendLabelColor: String
   public let heatmapDayLabelColor: String
   public let heatmapBaseColor: String
   public let heatmapEmptyColor: String
@@ -86,6 +87,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
     heatmapBrandColor: String = "#6B6B70",
     heatmapFooterValueColor: String = "#D7D7D3",
     heatmapWeekdayLabelColor: String = "#6B6B70",
+    heatmapWeekendLabelColor: String = "#C87A7A",
     heatmapDayLabelColor: String = "#9A9AA0",
     heatmapBaseColor: String = "#16161A",
     heatmapEmptyColor: String = "#1B1B1F",
@@ -106,6 +108,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
     self.heatmapBrandColor = heatmapBrandColor
     self.heatmapFooterValueColor = heatmapFooterValueColor
     self.heatmapWeekdayLabelColor = heatmapWeekdayLabelColor
+    self.heatmapWeekendLabelColor = heatmapWeekendLabelColor
     self.heatmapDayLabelColor = heatmapDayLabelColor
     self.heatmapBaseColor = heatmapBaseColor
     self.heatmapEmptyColor = heatmapEmptyColor
@@ -147,6 +150,10 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
         "heatmapWeekdayLabelColor",
         fallback.heatmapWeekdayLabelColor
       ),
+      heatmapWeekendLabelColor: value(
+        "heatmapWeekendLabelColor",
+        fallback.heatmapWeekendLabelColor
+      ),
       heatmapDayLabelColor: value("heatmapDayLabelColor", fallback.heatmapDayLabelColor),
       heatmapBaseColor: value("heatmapBaseColor", fallback.heatmapBaseColor),
       heatmapEmptyColor: value("heatmapEmptyColor", fallback.heatmapEmptyColor),
@@ -171,6 +178,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
       "heatmapBrandColor": heatmapBrandColor,
       "heatmapFooterValueColor": heatmapFooterValueColor,
       "heatmapWeekdayLabelColor": heatmapWeekdayLabelColor,
+      "heatmapWeekendLabelColor": heatmapWeekendLabelColor,
       "heatmapDayLabelColor": heatmapDayLabelColor,
       "heatmapBaseColor": heatmapBaseColor,
       "heatmapEmptyColor": heatmapEmptyColor,

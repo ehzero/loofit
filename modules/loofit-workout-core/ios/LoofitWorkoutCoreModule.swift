@@ -212,6 +212,7 @@ struct LoofitWidgetThemeRecord: Record {
   @Field var heatmapBrandColor: String = ""
   @Field var heatmapFooterValueColor: String = ""
   @Field var heatmapWeekdayLabelColor: String = ""
+  @Field var heatmapWeekendLabelColor: String = ""
   @Field var heatmapDayLabelColor: String = ""
   @Field var heatmapBaseColor: String = ""
   @Field var heatmapEmptyColor: String = ""
@@ -234,6 +235,7 @@ struct LoofitWidgetThemeRecord: Record {
       "heatmapBrandColor": heatmapBrandColor,
       "heatmapFooterValueColor": heatmapFooterValueColor,
       "heatmapWeekdayLabelColor": heatmapWeekdayLabelColor,
+      "heatmapWeekendLabelColor": heatmapWeekendLabelColor,
       "heatmapDayLabelColor": heatmapDayLabelColor,
       "heatmapBaseColor": heatmapBaseColor,
       "heatmapEmptyColor": heatmapEmptyColor,

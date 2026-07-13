@@ -114,6 +114,8 @@ export type ThemePalette = {
 export type ThemeColors = ThemePalette & {
   accent: string;
   accentText: string;
+  /** Theme/accent-aware marker used to identify today's calendar cell. */
+  todayIndicator: string;
 };
 
 export const DARK_PALETTE: ThemePalette = {
@@ -214,12 +216,24 @@ export function mixHex(a: string, b: string, weight: number): string {
 
 /** Perceived-brightness test used to pick contrasting text on the accent color. */
 export function isLightHex(hex: string): boolean {
-  const { r, g, b } = parseHex(hex);
-  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62;
+  return perceivedBrightness(hex) > 0.62;
 }
 
 export function accentTextFor(accent: string): string {
   return isLightHex(accent) ? '#0B0B0B' : '#FFFFFF';
+}
+
+export function todayIndicatorFor(scheme: ThemeScheme, accent: string): string {
+  const brightness = perceivedBrightness(accent);
+  if (scheme === 'dark') {
+    return brightness >= 0.9 ? DARK_PALETTE.danger : '#FFFFFF';
+  }
+  return brightness <= 0.1 ? LIGHT_PALETTE.danger : '#000000';
+}
+
+function perceivedBrightness(hex: string): number {
+  const { r, g, b } = parseHex(hex);
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
 }
 
 export function makeColors(scheme: ThemeScheme, accent: string): ThemeColors {
@@ -232,6 +246,7 @@ export function makeColors(scheme: ThemeScheme, accent: string): ThemeColors {
     g2: mixHex(accent, palette.g2, 0.02),
     accent,
     accentText: accentTextFor(accent),
+    todayIndicator: todayIndicatorFor(scheme, accent),
   };
 }
 

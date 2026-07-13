@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { makeColors } from './tokens';
+import { DARK_PALETTE, LIGHT_PALETTE, makeColors } from './tokens';
 
 describe('makeColors', () => {
   it('adds the selected accent to the light hero gradient', () => {
@@ -21,5 +21,13 @@ describe('makeColors', () => {
     expect(green.g2).toBe('#141515');
     expect(blue.g1).toBe('#1b1f26');
     expect(blue.g2).toBe('#111418');
+  });
+
+  it('derives a theme-aware today indicator for each accent', () => {
+    expect(makeColors('dark', '#CFF56A').todayIndicator).toBe('#FFFFFF');
+    expect(makeColors('light', '#CFF56A').todayIndicator).toBe('#000000');
+    expect(makeColors('dark', '#EDEDED').todayIndicator).toBe(DARK_PALETTE.danger);
+    expect(makeColors('dark', '#FFFFFF').todayIndicator).toBe(DARK_PALETTE.danger);
+    expect(makeColors('light', '#000000').todayIndicator).toBe(LIGHT_PALETTE.danger);
   });
 });

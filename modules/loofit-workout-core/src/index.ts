@@ -37,6 +37,7 @@ export type WidgetThemeSnapshot = {
   heatmapBrandColor: string;
   heatmapFooterValueColor: string;
   heatmapWeekdayLabelColor: string;
+  heatmapWeekendLabelColor: string;
   heatmapDayLabelColor: string;
   heatmapBaseColor: string;
   heatmapEmptyColor: string;

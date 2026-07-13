@@ -92,6 +92,7 @@
 
 - 홈 화면 운동 위젯: 다음 운동 시작, 운동 중 경과 시간과 종료, 당일 완료 상태를 제공한다.
 - 홈 화면 히트맵 위젯: 지난 7일, 지난 5주, 6개월 기록을 제공한다. 지난 5주는 이번 주를 포함해 일요일 시작 달력 행 5개를 항상 표시하며 실제 집계 범위는 4주 전 일요일부터 오늘까지다. 코드의 `month` variant와 `HeatmapMonthWidget`, `year` variant와 `HeatmapYearWidget` 이름은 기존 위젯 식별자 호환을 위해 유지하는 내부 명칭이다.
+- 앱 내 위젯 미리보기에는 홈 화면 Small 크기의 `이번 달 캘린더`를 제공한다. 제목은 연도 없이 월만 표시한다. 지난 5주 히트맵과 같은 7열 달력 그리드를 사용하되 이번 달 날짜만 표시하고, 월 바깥 위치는 투명 placeholder로 정렬만 유지하며 셀을 그리지 않는다. 현재 달의 남은 날짜는 빈 운동 셀로 표시하고 오늘 셀은 운동 유무와 관계없이 `todayIndicator` 테두리로 강조한다. `todayIndicator`는 액센트별로 계산하며 다크모드는 흰색, 라이트모드는 검정색을 기본으로 사용하되 다크의 흰색 계열 액센트와 라이트의 검정색 계열 액센트에는 붉은색 `danger`를 사용한다. 실제 iOS 위젯에는 아직 등록하지 않는다.
 - 지난 5주 히트맵 하단 요약은 별도 `횟수`, `총 시간` 라벨 없이 `{횟수}회 · 총 {시간}`으로 표시하며, 지난 6개월 히트맵 상단 요약과 같은 텍스트 크기와 색상을 사용한다.
 - 잠금 화면 위젯: 다음 운동, 운동 중, 당일 완료 상태와 지난 7일 요약을 제공한다.
 - Live Activity: 운동 중 상태, 경과 시간, 종료 액션을 제공한다.
@@ -105,11 +106,17 @@
 - `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
 - 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
 - 앱 내 미리보기와 SwiftUI 위젯의 레이아웃·variant·표시 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 변경 후 `npm run generate:widget-contract`로 TS, Core layout, Widget Extension Swift 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
+- 위젯 디자인 값은 계약의 `designSystem` 기초 토큰과 의미 색상 역할을 사용한다. 공통 여백·모서리·타이포·투명도·최소 축소율은 토큰에서, surface별 배치와 제품 동작은 컴포넌트·variant 레시피에서 관리한다. 앱 미리보기와 Swift 렌더러에 디자인 숫자나 앱 팔레트 키를 직접 추가하지 않으며 상세 규칙은 `docs/widget-design-system.md`를 따른다.
 - 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 지난 5주는 4주 전 일요일부터 오늘까지 29~35일을 집계하고 현재 주의 남은 칸은 투명 placeholder로 채워 항상 5행을 유지한다. 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
-- 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고, 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
+- 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고 세 통계 값은 같은 텍스트 크기를 유지한다. 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
 - 지난 5주 히트맵은 달력 아래에 `{횟수}회 · 총 {시간}` 요약을 항상 표시한다.
+- 지난 7일, 지난 5주, 이번 달 히트맵은 `detailed` 스타일의 content padding, 셀 간격, 셀 radius, 일자 숫자 크기를 공유한다. 지난 6개월은 날짜·요일을 생략한 `compact` 스타일을 사용한다.
 - 히트맵 일자 숫자는 운동하지 않은 셀에서 보조 텍스트 색을 사용하고, 60분 미만 운동 셀에서는 테마 제목색(다크 모드 흰색, 라이트 모드 검정색), 60분 이상 셀에서는 액센트 대비색을 사용한다.
-- 히트맵 셀 크기는 고정값이 아니라 컨테이너 너비, padding, gap, 열 수를 기준으로 동적 계산한다.
+- 히트맵 요일 라벨은 평일에 `textLow`, 일요일과 토요일에는 `textWeekend` 색상을 사용한다.
+- 히트맵 요일 라벨 행의 높이는 그리드 셀 한 칸 높이와 동일하게 유지한다.
+- 히트맵 셀 크기는 고정값이 아니라 컨테이너 너비·높이, padding, gap, 열·행 수를 기준으로 동적 계산한다. 이번 달 미리보기는 4~6행 모두 같은 외곽 여백 안에 맞춘다.
+- 홈 화면 운동 위젯 Small의 상단 상태·중앙 운동 정보·하단 액션 또는 결과는 고정 영역 높이나 고정된 영역 간 gap을 두지 않고 사용 가능한 세로 공간을 `space-between`으로 분배한다. 의미상 한 묶음인 텍스트 내부에만 토큰 간격을 사용한다.
+- 지난 7일 히트맵의 `횟수`, `총 시간`, `평균` 통계 라벨은 `sm`, 통계 값은 `lg` 크기를 사용한다.
 - iOS에서 앱과 위젯은 App Group의 `LoofitWidgets` 디렉터리에 있는 SQLite DB를 공유한다. 이전 기본 DB나 다른 공유 디렉터리의 개발 데이터는 자동으로 복사하지 않으며, build mode나 저장소 baseline을 바꿀 때는 개발 데이터를 초기화한다.
 - DB version, table·column, index, 위젯 sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. 현재 미출시 완성 스키마 전체를 version 1 baseline으로 사용하고, 출시 후 첫 스키마 변경부터 version 2 migration을 추가한다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → 후처리` 순서를 TS와 Swift가 동일하게 실행한다. 현재 version이면 schema 작업 없이 반환하고, 낮은 version에만 미적용 migration을 실행하며, 지원 version보다 높은 DB는 즉시 오류로 처리한다. 적용 완료 migration의 backfill이나 repair를 반복 실행하지 않는다. 변경 후 `npm run schema:generate`로 양쪽 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.
 - 앱 DB 접근 구현은 `src/db/repositories/*`와 `src/db/queries/*`에 책임별로 둔다. 앱 계층은 안정적인 facade인 `src/db/repository.ts`를 통해 접근하며 repository 사이 의존성은 body part → routine → session → overview query 방향을 유지한다.
