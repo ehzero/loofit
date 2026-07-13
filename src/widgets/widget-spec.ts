@@ -53,3 +53,19 @@ function previewHeatmapVariant(
 }
 
 export type HeatmapWidgetVariant = keyof typeof WIDGET_PREVIEW_SPEC.heatmap;
+
+export function resolveHomeWidgetContentPadding(
+  size: { height: number; width: number },
+  basePadding: number = WIDGET_RENDERER_CONTRACT.card.contentPadding
+) {
+  const shortestEdge = Math.min(size.height, size.width);
+  if (shortestEdge <= 0) {
+    return basePadding;
+  }
+
+  return (
+    basePadding *
+    (shortestEdge /
+      WIDGET_RENDERER_CONTRACT.contentMargins.home.referenceShortestEdge)
+  );
+}

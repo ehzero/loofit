@@ -10,9 +10,8 @@ struct WorkoutLockScreenSummaryWidget: Widget {
       LoofitWorkoutLockScreenSummaryWidgetView(entry: entry)
     }
     .configurationDisplayName("루핏 잠금화면 요약")
-    .description("Review your recent 7 days on the Lock Screen.")
+    .description("잠금화면에서 지난 7일의 운동 기록을 확인합니다.")
     .supportedFamilies([.accessoryRectangular])
-    .contentMarginsDisabled()
   }
 }
 

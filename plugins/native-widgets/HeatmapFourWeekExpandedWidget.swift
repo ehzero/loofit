@@ -36,13 +36,14 @@ private struct HeatmapFourWeekExpandedWidgetView: View {
   var body: some View {
     GeometryReader { geometry in
       let spec = LoofitWidgetRendererContract.FourWeekExpanded.self
+      let contentPadding = LoofitHomeWidgetContentPadding(for: geometry.size)
       let rows = days.chunked(into: spec.columns)
       let gap = spec.cellGap
-      let width = max(0, geometry.size.width - spec.contentPadding * 2 - gap * CGFloat(spec.columns - 1))
+      let width = max(0, geometry.size.width - contentPadding * 2 - gap * CGFloat(spec.columns - 1))
       let cellWidth = width / CGFloat(max(spec.columns, 1))
       let height = max(
         0,
-        geometry.size.height - spec.contentPadding * 2 - cellWidth - gap * CGFloat(rows.count)
+        geometry.size.height - contentPadding * 2 - cellWidth - gap * CGFloat(rows.count)
       )
       let cellHeight = height / CGFloat(max(rows.count, 1))
 
@@ -68,7 +69,7 @@ private struct HeatmapFourWeekExpandedWidgetView: View {
           }
         }
       }
-      .padding(spec.contentPadding)
+      .padding(contentPadding)
       .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
     .loofitWidgetBackground(LoofitColor(entry.palette.card))

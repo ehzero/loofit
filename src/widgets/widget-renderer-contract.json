@@ -46,6 +46,15 @@
     },
     "contentPadding": "{spacing.lg}"
   },
+  "contentMargins": {
+    "home": {
+      "mode": "proportionalToShortestEdge",
+      "referenceShortestEdge": 158
+    },
+    "accessory": {
+      "mode": "systemManaged"
+    }
+  },
   "card": {
     "screenBackground": "#0C0D10",
     "background": "#141418",

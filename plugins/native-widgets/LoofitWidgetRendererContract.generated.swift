@@ -54,6 +54,10 @@ enum LoofitWidgetRendererContract {
   static let version = 1
   static let contentPadding: CGFloat = 12
 
+  enum ContentMargins {
+    static let homeReferenceShortestEdge: CGFloat = 158
+  }
+
   enum FontWeight {
     static let bold: Font.Weight = .heavy
     static let medium: Font.Weight = .bold

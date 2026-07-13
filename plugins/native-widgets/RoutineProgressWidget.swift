@@ -29,23 +29,25 @@ private struct RoutineProgressWidgetView: View {
   }
 
   var body: some View {
-    Group {
-      if items.isEmpty {
-        Text(LoofitWidgetRendererContract.LockScreen.routineRequired)
-          .font(.system(size: LoofitWidgetRendererContract.RoutineProgress.metadataSize, weight: LoofitWidgetRendererContract.RoutineProgress.metadataWeight))
-          .foregroundStyle(LoofitColor(entry.palette.tx4))
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-      } else {
-        VStack(alignment: .leading, spacing: 0) {
-          ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-            row(item)
-            if index < items.count - 1 { Spacer(minLength: 0) }
+    GeometryReader { geometry in
+      Group {
+        if items.isEmpty {
+          Text(LoofitWidgetRendererContract.LockScreen.routineRequired)
+            .font(.system(size: LoofitWidgetRendererContract.RoutineProgress.metadataSize, weight: LoofitWidgetRendererContract.RoutineProgress.metadataWeight))
+            .foregroundStyle(LoofitColor(entry.palette.tx4))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+          VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+              row(item)
+              if index < items.count - 1 { Spacer(minLength: 0) }
+            }
           }
         }
       }
+      .padding(LoofitHomeWidgetContentPadding(for: geometry.size))
+      .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
-    .padding(LoofitWidgetRendererContract.RoutineProgress.contentPadding)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .loofitWidgetBackground(LoofitColor(entry.palette.card))
     .widgetURL(URL(string: "loofit://"))
   }

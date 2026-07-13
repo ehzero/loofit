@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import {
@@ -5,7 +6,11 @@ import {
   parseHeatmapWidgetList,
 } from '@/src/widgets/heatmap-widget-model';
 import type { HeatmapWidgetProps } from '@/src/widgets/types';
-import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
+import {
+  WIDGET_PREVIEW_SPEC,
+  WIDGET_RENDERER_CONTRACT,
+  resolveHomeWidgetContentPadding,
+} from '@/src/widgets/widget-spec';
 
 const SPEC = WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.fourWeekExpanded;
 const WEEKEND_LABELS: readonly string[] =
@@ -20,16 +25,24 @@ export function ExpandedHeatmapWidgetPreview({
   style?: StyleProp<ViewStyle>;
   widget: HeatmapWidgetProps;
 }) {
+  const [cardSize, setCardSize] = useState({ height: 0, width: 0 });
   const rows = buildHeatmapWidgetRows(widget, 'month');
   const weekdayLabels = parseHeatmapWidgetList(widget.weekdayLabels).filter(Boolean);
+  const contentPadding = resolveHomeWidgetContentPadding(cardSize, SPEC.contentPadding);
 
   return (
     <View
       accessibilityLabel="지난 4주 운동 일자와 운동 부위 히트맵"
       accessible
+      onLayout={(event) => {
+        const { height, width } = event.nativeEvent.layout;
+        setCardSize((current) =>
+          current.height === height && current.width === width ? current : { height, width }
+        );
+      }}
       style={[
         styles.card,
-        { backgroundColor: widget.background },
+        { backgroundColor: widget.background, padding: contentPadding },
         style,
       ]}
     >
@@ -100,7 +113,6 @@ const styles = StyleSheet.create({
     borderRadius: WIDGET_PREVIEW_SPEC.card.radius,
     borderWidth: StyleSheet.hairlineWidth,
     gap: SPEC.headerGap,
-    padding: SPEC.contentPadding,
     width: '100%',
   },
   weekdayHeader: {

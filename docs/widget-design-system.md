@@ -9,7 +9,7 @@
 - 텍스트 굵기는 `bold 800`, `medium 700`, `light 600` 세 단계만 사용한다.
 - 간격은 `xs 2`, `sm 4`, `md 8`, `lg 12` 네 단계만 사용한다. 정렬을 위한 `0`은 토큰 variant로 세지 않는다.
 - 모서리는 `cell 3`, `control 12`, `container 24` 세 단계만 사용한다.
-- 홈 화면 위젯과 앱 내 미리보기의 바깥 content padding은 모두 `12`다. 잠금화면 accessory와 Dynamic Island처럼 시스템이 외곽 영역을 관리하는 surface는 `systemManagedInset` 예외로 취급한다.
+- 홈 화면 위젯과 앱 내 미리보기의 바깥 content padding은 짧은 변 `158`에서 `12`를 기준으로 컨테이너의 짧은 변에 비례해 계산한다. 기기별 WidgetKit 크기와 앱의 반응형 미리보기 크기가 달라도 같은 시각 비율을 유지한다. 잠금화면 accessory와 Dynamic Island처럼 시스템이 외곽 영역을 관리하는 surface는 수동으로 기본 여백을 끄지 않고 `systemManagedInset` 예외로 취급한다.
 - 투명도는 `default 1`, `muted 0.72`, 최소 글자 축소율은 `default 0.75`, `dense 0.68`만 사용한다.
 
 ## 반응형 배치

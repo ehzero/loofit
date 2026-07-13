@@ -10,7 +10,11 @@ import {
   parseHeatmapWidgetList,
 } from './heatmap-widget-model';
 import { buildWorkoutLockScreenSummaryFromCells } from './lock-screen-widget-model';
-import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from './widget-spec';
+import {
+  WIDGET_PREVIEW_SPEC,
+  WIDGET_RENDERER_CONTRACT,
+  resolveHomeWidgetContentPadding,
+} from './widget-spec';
 
 describe('widget renderer contract', () => {
   it('keeps the widget design system intentionally minimal', () => {
@@ -46,6 +50,13 @@ describe('widget renderer contract', () => {
     );
 
     expect(source.card.contentPadding).toBe('{contentPadding}');
+    expect(source.contentMargins).toEqual({
+      home: {
+        mode: 'proportionalToShortestEdge',
+        referenceShortestEdge: 158,
+      },
+      accessory: { mode: 'systemManaged' },
+    });
     expect(source.control.verticalDistribution).toBe('spaceBetween');
     expect(source.control).not.toHaveProperty('headerHeight');
     expect(source.control).not.toHaveProperty('bodyHeight');
@@ -113,6 +124,14 @@ describe('widget renderer contract', () => {
     expect(WIDGET_RENDERER_CONTRACT.heatmap.variants.week.cellGap).toBe(
       WIDGET_RENDERER_CONTRACT.designSystem.spacing.sm
     );
+  });
+
+  it('scales home widget padding from the shortest edge', () => {
+    expect(resolveHomeWidgetContentPadding({ height: 158, width: 158 })).toBe(12);
+    expect(resolveHomeWidgetContentPadding({ height: 170, width: 364 })).toBeCloseTo(
+      (12 * 170) / 158
+    );
+    expect(resolveHomeWidgetContentPadding({ height: 0, width: 0 })).toBe(12);
   });
 
   it('keeps the 7-day/5-week/6-month surface policies explicit', () => {

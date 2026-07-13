@@ -12,7 +12,6 @@ struct RoutineProgressLockScreenWidget: Widget {
     .configurationDisplayName("루핏 잠금화면 루틴 진행")
     .description("루틴 분할의 최근 운동 날짜와 현재 순서를 확인합니다.")
     .supportedFamilies([.accessoryRectangular])
-    .contentMarginsDisabled()
   }
 }
 

@@ -30,30 +30,32 @@ private struct BodyPartDurationWidgetView: View {
   }
 
   var body: some View {
-    VStack(alignment: .leading, spacing: 0) {
-      Text(LoofitWidgetRendererContract.BodyPartDuration.title)
-        .font(.system(size: LoofitWidgetRendererContract.BodyPartDuration.titleSize, weight: LoofitWidgetRendererContract.BodyPartDuration.titleWeight))
-        .foregroundStyle(LoofitColor(entry.palette.tx))
-        .lineLimit(1)
+    GeometryReader { geometry in
+      VStack(alignment: .leading, spacing: 0) {
+        Text(LoofitWidgetRendererContract.BodyPartDuration.title)
+          .font(.system(size: LoofitWidgetRendererContract.BodyPartDuration.titleSize, weight: LoofitWidgetRendererContract.BodyPartDuration.titleWeight))
+          .foregroundStyle(LoofitColor(entry.palette.tx))
+          .lineLimit(1)
 
-      if items.isEmpty {
-        Text("아직 기록 없음")
-          .font(.system(size: LoofitWidgetRendererContract.BodyPartDuration.bodyPartSize, weight: LoofitWidgetRendererContract.BodyPartDuration.bodyPartWeight))
-          .foregroundStyle(LoofitColor(entry.palette.tx4))
-          .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-      } else {
-        Spacer(minLength: LoofitWidgetRendererContract.Spacing.md)
-        VStack(alignment: .leading, spacing: 0) {
-          ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-            row(item)
-            if index < items.count - 1 { Spacer(minLength: 0) }
+        if items.isEmpty {
+          Text("아직 기록 없음")
+            .font(.system(size: LoofitWidgetRendererContract.BodyPartDuration.bodyPartSize, weight: LoofitWidgetRendererContract.BodyPartDuration.bodyPartWeight))
+            .foregroundStyle(LoofitColor(entry.palette.tx4))
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
+        } else {
+          Spacer(minLength: LoofitWidgetRendererContract.Spacing.md)
+          VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+              row(item)
+              if index < items.count - 1 { Spacer(minLength: 0) }
+            }
           }
+          .frame(maxHeight: .infinity)
         }
-        .frame(maxHeight: .infinity)
       }
+      .padding(LoofitHomeWidgetContentPadding(for: geometry.size))
+      .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
-    .padding(LoofitWidgetRendererContract.BodyPartDuration.contentPadding)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .loofitWidgetBackground(LoofitColor(entry.palette.card))
     .widgetURL(URL(string: "loofit://"))
   }

@@ -246,6 +246,16 @@ extension View {
   }
 }
 
+func LoofitHomeWidgetContentPadding(for size: CGSize) -> CGFloat {
+  let shortestEdge = min(size.width, size.height)
+  guard shortestEdge > 0 else {
+    return LoofitWidgetRendererContract.contentPadding
+  }
+  return LoofitWidgetRendererContract.contentPadding
+    * shortestEdge
+    / LoofitWidgetRendererContract.ContentMargins.homeReferenceShortestEdge
+}
+
 func LoofitColor(_ value: String) -> Color {
   let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
   guard trimmed.hasPrefix("#"), let integer = UInt64(trimmed.dropFirst(), radix: 16) else {
@@ -405,6 +415,7 @@ struct LoofitHeatmapWidgetView: View {
 
   var body: some View {
     GeometryReader { geometry in
+      let contentPadding = LoofitHomeWidgetContentPadding(for: geometry.size)
       VStack(alignment: .leading, spacing: rendererSpec.headerVisible ? rendererSpec.headerGap : 0) {
         if rendererSpec.headerVisible, rendererSpec.headerSummary != .none {
           Text(headerTitle)
@@ -437,7 +448,7 @@ struct LoofitHeatmapWidgetView: View {
           Spacer(minLength: 0)
         }
       }
-      .padding(rendererSpec.contentPadding)
+      .padding(contentPadding)
       .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
     .loofitWidgetBackground(LoofitColor(entry.palette.card))
@@ -460,7 +471,7 @@ struct LoofitHeatmapWidgetView: View {
     let columns = max(rendererSpec.columns, 1)
     let rows = days.chunked(into: columns)
     let gap = rendererSpec.cellGap
-    let padding = rendererSpec.contentPadding * 2
+    let padding = LoofitHomeWidgetContentPadding(for: available) * 2
     let width = max(0, available.width - padding - gap * CGFloat(columns - 1))
     let weekdayLabelHeightInCells = LoofitWidgetRendererContract.Heatmap.weekdayLabelHeightInCells
     let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - rendererSpec.reservedFooterHeight - gap * CGFloat(rows.count))
@@ -534,7 +545,7 @@ struct LoofitHeatmapWidgetView: View {
     let columns = LoofitHeatmapProjection.sixMonthColumns(from: days)
     let gap = rendererSpec.cellGap
     let calendarRows = max(LoofitWidgetRendererContract.Heatmap.weekdayLabels.count, 1)
-    let padding = rendererSpec.contentPadding * 2
+    let padding = LoofitHomeWidgetContentPadding(for: available) * 2
     let width = max(0, available.width - padding - gap * CGFloat(max(columns.count - 1, 0)))
     let height = max(0, available.height - padding - rendererSpec.reservedHeaderHeight - gap * CGFloat(calendarRows - 1) - LoofitWidgetRendererContract.Heatmap.monthHeaderBottomGap)
     let cell = max(0, min(width / CGFloat(max(columns.count, 1)), height / CGFloat(calendarRows)))

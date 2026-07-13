@@ -61,6 +61,15 @@ export const WIDGET_RENDERER_CONTRACT = {
     },
     "contentPadding": 12
   },
+  "contentMargins": {
+    "home": {
+      "mode": "proportionalToShortestEdge",
+      "referenceShortestEdge": 158
+    },
+    "accessory": {
+      "mode": "systemManaged"
+    }
+  },
   "card": {
     "screenBackground": "#0C0D10",
     "background": "#141418",

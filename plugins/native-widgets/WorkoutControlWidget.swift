@@ -11,7 +11,7 @@ struct WorkoutControlWidget: Widget {
       LoofitWorkoutControlWidgetView(entry: entry)
     }
     .configurationDisplayName("루핏 운동")
-    .description("Start, finish, and review today's workout.")
+    .description("다음 운동을 확인하고 운동을 시작하거나 종료합니다.")
     .supportedFamilies([.systemSmall])
     .contentMarginsDisabled()
   }
@@ -27,18 +27,20 @@ private struct LoofitWorkoutControlWidgetView: View {
   var body: some View {
     let palette = entry.palette
 
-    Group {
-      switch presentation.state {
-      case .active:
-        activeView(palette: palette)
-      case .completed:
-        completedView(palette: palette)
-      case .idle:
-        idleView(palette: palette)
+    GeometryReader { geometry in
+      Group {
+        switch presentation.state {
+        case .active:
+          activeView(palette: palette)
+        case .completed:
+          completedView(palette: palette)
+        case .idle:
+          idleView(palette: palette)
+        }
       }
+      .padding(LoofitHomeWidgetContentPadding(for: geometry.size))
+      .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
-    .padding(LoofitWidgetRendererContract.contentPadding)
-    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     .loofitWidgetBackground(LoofitColor(palette.card))
     .widgetURL(URL(string: "loofit://"))
   }

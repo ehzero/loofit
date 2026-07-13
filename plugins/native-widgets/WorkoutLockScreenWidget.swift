@@ -11,9 +11,8 @@ struct WorkoutLockScreenWidget: Widget {
       LoofitWorkoutLockScreenWidgetView(entry: entry)
     }
     .configurationDisplayName("루핏 잠금화면 운동")
-    .description("Check your next workout, active workout, and completion on the Lock Screen.")
+    .description("잠금화면에서 다음 운동, 진행 중인 운동과 완료 상태를 확인합니다.")
     .supportedFamilies([.accessoryInline, .accessoryCircular, .accessoryRectangular])
-    .contentMarginsDisabled()
   }
 }
 

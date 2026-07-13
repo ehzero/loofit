@@ -262,7 +262,7 @@ module.exports = function withLoofitNativeWidgets(config) {
           kind: widgetRendererContract.heatmap.variants.week.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.week.nativeCase,
           displayName: `${brand.displayName} 히트맵 · 7일`,
-          description: 'Review your last 7 days of workouts.',
+          description: '지난 7일의 운동 기록과 요약을 확인합니다.',
           family: widgetRendererContract.heatmap.variants.week.family,
         })
       );
@@ -273,7 +273,7 @@ module.exports = function withLoofitNativeWidgets(config) {
           kind: widgetRendererContract.heatmap.variants.month.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.month.nativeCase,
           displayName: `${brand.displayName} 히트맵 · 5주`,
-          description: 'Review your last 5 calendar weeks of workouts.',
+          description: '이번 주를 포함한 지난 5주의 운동 기록을 확인합니다.',
           family: widgetRendererContract.heatmap.variants.month.family,
         })
       );
@@ -284,7 +284,7 @@ module.exports = function withLoofitNativeWidgets(config) {
           kind: widgetRendererContract.heatmap.variants.year.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.year.nativeCase,
           displayName: `${brand.displayName} 히트맵 · 6개월`,
-          description: 'Review your recent 6 months of workouts.',
+          description: '최근 6개월의 운동 기록을 확인합니다.',
           family: widgetRendererContract.heatmap.variants.year.family,
         })
       );

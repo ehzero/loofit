@@ -34,12 +34,13 @@ private struct CurrentMonthCalendarWidgetView: View {
   var body: some View {
     GeometryReader { geometry in
       let spec = LoofitWidgetRendererContract.CurrentMonth.self
+      let contentPadding = LoofitHomeWidgetContentPadding(for: geometry.size)
       let gap = spec.cellGap
-      let width = max(0, geometry.size.width - spec.contentPadding * 2 - gap * 6)
+      let width = max(0, geometry.size.width - contentPadding * 2 - gap * 6)
       let headerHeight = spec.headerFontSize + 4
       let gridHeight = max(
         0,
-        geometry.size.height - spec.contentPadding * 2 - headerHeight - spec.headerGap
+        geometry.size.height - contentPadding * 2 - headerHeight - spec.headerGap
           - gap * CGFloat(rows.count)
       )
       let cell = max(0, min(width / 7, gridHeight / CGFloat(max(rows.count + 1, 1))))
@@ -69,7 +70,7 @@ private struct CurrentMonthCalendarWidgetView: View {
           }
         }
       }
-      .padding(spec.contentPadding)
+      .padding(contentPadding)
       .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
     .loofitWidgetBackground(LoofitColor(entry.palette.card))

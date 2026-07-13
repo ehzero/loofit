@@ -1,7 +1,12 @@
+import { useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { formatDuration } from '@/src/domain/date';
-import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
+import {
+  WIDGET_PREVIEW_SPEC,
+  WIDGET_RENDERER_CONTRACT,
+  resolveHomeWidgetContentPadding,
+} from '@/src/widgets/widget-spec';
 
 const SPEC = WIDGET_PREVIEW_SPEC.bodyPartDuration;
 
@@ -28,6 +33,7 @@ export function BodyPartDurationWidgetPreview({
   palette: BodyPartDurationPreviewPalette;
   style?: StyleProp<ViewStyle>;
 }) {
+  const [cardSize, setCardSize] = useState({ height: 0, width: 0 });
   const visibleItems = [...items]
     .sort((left, right) => right.durationSeconds - left.durationSeconds)
     .slice(0, SPEC.visibleItemLimit);
@@ -37,9 +43,19 @@ export function BodyPartDurationWidgetPreview({
     <View
       accessible
       accessibilityLabel={`최근 ${SPEC.rangeDays}일 부위별 운동 시간`}
+      onLayout={(event) => {
+        const { height, width } = event.nativeEvent.layout;
+        setCardSize((current) =>
+          current.height === height && current.width === width ? current : { height, width }
+        );
+      }}
       style={[
         styles.card,
-        { backgroundColor: palette.background, borderColor: palette.border },
+        {
+          backgroundColor: palette.background,
+          borderColor: palette.border,
+          padding: resolveHomeWidgetContentPadding(cardSize, SPEC.contentPadding),
+        },
         style,
       ]}
     >
@@ -109,7 +125,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     justifyContent:
       SPEC.verticalDistribution === 'spaceBetween' ? 'space-between' : 'flex-start',
-    padding: SPEC.contentPadding,
     width: '100%',
   },
   duration: {

@@ -6,6 +6,7 @@ import type { HeatmapWidgetProps } from '@/src/widgets/types';
 import {
   WIDGET_PREVIEW_SPEC,
   WIDGET_RENDERER_CONTRACT,
+  resolveHomeWidgetContentPadding,
   type HeatmapWidgetVariant,
 } from '@/src/widgets/widget-spec';
 
@@ -51,14 +52,15 @@ export function HeatmapWidgetPreview({
     Boolean(widget.recentWorkoutLabel) ||
     resolvedFooterRecords.length > 0;
   const fitsVariableMonthRows = variant === 'month' && showHeader && !hasFooter;
+  const contentPadding = resolveHomeWidgetContentPadding(cardSize, widget.contentPadding);
   const fittedCellSize = useMemo(() => {
     if (!fitsVariableMonthRows || cardSize.width <= 0 || cardSize.height <= 0) {
       return 0;
     }
-    const contentWidth = cardSize.width - widget.contentPadding * 2;
+    const contentWidth = cardSize.width - contentPadding * 2;
     const contentHeight =
       cardSize.height -
-      widget.contentPadding * 2 -
+      contentPadding * 2 -
       WIDGET_PREVIEW_SPEC.text.label.lineHeight -
       widget.headerGap;
     const widthCell = (contentWidth - gridGap * 6) / 7;
@@ -66,7 +68,7 @@ export function HeatmapWidgetPreview({
     const heightCell =
       (contentHeight - gridGap * rows.length) / Math.max(calendarRowCount, 1);
     return Math.max(0, Math.min(widthCell, heightCell));
-  }, [cardSize, fitsVariableMonthRows, gridGap, rows.length, widget]);
+  }, [cardSize, contentPadding, fitsVariableMonthRows, gridGap, rows.length, widget]);
   const fittedCalendarWidth = fittedCellSize > 0 ? fittedCellSize * 7 + gridGap * 6 : undefined;
   const fittedCellStyle =
     fittedCellSize > 0
@@ -83,7 +85,7 @@ export function HeatmapWidgetPreview({
       }}
       style={[
         styles.card,
-        { backgroundColor: widget.background, gap: widget.headerGap, padding: widget.contentPadding },
+        { backgroundColor: widget.background, gap: widget.headerGap, padding: contentPadding },
         style,
       ]}>
       {rendererSpec.headerVisible || showHeader ? (
