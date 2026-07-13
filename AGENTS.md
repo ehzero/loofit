@@ -165,7 +165,7 @@
 - Fastlane은 App Store Connect의 한국어 제품 페이지 메타데이터, 스크린샷, 선택적 앱 미리보기 영상만 관리한다. iOS 바이너리 빌드와 제출은 EAS가 담당한다.
 - 원천 파일은 `fastlane/metadata`, `fastlane/screenshots`, `fastlane/app-previews`에 둔다. `fastlane/Deliverfile`은 실행 위치에 흔들리지 않도록 저장소 루트 기준 절대 경로를 사용한다.
 - `npm run store:metadata`는 메타데이터만, `npm run store:screenshots`는 스크린샷만, `npm run store:listing`은 두 항목을 함께 업로드한다. 모든 lane은 바이너리 업로드와 심사 제출을 생략하며 앱을 출시하지 않는다.
-- `APP_STORE_VERSION`은 수정할 편집 가능 버전을 명시한다. 현재 대상은 `1.0.0`이며 한국어 메타데이터와 앱 심사 연락처는 App Store Connect에 업로드되어 있다. 첫 버전은 출시 노트를 별도로 반영하지 않는다.
+- `APP_STORE_VERSION`은 수정할 편집 가능 버전을 명시한다. 현재 대상은 `1.0.1`이며 한국어 메타데이터와 앱 심사 연락처는 App Store Connect에 업로드되어 있다.
 - App Store Connect 인증 값은 Git에서 제외된 `fastlane/.env`에만 둔다. `.p8` 개인키는 저장소 밖에서 권한 `600`으로 보관하고 출력·로그·커밋에 포함하지 않는다. Team API 키는 `ASC_ISSUER_ID`가 필요하고 Individual API 키는 비워둔다.
 - 시스템 Ruby를 사용하지 않는다. 현재 로컬 검증은 Ruby 3.2.2로 수행했지만 Fastlane의 지원 종료 경고가 있으므로 다음 환경 갱신 시 Ruby 3.3 이상으로 올린다.
 - 앱 심사 정보는 성 `윤`, 이름 `태영`, 국제 형식 전화번호 `+82 10-3773-0967`, 이메일 `support@physiquehub.kr`를 사용한다. 로그인과 데모 계정은 필요 없으며 관련 필드를 비워둔다.
