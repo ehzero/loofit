@@ -4,7 +4,7 @@
 
 ## 제품 요약
 
-핏로그는 세트, 중량, 반복 횟수를 기록하는 앱이 아니다.
+루핏은 세트, 중량, 반복 횟수를 기록하는 앱이 아니다.
 
 사용자가 자신의 루틴을 설정하면 앱이 다음 운동을 안내하고, 사용자는 앱 또는 위젯에서 운동을 시작/종료한다. 기록은 운동 시간, 운동 부위, 상태를 중심으로 쌓이고 히트맵과 대시보드로 확인한다.
 
@@ -199,9 +199,18 @@ GitHub Actions CI는 Node 22에서 생성 계약 drift, TypeScript, Vitest, 스�
 
 Development Build로 설치된 앱에 JS 번들을 공급할 때 사용한다.
 
-- `npm run start -- --dev-client --host localhost`
+- `npm run start -- --dev-client --host lan`
 
-시뮬레이터에서 앱이 `Could not connect to development server` 화면을 보이면 Metro가 꺼져 있거나 Expo Go 모드로 떠 있을 가능성이 높다. 이때는 위 명령으로 dev-client 모드 Metro를 띄운 뒤 앱을 다시 연다.
+현재 개발 환경에서는 시뮬레이터와 실기기 모두 `lan` 모드를 기본으로 사용한다. `--host localhost`는 macOS에서 Metro가 IPv6 `::1`에만 바인딩되는 반면 Expo가 Dev Client URL에는 IPv4 `127.0.0.1`을 넣을 수 있다. 이 경우 Metro가 실행 중이어도 `127.0.0.1:8081` 연결이 거부된다.
+
+Expo Dev Client는 마지막으로 연 개발 서버 URL을 저장한다. Wi-Fi 변경 등으로 Mac의 LAN IP가 바뀌었거나 `localhost`와 `lan` 모드를 전환하면 `RECENTLY OPENED`의 이전 URL을 다시 사용하지 않는다. Metro 터미널에 현재 출력된 `exp+loofit://expo-development-client/?url=...` URL을 그대로 사용한다.
+
+`Could not connect to development server`가 발생하면 다음 순서로 확인한다.
+
+- `lsof -nP -iTCP:8081 -sTCP:LISTEN`으로 Metro의 실제 바인딩 주소를 확인한다.
+- Metro가 출력한 호스트로 `curl http://<현재-LAN-IP>:8081/status`를 실행해 `packager-status:running`을 확인한다.
+- 오류 화면의 주소가 Metro 출력 주소와 다르면 Dev Client가 저장한 이전 주소이므로 앱을 종료하고 현재 Dev Client URL로 다시 연다.
+- `connection refused`는 앱 코드나 SQLite 문제가 아니라 해당 IP·포트에 Metro가 리스닝하지 않는 상태로 판단한다.
 
 ### 5. 빠른 새로고침
 
@@ -221,12 +230,12 @@ JS/TS 화면 코드, 컴포넌트, 스타일 변경은 대체로 재빌드가 �
 
 ### 6. 시뮬레이터 수동 실행
 
-Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세스를 재시작하고 dev-client URL로 다시 연다.
+Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세스를 재시작하고, Metro 터미널에 표시된 현재 `exp+loofit` Dev Client URL로 다시 연다. 예시의 IP를 고정값으로 재사용하지 않는다.
 
 - `xcrun simctl terminate booted com.loofit.app || true`
-- `xcrun simctl openurl booted 'com.loofit.app://expo-development-client/?url=http%3A%2F%2F127.0.0.1%3A8081'`
+- `xcrun simctl openurl booted '<Metro가 출력한 exp+loofit://expo-development-client/?url=... URL>'`
 
-현재 번들 ID는 `com.loofit.app`이다.
+현재 번들 ID는 `com.loofit.app`이고 Development Build URL scheme은 `exp+loofit`이다.
 
 ### 7. 실기기와 EAS
 

@@ -2,7 +2,7 @@ import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentType } from 'react';
 
 // Semantic icon names mapped to @expo/vector-icons glyphs. The design
-// (핏로그.dc.html) uses thin line SVGs, so we default to Feather and reach for
+// (루핏.dc.html) uses thin line SVGs, so we default to Feather and reach for
 // MaterialCommunityIcons only where Feather lacks a fitting glyph (dumbbell).
 type IconSet = { Component: ComponentType<{ name: never; size?: number; color?: string }>; glyph: string };
 

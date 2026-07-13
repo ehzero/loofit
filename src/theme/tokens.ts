@@ -1,4 +1,4 @@
-// Design tokens ported from 핏로그.dc.html.
+// Design tokens ported from 루핏.dc.html.
 // The design is dark-first with a light variant and a swappable accent color.
 
 import type { TextStyle } from 'react-native';
