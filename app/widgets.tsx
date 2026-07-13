@@ -47,6 +47,10 @@ const WIDGET_TYPE = WIDGET_DESIGN.typography;
 const WIDGET_WEIGHT = WIDGET_DESIGN.fontWeight;
 const WIDGET_SPACE = WIDGET_DESIGN.spacing;
 const WIDGET_RADIUS = WIDGET_DESIGN.radius;
+const SINGLE_LINE_ELLIPSIS = {
+  ellipsizeMode: 'tail' as const,
+  numberOfLines: 1,
+} as const;
 const LOCK_SCREEN_TEXT = WIDGET_RENDERER_CONTRACT.lockScreen.text;
 const LIVE_ACTIVITY_BANNER = WIDGET_RENDERER_CONTRACT.liveActivity.banner;
 const LIVE_ACTIVITY_COMPACT = WIDGET_RENDERER_CONTRACT.liveActivity.compact;
@@ -383,18 +387,31 @@ function ControlCompletedPreview({
       </View>
 
       <View style={styles.controlContentSlot}>
-        <Text style={[styles.smallName, { color: previewTheme.titleColor }]} numberOfLines={2}>
+        <Text
+          {...SINGLE_LINE_ELLIPSIS}
+          adjustsFontSizeToFit
+          minimumFontScale={WIDGET_DESIGN.minimumScale.default}
+          style={[styles.smallName, { color: previewTheme.titleColor }]}
+        >
           {title}
         </Text>
-        <Text style={[styles.partsStr, { color: previewTheme.detailColor }]} numberOfLines={1}>
+        <Text
+          {...SINGLE_LINE_ELLIPSIS}
+          style={[styles.partsStr, { color: previewTheme.detailColor }]}
+        >
           {detail}
         </Text>
       </View>
 
       <View style={styles.completedFooterSlot}>
-        <Text style={[styles.smallDur, { color: accent }]}>{duration}</Text>
+        <Text {...SINGLE_LINE_ELLIPSIS} style={[styles.smallDur, { color: accent }]}>
+          {duration}
+        </Text>
         {range ? (
-          <Text style={[styles.smallRange, { color: previewTheme.detailColor }]} numberOfLines={1}>
+          <Text
+            {...SINGLE_LINE_ELLIPSIS}
+            style={[styles.smallRange, { color: previewTheme.detailColor }]}
+          >
             {range}
           </Text>
         ) : null}
@@ -447,16 +464,21 @@ function ControlActionPreview({
 
       <View style={styles.controlContentSlot}>
         <Text
+          {...SINGLE_LINE_ELLIPSIS}
+          adjustsFontSizeToFit={!isTimer}
+          minimumFontScale={WIDGET_DESIGN.minimumScale.default}
           style={[
             isTimer ? styles.smallTimer : styles.smallName,
             { color: previewTheme.titleColor },
           ]}
-          numberOfLines={isTimer ? 1 : 2}
         >
           {title}
         </Text>
         {subtitle ? (
-          <Text style={[styles.partsStr, { color: previewTheme.detailColor }]} numberOfLines={1}>
+          <Text
+            {...SINGLE_LINE_ELLIPSIS}
+            style={[styles.partsStr, { color: previewTheme.detailColor }]}
+          >
             {subtitle}
           </Text>
         ) : null}
@@ -685,17 +707,19 @@ function LiveActivityBannerPreview({
         ]}>
         <View style={styles.liveBannerHeader}>
           <Text
+            {...SINGLE_LINE_ELLIPSIS}
             style={[styles.liveBannerTitle, { color: previewTheme.titleColor }]}
-            numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.78}
+            minimumFontScale={WIDGET_DESIGN.minimumScale.default}
           >
             {title || compactTitle}
           </Text>
           <Text style={[styles.liveStatusText, { color: accent }]}>운동 중</Text>
         </View>
         <View style={styles.liveBannerFooter}>
-          <Text style={[styles.liveBannerTimer, { color: accent }]}>{elapsed}</Text>
+          <Text {...SINGLE_LINE_ELLIPSIS} style={[styles.liveBannerTimer, { color: accent }]}>
+            {elapsed}
+          </Text>
           <StopPill accent={accent} accentText={accentText} />
         </View>
       </View>
