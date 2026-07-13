@@ -50,6 +50,32 @@ describe('widget renderer contract', () => {
     expect(source.control).not.toHaveProperty('headerHeight');
     expect(source.control).not.toHaveProperty('bodyHeight');
     expect(source.control).not.toHaveProperty('footerWithRangeHeight');
+    expect(source.routineProgress).not.toHaveProperty('indicator');
+    expect(source.routineProgress).not.toHaveProperty('text');
+    expect(source.routineProgress.textList).toMatchObject({
+      availability: 'previewOnly',
+      family: 'systemSmall',
+      orientation: 'vertical',
+      progressBasis: 'nextSplitPosition',
+    });
+    expect(source.routineProgress.textList.lockScreen).toMatchObject({
+      availability: 'previewOnly',
+      family: 'accessoryRectangular',
+      orientation: 'horizontal',
+      visibleItemLimit: 3,
+      visibleItemSelection: 'currentCentered',
+      progressBasis: 'nextSplitPosition',
+      horizontalAlignment: 'center',
+      rowContent: ['workoutAliasOrBodyParts', 'relativeDay'],
+    });
+    expect(source.bodyPartDuration).toMatchObject({
+      availability: 'previewOnly',
+      family: 'systemSmall',
+      rangeDays: 30,
+      durationAttribution: 'fullSessionPerBodyPart',
+      sort: 'durationDescending',
+      visibleItemLimit: 4,
+    });
     expect(source.heatmap.styles.detailed.cellGap).toBe('{spacing.sm}');
     expect(source.heatmap.variants.week.style).toBe('detailed');
     expect(source.heatmap.variants.month.style).toBe('detailed');
@@ -57,6 +83,7 @@ describe('widget renderer contract', () => {
     expect(source.heatmap.previewVariants.currentMonth).toEqual({
       style: 'detailed',
       headerVisible: true,
+      headerSummary: 'count',
       maxRows: 6,
       todayIndicator: {
         style: 'border',
@@ -71,6 +98,9 @@ describe('widget renderer contract', () => {
       colorRole: 'todayIndicator',
       width: 1.5,
     });
+    expect(
+      WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.headerSummary
+    ).toBe('count');
     expect(WIDGET_RENDERER_CONTRACT.card.contentPadding).toBe(
       WIDGET_RENDERER_CONTRACT.designSystem.contentPadding
     );

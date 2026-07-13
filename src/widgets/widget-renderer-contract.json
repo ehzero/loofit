@@ -116,6 +116,90 @@
       }
     }
   },
+  "routineProgress": {
+    "textList": {
+      "availability": "previewOnly",
+      "family": "systemSmall",
+      "orientation": "vertical",
+      "progressBasis": "nextSplitPosition",
+      "verticalDistribution": "spaceBetween",
+      "currentTextColorRole": "accent",
+      "nonCurrentTextColorRole": "textLow",
+      "rowContent": ["split", "relativeDay", "bodyParts", "duration"],
+      "metadataSeparator": " · ",
+      "contentPadding": "{contentPadding}",
+      "text": {
+        "split": {
+          "size": "{typography.xl.size}",
+          "lineHeight": "{typography.xl.lineHeight}",
+          "weight": "{fontWeight.bold}"
+        },
+        "metadata": {
+          "size": "{typography.sm.size}",
+          "lineHeight": "{typography.sm.lineHeight}",
+          "weight": "{fontWeight.medium}"
+        }
+      },
+      "lockScreen": {
+        "availability": "previewOnly",
+        "family": "accessoryRectangular",
+        "orientation": "horizontal",
+        "visibleItemLimit": 3,
+        "visibleItemSelection": "currentCentered",
+        "progressBasis": "nextSplitPosition",
+        "horizontalAlignment": "center",
+        "currentTextColorRole": "textHigh",
+        "nonCurrentTextColorRole": "textLow",
+        "rowContent": ["workoutAliasOrBodyParts", "relativeDay"],
+        "contentPadding": "{spacing.sm}",
+        "columnGap": "{spacing.sm}",
+        "itemGap": "{spacing.xs}",
+        "text": {
+          "workout": {
+            "size": "{typography.lg.size}",
+            "lineHeight": "{typography.lg.lineHeight}",
+            "weight": "{fontWeight.bold}"
+          },
+          "relativeDay": {
+            "size": "{typography.md.size}",
+            "lineHeight": "{typography.md.lineHeight}",
+            "weight": "{fontWeight.medium}"
+          }
+        }
+      }
+    }
+  },
+  "bodyPartDuration": {
+    "availability": "previewOnly",
+    "family": "systemSmall",
+    "rangeDays": 30,
+    "durationAttribution": "fullSessionPerBodyPart",
+    "sort": "durationDescending",
+    "visibleItemLimit": 4,
+    "verticalDistribution": "spaceBetween",
+    "contentPadding": "{contentPadding}",
+    "bar": {
+      "height": "{spacing.sm}",
+      "radius": "{radius.cell}"
+    },
+    "text": {
+      "title": {
+        "size": "{typography.md.size}",
+        "lineHeight": "{typography.md.lineHeight}",
+        "weight": "{fontWeight.bold}"
+      },
+      "bodyPart": {
+        "size": "{typography.md.size}",
+        "lineHeight": "{typography.md.lineHeight}",
+        "weight": "{fontWeight.bold}"
+      },
+      "duration": {
+        "size": "{typography.sm.size}",
+        "lineHeight": "{typography.sm.lineHeight}",
+        "weight": "{fontWeight.medium}"
+      }
+    }
+  },
   "liveActivity": {
     "banner": {
       "minHeight": 104,
@@ -188,6 +272,22 @@
         "headerGap": "{spacing.md}",
         "headerFontSize": "{typography.md.size}"
       },
+      "expanded": {
+        "columns": 7,
+        "contentPadding": "{contentPadding}",
+        "cellGap": "{spacing.sm}",
+        "cellRadius": "{radius.cell}",
+        "cellLabelSize": "{typography.sm.size}",
+        "cellLabelLineHeight": "{typography.sm.lineHeight}",
+        "bodyPartLabelSize": "{typography.sm.size}",
+        "bodyPartLabelLineHeight": "{typography.sm.lineHeight}",
+        "bodyPartLabelOpacity": "{opacity.muted}",
+        "cellContentGap": "{spacing.xs}",
+        "weekdayHeaderHeight": "{typography.sm.lineHeight}",
+        "headerGap": "{spacing.sm}",
+        "headerFontSize": "{typography.md.size}",
+        "aspectRatio": 2.14
+      },
       "compact": {
         "columns": 0,
         "contentPadding": "{contentPadding}",
@@ -202,12 +302,24 @@
       "currentMonth": {
         "style": "detailed",
         "headerVisible": true,
+        "headerSummary": "count",
         "maxRows": 6,
         "todayIndicator": {
           "style": "border",
           "colorRole": "todayIndicator",
           "width": 1.5
         }
+      },
+      "fourWeekExpanded": {
+        "style": "expanded",
+        "availability": "previewOnly",
+        "family": "systemMedium",
+        "rangeWeeks": 4,
+        "headerVisible": false,
+        "calendarAlignment": "calendarWeeks",
+        "cellContent": "dayAndBodyParts",
+        "bodyPartSeparator": "·",
+        "bodyPartMaxLines": 1
       }
     },
     "variants": {

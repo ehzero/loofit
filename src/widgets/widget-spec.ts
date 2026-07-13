@@ -2,7 +2,8 @@ import { WIDGET_RENDERER_CONTRACT } from './generated/widget-renderer-contract.g
 
 export { WIDGET_RENDERER_CONTRACT } from './generated/widget-renderer-contract.generated';
 
-const { card, control, heatmap, text } = WIDGET_RENDERER_CONTRACT;
+const { bodyPartDuration, card, control, heatmap, routineProgress, text } =
+  WIDGET_RENDERER_CONTRACT;
 
 /**
  * React Native preview projection of the canonical renderer contract.
@@ -20,6 +21,8 @@ export const WIDGET_PREVIEW_SPEC = {
   },
   text,
   control,
+  routineProgress,
+  bodyPartDuration,
   heatmap: {
     week: previewHeatmapVariant(heatmap.variants.week),
     month: previewHeatmapVariant(heatmap.variants.month),

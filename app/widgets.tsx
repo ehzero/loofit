@@ -32,7 +32,14 @@ import {
   buildWorkoutLockScreenSummaryFromCells,
   lockScreenThemeFromColors,
 } from '@/src/widgets/lock-screen-widget-model';
+import { BodyPartDurationWidgetPreview } from '@/src/widgets/preview/BodyPartDurationWidgetPreview';
+import { ExpandedHeatmapWidgetPreview } from '@/src/widgets/preview/ExpandedHeatmapWidgetPreview';
 import { HeatmapWidgetPreview } from '@/src/widgets/preview/HeatmapWidgetPreview';
+import { RoutineProgressLockScreenWidgetPreview } from '@/src/widgets/preview/RoutineProgressLockScreenWidgetPreview';
+import {
+  RoutineProgressTextListWidgetPreview,
+  type RoutineProgressTextListItem,
+} from '@/src/widgets/preview/RoutineProgressTextListWidgetPreview';
 import { widgetColor } from '@/src/widgets/widget-design-system';
 import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
 import type {
@@ -113,6 +120,25 @@ const LOCK_SCREEN_SYSTEM_PREVIEW = {
   inactive: 'transparent',
 } as const;
 
+const ROUTINE_PROGRESS_PREVIEW_ITEMS: RoutineProgressTextListItem[] = [
+  {
+    split: 'Push',
+    bodyParts: '가슴·어깨·삼두',
+    duration: '1시간 8분',
+    relativeDay: '어제',
+    workoutAlias: 'Push',
+  },
+  {
+    split: 'Pull',
+    bodyParts: '등·이두',
+    duration: '48분',
+    relativeDay: '오늘',
+    workoutAlias: 'Pull',
+  },
+  { split: 'Legs', bodyParts: '하체', duration: '56분', relativeDay: '4일 전' },
+];
+const ROUTINE_PROGRESS_CURRENT_INDEX = 1;
+
 type WidgetPreviewTheme = {
   cardBackground: string;
   cardBorder: string;
@@ -129,10 +155,29 @@ export default function WidgetsScreen() {
   const { accent, colors } = useTheme();
   const [guideVisible, setGuideVisible] = useState(false);
   const previewTheme = useMemo(() => buildWidgetPreviewTheme(colors), [colors]);
-  const { currentMonthTitle, currentMonthWidget, weekWidget, monthWidget, yearWidget } = useMemo(
-    () => buildPreviewHeatmapWidgets(colors),
-    [colors]
-  );
+  const routineProgressPalette = {
+    accent,
+    background: previewTheme.cardBackground,
+    border: previewTheme.cardBorder,
+    textLow: previewTheme.typeLabelColor,
+  };
+  const bodyPartDurationPalette = {
+    accent,
+    background: previewTheme.cardBackground,
+    border: previewTheme.cardBorder,
+    raisedSurface: previewTheme.neutralButtonBackground,
+    textHigh: previewTheme.titleColor,
+    textMedium: previewTheme.detailColor,
+  };
+  const {
+    currentMonthTitle,
+    currentMonthWidget,
+    expandedFourWeekBodyPartLabels,
+    expandedFourWeekWidget,
+    weekWidget,
+    monthWidget,
+    yearWidget,
+  } = useMemo(() => buildPreviewHeatmapWidgets(colors), [colors]);
   const lockScreenPreview = useMemo(() => buildPreviewLockScreenWidgets(colors), [colors]);
 
   return (
@@ -248,6 +293,16 @@ export default function WidgetsScreen() {
             </WidgetTypePreview>
           </View>
 
+          <WidgetTypePreview
+            label="Medium · 지난 4주 상세"
+            labelColor={previewTheme.typeLabelColor}
+          >
+            <ExpandedHeatmapWidgetPreview
+              bodyPartLabels={expandedFourWeekBodyPartLabels}
+              widget={expandedFourWeekWidget}
+            />
+          </WidgetTypePreview>
+
           <WidgetTypePreview label="Medium · 지난 6개월" labelColor={previewTheme.typeLabelColor}>
             <HeatmapWidgetPreview
               title={yearWidget.title}
@@ -256,6 +311,44 @@ export default function WidgetsScreen() {
               style={styles.mediumRect}
             />
           </WidgetTypePreview>
+        </View>
+
+        <View style={styles.previewGroup}>
+          <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>루틴 진행 위젯</Text>
+          <View style={styles.smallRow}>
+            <WidgetTypePreview
+              label="Small · 텍스트 목록"
+              labelColor={previewTheme.typeLabelColor}
+              style={styles.smallSquareSingle}
+            >
+              <RoutineProgressTextListWidgetPreview
+                currentIndex={ROUTINE_PROGRESS_CURRENT_INDEX}
+                items={ROUTINE_PROGRESS_PREVIEW_ITEMS}
+                palette={routineProgressPalette}
+              />
+            </WidgetTypePreview>
+          </View>
+        </View>
+
+        <View style={styles.previewGroup}>
+          <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>운동 분석 위젯</Text>
+          <View style={styles.smallRow}>
+            <WidgetTypePreview
+              label="Small · 최근 30일 부위별 시간"
+              labelColor={previewTheme.typeLabelColor}
+              style={styles.smallSquareSingle}
+            >
+              <BodyPartDurationWidgetPreview
+                items={[
+                  { bodyPart: '가슴', durationSeconds: 6 * 3600 + 25 * 60 },
+                  { bodyPart: '등', durationSeconds: 5 * 3600 + 40 * 60 },
+                  { bodyPart: '하체', durationSeconds: 4 * 3600 + 15 * 60 },
+                  { bodyPart: '어깨', durationSeconds: 2 * 3600 + 30 * 60 },
+                ]}
+                palette={bodyPartDurationPalette}
+              />
+            </WidgetTypePreview>
+          </View>
         </View>
       </View>
 
@@ -573,6 +666,23 @@ function LockScreenWidgetsPreview({
         </Text>
         <RectangularWeekSummaryPreview previewTheme={previewTheme} summary={summary} />
       </View>
+
+      <View style={styles.previewGroup}>
+        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+          Rectangular Type C · 루틴 진행
+        </Text>
+        <RoutineProgressLockScreenWidgetPreview
+          currentIndex={ROUTINE_PROGRESS_CURRENT_INDEX}
+          items={ROUTINE_PROGRESS_PREVIEW_ITEMS}
+          palette={{
+            background: LOCK_SCREEN_SYSTEM_PREVIEW.surface,
+            border: LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder,
+            textHigh: LOCK_SCREEN_SYSTEM_PREVIEW.primary,
+            textLow: LOCK_SCREEN_SYSTEM_PREVIEW.tertiary,
+          }}
+          style={styles.lockRectangularRoutineWidget}
+        />
+      </View>
     </View>
   );
 }
@@ -885,6 +995,8 @@ function buildWidgetPreviewTheme(colors: ThemeColors): WidgetPreviewTheme {
 function buildPreviewHeatmapWidgets(colors: ThemeColors): {
   currentMonthTitle: string;
   currentMonthWidget: HeatmapWidgetProps;
+  expandedFourWeekBodyPartLabels: string[];
+  expandedFourWeekWidget: HeatmapWidgetProps;
   weekWidget: HeatmapWidgetProps;
   monthWidget: HeatmapWidgetProps;
   yearWidget: HeatmapWidgetProps;
@@ -895,18 +1007,34 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
     source,
     WIDGET_RENDERER_CONTRACT.heatmap.variants.month.rangeWeeks
   );
+  const expandedFourWeekCells = buildPreviewCalendarWeeks(
+    source,
+    WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.fourWeekExpanded.rangeWeeks
+  );
   const currentMonth = buildCurrentMonthHeatmapModel(source);
   const yearCells = buildPreviewHeatmapGrid(source, 365);
   const weekStats = rangeStatsFromCells(weekCells);
   const monthStats = rangeStatsFromCells(monthCells);
+  const currentMonthStats = rangeStatsFromCells(currentMonth.cells);
   const sixMonthStats = rangeStatsFromCells(recentSixMonthCells(yearCells));
+  const currentMonthTitle = formatHeatmapWidgetTitle(
+    currentMonth.title,
+    currentMonthStats.workoutCount
+  );
 
   return {
-    currentMonthTitle: currentMonth.title,
+    currentMonthTitle,
     currentMonthWidget: buildHeatmapWidgetProps({
-      title: currentMonth.title,
+      title: currentMonthTitle,
       variant: 'month',
       cells: currentMonth.cells,
+      colors,
+    }),
+    expandedFourWeekBodyPartLabels: buildPreviewBodyPartLabels(expandedFourWeekCells),
+    expandedFourWeekWidget: buildHeatmapWidgetProps({
+      title: '지난 4주',
+      variant: 'month',
+      cells: expandedFourWeekCells,
       colors,
     }),
     weekWidget: buildHeatmapWidgetProps({
@@ -936,6 +1064,26 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
       colors,
     }),
   };
+}
+
+function buildPreviewBodyPartLabels(cells: HeatmapGridCell[]): string[] {
+  const separator = WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.fourWeekExpanded.bodyPartSeparator;
+  const bodyPartGroups = [
+    ['가슴', '어깨', '삼두'].join(separator),
+    ['등', '이두'].join(separator),
+    '하체',
+    '어깨',
+  ];
+  let workoutIndex = 0;
+
+  return cells.map((cell) => {
+    if (cell.durationSeconds <= 0) {
+      return '';
+    }
+    const label = bodyPartGroups[workoutIndex % bodyPartGroups.length] ?? '';
+    workoutIndex += 1;
+    return label;
+  });
 }
 
 function buildPreviewLockScreenWidgets(colors: ThemeColors): {
@@ -1353,6 +1501,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: WIDGET_SPACE.md,
   },
+  lockRectangularRoutineWidget: {
+    borderRadius: 0,
+    height: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.height,
+    width: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.width,
+  },
   lockRectStateRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1548,8 +1701,8 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   smallSquareSingle: {
-    width: '48%',
     minWidth: 0,
+    width: '48%',
   },
   smallName: {
     fontSize: CONTROL.text.title.size,

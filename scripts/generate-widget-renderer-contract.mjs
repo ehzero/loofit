@@ -66,6 +66,65 @@ function validate(value) {
     );
   }
 
+  const routineProgress = value.routineProgress;
+  const routineProgressTextList = routineProgress?.textList;
+  assert(
+    routineProgressTextList?.availability === 'previewOnly' &&
+      routineProgressTextList.family === 'systemSmall',
+    'routine progress text list must remain a preview-only systemSmall widget'
+  );
+  assert(
+    routineProgressTextList.progressBasis === 'nextSplitPosition' &&
+      routineProgressTextList.orientation === 'vertical' &&
+      routineProgressTextList.verticalDistribution === 'spaceBetween',
+    'routine progress text list must use next-split position and space-between distribution'
+  );
+  assert(
+    routineProgressTextList.currentTextColorRole === 'accent' &&
+      routineProgressTextList.nonCurrentTextColorRole === 'textLow' &&
+      routineProgressTextList.rowContent?.join(',') === 'split,relativeDay,bodyParts,duration',
+    'routine progress text list must accent the current split, mute other splits, and show split, relative day, body parts, duration'
+  );
+  const routineProgressLockScreen = routineProgressTextList.lockScreen;
+  assert(
+    routineProgressLockScreen?.availability === 'previewOnly' &&
+      routineProgressLockScreen.family === 'accessoryRectangular' &&
+      routineProgressLockScreen.orientation === 'horizontal',
+    'lock-screen routine progress must remain a preview-only horizontal accessoryRectangular widget'
+  );
+  assert(
+    routineProgressLockScreen.visibleItemLimit === 3 &&
+      routineProgressLockScreen.visibleItemSelection === 'currentCentered' &&
+      routineProgressLockScreen.progressBasis === 'nextSplitPosition' &&
+      routineProgressLockScreen.horizontalAlignment === 'center' &&
+      routineProgressLockScreen.rowContent?.join(',') ===
+        'workoutAliasOrBodyParts,relativeDay',
+    'lock-screen routine progress must center three workout aliases or body parts with relative days'
+  );
+  assert(
+    routineProgressLockScreen.currentTextColorRole === 'textHigh' &&
+      routineProgressLockScreen.nonCurrentTextColorRole === 'textLow',
+    'lock-screen routine progress must emphasize only the current split'
+  );
+
+  const bodyPartDuration = value.bodyPartDuration;
+  assert(
+    bodyPartDuration?.availability === 'previewOnly' &&
+      bodyPartDuration.family === 'systemSmall',
+    'body part duration must remain a preview-only systemSmall widget'
+  );
+  assert(
+    bodyPartDuration.rangeDays === 30 &&
+      bodyPartDuration.durationAttribution === 'fullSessionPerBodyPart',
+    'body part duration must cover 30 days and attribute the full session to each body part'
+  );
+  assert(
+    bodyPartDuration.sort === 'durationDescending' &&
+      bodyPartDuration.visibleItemLimit === 4 &&
+      bodyPartDuration.verticalDistribution === 'spaceBetween',
+    'body part duration must show four descending items with space-between distribution'
+  );
+
   const variants = value.heatmap?.variants;
   assert(
     variants && Object.keys(variants).join(',') === 'week,month,year',
@@ -128,14 +187,33 @@ function validate(value) {
   assert(variants.year.style === 'compact', 'six months must use the compact heatmap style');
   const currentMonthPreview = value.heatmap.previewVariants?.currentMonth;
   assert(
-    currentMonthPreview?.style === 'detailed' && currentMonthPreview.maxRows === 6,
-    'current-month preview must use the detailed style with up to six rows'
+    currentMonthPreview?.style === 'detailed' &&
+      currentMonthPreview.headerSummary === 'count' &&
+      currentMonthPreview.maxRows === 6,
+    'current-month preview must use the detailed style with a count summary and up to six rows'
   );
   assert(
     currentMonthPreview.todayIndicator?.style === 'border' &&
       currentMonthPreview.todayIndicator.colorRole === 'todayIndicator' &&
       currentMonthPreview.todayIndicator.width > 0,
     'current-month preview must use the theme-aware today indicator border'
+  );
+  const fourWeekExpandedPreview = value.heatmap.previewVariants?.fourWeekExpanded;
+  assert(
+    fourWeekExpandedPreview?.style === 'expanded' &&
+      fourWeekExpandedPreview.availability === 'previewOnly' &&
+      fourWeekExpandedPreview.family === 'systemMedium',
+    'expanded four-week heatmap must remain a preview-only systemMedium widget'
+  );
+  assert(
+    fourWeekExpandedPreview.rangeWeeks === 4 &&
+      fourWeekExpandedPreview.calendarAlignment === 'calendarWeeks',
+    'expanded four-week heatmap must cover four calendar weeks'
+  );
+  assert(
+    fourWeekExpandedPreview.cellContent === 'dayAndBodyParts' &&
+      fourWeekExpandedPreview.bodyPartMaxLines === 1,
+    'expanded four-week heatmap must show one line of body parts below each day'
   );
   assert(
     Object.values(variants).every(
@@ -302,9 +380,49 @@ function validateTokenSource(value) {
     ['heatmap', 'styles', 'detailed', 'contentPadding'],
     ['heatmap', 'styles', 'detailed', 'cellGap'],
     ['heatmap', 'styles', 'detailed', 'cellRadius'],
+    ['heatmap', 'styles', 'expanded', 'contentPadding'],
+    ['heatmap', 'styles', 'expanded', 'cellGap'],
+    ['heatmap', 'styles', 'expanded', 'cellRadius'],
+    ['heatmap', 'styles', 'expanded', 'cellLabelSize'],
+    ['heatmap', 'styles', 'expanded', 'cellLabelLineHeight'],
+    ['heatmap', 'styles', 'expanded', 'bodyPartLabelSize'],
+    ['heatmap', 'styles', 'expanded', 'bodyPartLabelLineHeight'],
+    ['heatmap', 'styles', 'expanded', 'bodyPartLabelOpacity'],
+    ['heatmap', 'styles', 'expanded', 'cellContentGap'],
+    ['heatmap', 'styles', 'expanded', 'weekdayHeaderHeight'],
+    ['heatmap', 'styles', 'expanded', 'headerGap'],
+    ['heatmap', 'styles', 'expanded', 'headerFontSize'],
     ['heatmap', 'styles', 'compact', 'contentPadding'],
     ['heatmap', 'styles', 'compact', 'cellGap'],
     ['heatmap', 'styles', 'compact', 'cellRadius'],
+    ['routineProgress', 'textList', 'contentPadding'],
+    ['routineProgress', 'textList', 'text', 'split', 'size'],
+    ['routineProgress', 'textList', 'text', 'split', 'lineHeight'],
+    ['routineProgress', 'textList', 'text', 'split', 'weight'],
+    ['routineProgress', 'textList', 'text', 'metadata', 'size'],
+    ['routineProgress', 'textList', 'text', 'metadata', 'lineHeight'],
+    ['routineProgress', 'textList', 'text', 'metadata', 'weight'],
+    ['routineProgress', 'textList', 'lockScreen', 'contentPadding'],
+    ['routineProgress', 'textList', 'lockScreen', 'columnGap'],
+    ['routineProgress', 'textList', 'lockScreen', 'itemGap'],
+    ['routineProgress', 'textList', 'lockScreen', 'text', 'workout', 'size'],
+    ['routineProgress', 'textList', 'lockScreen', 'text', 'workout', 'lineHeight'],
+    ['routineProgress', 'textList', 'lockScreen', 'text', 'workout', 'weight'],
+    ['routineProgress', 'textList', 'lockScreen', 'text', 'relativeDay', 'size'],
+    ['routineProgress', 'textList', 'lockScreen', 'text', 'relativeDay', 'lineHeight'],
+    ['routineProgress', 'textList', 'lockScreen', 'text', 'relativeDay', 'weight'],
+    ['bodyPartDuration', 'contentPadding'],
+    ['bodyPartDuration', 'bar', 'height'],
+    ['bodyPartDuration', 'bar', 'radius'],
+    ['bodyPartDuration', 'text', 'title', 'size'],
+    ['bodyPartDuration', 'text', 'title', 'lineHeight'],
+    ['bodyPartDuration', 'text', 'title', 'weight'],
+    ['bodyPartDuration', 'text', 'bodyPart', 'size'],
+    ['bodyPartDuration', 'text', 'bodyPart', 'lineHeight'],
+    ['bodyPartDuration', 'text', 'bodyPart', 'weight'],
+    ['bodyPartDuration', 'text', 'duration', 'size'],
+    ['bodyPartDuration', 'text', 'duration', 'lineHeight'],
+    ['bodyPartDuration', 'text', 'duration', 'weight'],
   ]) {
     const raw = valueAtPath(value, path);
     assert(isTokenReference(raw), `${path.join('.')} must reference a design token`);
@@ -320,11 +438,19 @@ function applyComponentRecipes(value) {
       return [name, { ...style, ...variant }];
     })
   );
+  const previewVariants = Object.fromEntries(
+    Object.entries(value.heatmap.previewVariants).map(([name, variant]) => {
+      const style = styles[variant.style];
+      assert(style, `unknown heatmap preview style for ${name}: ${variant.style}`);
+      return [name, { ...style, ...variant }];
+    })
+  );
   return {
     ...value,
     heatmap: {
       ...value.heatmap,
       variants,
+      previewVariants,
     },
   };
 }

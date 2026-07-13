@@ -131,6 +131,98 @@ export const WIDGET_RENDERER_CONTRACT = {
       }
     }
   },
+  "routineProgress": {
+    "textList": {
+      "availability": "previewOnly",
+      "family": "systemSmall",
+      "orientation": "vertical",
+      "progressBasis": "nextSplitPosition",
+      "verticalDistribution": "spaceBetween",
+      "currentTextColorRole": "accent",
+      "nonCurrentTextColorRole": "textLow",
+      "rowContent": [
+        "split",
+        "relativeDay",
+        "bodyParts",
+        "duration"
+      ],
+      "metadataSeparator": " · ",
+      "contentPadding": 12,
+      "text": {
+        "split": {
+          "size": 26,
+          "lineHeight": 31,
+          "weight": "800"
+        },
+        "metadata": {
+          "size": 8,
+          "lineHeight": 10,
+          "weight": "700"
+        }
+      },
+      "lockScreen": {
+        "availability": "previewOnly",
+        "family": "accessoryRectangular",
+        "orientation": "horizontal",
+        "visibleItemLimit": 3,
+        "visibleItemSelection": "currentCentered",
+        "progressBasis": "nextSplitPosition",
+        "horizontalAlignment": "center",
+        "currentTextColorRole": "textHigh",
+        "nonCurrentTextColorRole": "textLow",
+        "rowContent": [
+          "workoutAliasOrBodyParts",
+          "relativeDay"
+        ],
+        "contentPadding": 4,
+        "columnGap": 4,
+        "itemGap": 2,
+        "text": {
+          "workout": {
+            "size": 16,
+            "lineHeight": 21,
+            "weight": "800"
+          },
+          "relativeDay": {
+            "size": 12,
+            "lineHeight": 16,
+            "weight": "700"
+          }
+        }
+      }
+    }
+  },
+  "bodyPartDuration": {
+    "availability": "previewOnly",
+    "family": "systemSmall",
+    "rangeDays": 30,
+    "durationAttribution": "fullSessionPerBodyPart",
+    "sort": "durationDescending",
+    "visibleItemLimit": 4,
+    "verticalDistribution": "spaceBetween",
+    "contentPadding": 12,
+    "bar": {
+      "height": 4,
+      "radius": 3
+    },
+    "text": {
+      "title": {
+        "size": 12,
+        "lineHeight": 16,
+        "weight": "800"
+      },
+      "bodyPart": {
+        "size": 12,
+        "lineHeight": 16,
+        "weight": "800"
+      },
+      "duration": {
+        "size": 8,
+        "lineHeight": 10,
+        "weight": "700"
+      }
+    }
+  },
   "liveActivity": {
     "banner": {
       "minHeight": 104,
@@ -214,6 +306,22 @@ export const WIDGET_RENDERER_CONTRACT = {
         "headerGap": 8,
         "headerFontSize": 12
       },
+      "expanded": {
+        "columns": 7,
+        "contentPadding": 12,
+        "cellGap": 4,
+        "cellRadius": 3,
+        "cellLabelSize": 8,
+        "cellLabelLineHeight": 10,
+        "bodyPartLabelSize": 8,
+        "bodyPartLabelLineHeight": 10,
+        "bodyPartLabelOpacity": 0.72,
+        "cellContentGap": 2,
+        "weekdayHeaderHeight": 10,
+        "headerGap": 4,
+        "headerFontSize": 12,
+        "aspectRatio": 2.14
+      },
       "compact": {
         "columns": 0,
         "contentPadding": 12,
@@ -226,14 +334,47 @@ export const WIDGET_RENDERER_CONTRACT = {
     },
     "previewVariants": {
       "currentMonth": {
+        "columns": 7,
+        "contentPadding": 12,
+        "cellGap": 4,
+        "cellRadius": 3,
+        "cellLabelSize": 8,
+        "headerGap": 8,
+        "headerFontSize": 12,
         "style": "detailed",
         "headerVisible": true,
+        "headerSummary": "count",
         "maxRows": 6,
         "todayIndicator": {
           "style": "border",
           "colorRole": "todayIndicator",
           "width": 1.5
         }
+      },
+      "fourWeekExpanded": {
+        "columns": 7,
+        "contentPadding": 12,
+        "cellGap": 4,
+        "cellRadius": 3,
+        "cellLabelSize": 8,
+        "cellLabelLineHeight": 10,
+        "bodyPartLabelSize": 8,
+        "bodyPartLabelLineHeight": 10,
+        "bodyPartLabelOpacity": 0.72,
+        "cellContentGap": 2,
+        "weekdayHeaderHeight": 10,
+        "headerGap": 4,
+        "headerFontSize": 12,
+        "aspectRatio": 2.14,
+        "style": "expanded",
+        "availability": "previewOnly",
+        "family": "systemMedium",
+        "rangeWeeks": 4,
+        "headerVisible": false,
+        "calendarAlignment": "calendarWeeks",
+        "cellContent": "dayAndBodyParts",
+        "bodyPartSeparator": "·",
+        "bodyPartMaxLines": 1
       }
     },
     "variants": {
