@@ -12,6 +12,10 @@ struct ExportWidgets0: WidgetBundle {
     HeatmapWeekWidget()
     HeatmapMonthWidget()
     HeatmapYearWidget()
+    CurrentMonthCalendarWidget()
+    HeatmapFourWeekExpandedWidget()
+    RoutineProgressWidget()
+    BodyPartDurationWidget()
     ExportWidgets1().body
   }
 }
@@ -20,6 +24,7 @@ struct ExportWidgets1: WidgetBundle {
   var body: some Widget {
     WorkoutLockScreenWidget()
     WorkoutLockScreenSummaryWidget()
+    RoutineProgressLockScreenWidget()
     LoofitWorkoutLiveActivity()
   }
 }
@@ -207,6 +212,7 @@ struct LoofitWidgetPalette {
   let heatmapBase: String
   let heatmapEmpty: String
   let heatmapGap: String
+  let todayIndicator: String
 
   init(theme: LoofitWidgetTheme?) {
     let theme = theme ?? LoofitWidgetTheme()
@@ -225,6 +231,7 @@ struct LoofitWidgetPalette {
     heatmapBase = theme.heatmapBaseColor
     heatmapEmpty = theme.heatmapEmptyColor
     heatmapGap = theme.heatmapGapColor
+    todayIndicator = theme.todayIndicatorColor
   }
 }
 
@@ -283,6 +290,63 @@ func LoofitMixColor(_ first: String, _ second: String, weight: Double) -> Color 
     green: a.1 * weight + b.1 * (1 - weight),
     blue: a.2 * weight + b.2 * (1 - weight)
   )
+}
+
+func LoofitHeatmapFillColor(
+  for day: LoofitHeatmapDay,
+  palette: LoofitWidgetPalette,
+  showLeadingCalendarCells: Bool = false
+) -> Color {
+  guard day.inRange else {
+    return showLeadingCalendarCells
+      ? LoofitColor(palette.heatmapEmpty)
+      : LoofitColor(palette.heatmapGap)
+  }
+  switch day.durationSeconds {
+  case ...0:
+    return LoofitColor(palette.heatmapEmpty)
+  case ..<(30 * 60):
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: 0.24)
+  case ..<(60 * 60):
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: 0.48)
+  case ..<(90 * 60):
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: 0.74)
+  default:
+    return LoofitColor(palette.accent)
+  }
+}
+
+func LoofitHeatmapTextColor(
+  for day: LoofitHeatmapDay,
+  palette: LoofitWidgetPalette
+) -> Color {
+  if day.durationSeconds >= LoofitWidgetRendererContract.Heatmap.strongCellLabelMinimumDurationSeconds {
+    return LoofitColor(palette.accentText)
+  }
+  if day.durationSeconds > 0 {
+    return LoofitColor(palette.tx)
+  }
+  return LoofitColor(palette.tx4)
+}
+
+func LoofitVisibleRoutineItems(
+  _ progress: LoofitRoutineProgressSnapshot?,
+  limit: Int
+) -> [LoofitRoutineProgressItemSnapshot] {
+  guard let progress, !progress.items.isEmpty else { return [] }
+  let count = max(limit, 1)
+  guard progress.items.count > count else { return progress.items }
+  let currentIndex = progress.items.firstIndex {
+    $0.routineDayId == progress.currentRoutineDayId
+  } ?? 0
+  let maxStart = max(progress.items.count - count, 0)
+  let start = min(max(currentIndex - count / 2, 0), maxStart)
+  return Array(progress.items[start..<min(start + count, progress.items.count)])
+}
+
+func LoofitRoutineBodyParts(_ item: LoofitRoutineProgressItemSnapshot) -> String {
+  let parts = item.latestCompleted?.parts ?? item.parts
+  return LoofitFormat.uniqueJoined(parts.sorted { $0.sortOrder < $1.sortOrder }.map(\.name))
 }
 
 // MARK: - Heatmap projection and view
@@ -615,43 +679,15 @@ struct LoofitHeatmapWidgetView: View {
   }
 
   private func color(for day: LoofitHeatmapDay) -> Color {
-    guard day.inRange else {
-      return rendererSpec.showLeadingCalendarCells
-        ? LoofitColor(entry.palette.heatmapEmpty)
-        : LoofitColor(entry.palette.heatmapGap)
-    }
-    switch day.durationSeconds {
-    case ...0:
-      return LoofitColor(entry.palette.heatmapEmpty)
-    case ..<(30 * 60):
-      return LoofitMixColor(entry.palette.accent, entry.palette.heatmapBase, weight: 0.24)
-    case ..<(60 * 60):
-      return LoofitMixColor(entry.palette.accent, entry.palette.heatmapBase, weight: 0.48)
-    case ..<(90 * 60):
-      return LoofitMixColor(entry.palette.accent, entry.palette.heatmapBase, weight: 0.74)
-    default:
-      return LoofitColor(entry.palette.accent)
-    }
+    LoofitHeatmapFillColor(
+      for: day,
+      palette: entry.palette,
+      showLeadingCalendarCells: rendererSpec.showLeadingCalendarCells
+    )
   }
 
   private func labelColor(for day: LoofitHeatmapDay) -> Color {
-    let role: LoofitHeatmapCellLabelColorRole
-    if day.durationSeconds >= LoofitWidgetRendererContract.Heatmap.strongCellLabelMinimumDurationSeconds {
-      role = LoofitWidgetRendererContract.Heatmap.strongFilledCellLabelColorRole
-    } else if day.durationSeconds > 0 {
-      role = LoofitWidgetRendererContract.Heatmap.filledCellLabelColorRole
-    } else {
-      role = LoofitWidgetRendererContract.Heatmap.emptyCellLabelColorRole
-    }
-
-    switch role {
-    case .textHigh:
-      return LoofitColor(entry.palette.tx)
-    case .onAccent:
-      return LoofitColor(entry.palette.accentText)
-    case .textLow:
-      return LoofitColor(entry.palette.tx4)
-    }
+    LoofitHeatmapTextColor(for: day, palette: entry.palette)
   }
 }
 

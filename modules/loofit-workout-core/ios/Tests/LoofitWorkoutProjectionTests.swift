@@ -153,6 +153,45 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     })
   }
 
+  func testProjectionPublishesNativeWidgetDetailsAndRoutineProgress() throws {
+    try seedRoutine(nextRoutineDayId: 102)
+    let today = localDate(daysFromToday: 0)
+    let sessionId = try insertCompletedSession(
+      startedAt: today,
+      duration: 3_600,
+      bodyPartName: "가슴"
+    )
+    try database.run(
+      """
+      INSERT INTO workout_session_parts_snapshot
+        (workout_session_id, body_part_id, body_part_name, body_part_color, sort_order)
+      VALUES (?, NULL, '어깨', '#F4A261', 1)
+      """,
+      [.integer(sessionId)]
+    )
+    try database.run(
+      "UPDATE workout_sessions SET routine_id = 10, routine_day_id = 101, routine_day_name_snapshot = 'Push' WHERE id = ?",
+      [.integer(sessionId)]
+    )
+
+    let snapshot = try LoofitWorkoutProjection.makeSnapshot(database: database)
+    let detail = try XCTUnwrap(snapshot.dailyDetails?.first {
+      $0.dateKey == localDateKey(today)
+    })
+    XCTAssertEqual(detail.bodyPartNames, ["가슴", "어깨"])
+    XCTAssertEqual(snapshot.bodyPartDurations?.map(\.bodyPartName), ["가슴", "어깨"])
+    XCTAssertEqual(snapshot.bodyPartDurations?.map(\.durationSeconds), [3_600, 3_600])
+    XCTAssertEqual(snapshot.routineProgress?.currentRoutineDayId, 102)
+    XCTAssertEqual(snapshot.routineProgress?.items.map(\.title), ["Push", "Pull"])
+    XCTAssertEqual(snapshot.routineProgress?.items.first?.latestCompleted?.id, sessionId)
+
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.currentMonthCalendar])
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.heatmapFourWeekExpanded])
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.routineProgress])
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.bodyPartDuration])
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.lockScreenRoutineProgress])
+  }
+
   func testCompletedSessionTitleDoesNotFollowLaterRoutineEdits() throws {
     try seedRoutine()
     let started = try LoofitWorkoutCommandEngine.execute(

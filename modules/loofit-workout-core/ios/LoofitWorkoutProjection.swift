@@ -44,6 +44,28 @@ private struct LoofitHeatmapHashPayload: Encodable {
   let recent: [LoofitWorkoutSessionSnapshot]
 }
 
+private struct LoofitDetailedHeatmapHashPayload: Encodable {
+  let theme: LoofitWidgetTheme
+  let daily: [LoofitWorkoutDailyAggregate]
+  let details: [LoofitWorkoutDailyDetail]
+}
+
+private struct LoofitBodyPartDurationHashPayload: Encodable {
+  let theme: LoofitWidgetTheme
+  let durations: [LoofitBodyPartDurationSnapshot]
+}
+
+private struct LoofitRoutineProgressHashPayload: Encodable {
+  let theme: LoofitWidgetTheme
+  let progress: LoofitRoutineProgressSnapshot?
+}
+
+private struct LoofitRoutineDayBuilder {
+  let id: Int64
+  let title: String
+  var parts: [LoofitWorkoutPartSnapshot]
+}
+
 enum LoofitWorkoutProjection {
   static func makeSnapshot(database: LoofitSQLiteDatabase) throws -> LoofitWorkoutSnapshot {
     try database.withReadTransaction {
@@ -55,6 +77,9 @@ enum LoofitWorkoutProjection {
       let todayKey = localDateKey(Date())
       let completedToday = completed.filter { localDateKey($0.startedDate ?? .distantPast) == todayKey }
       let daily = dailyAggregates(completed)
+      let dailyDetails = dailyDetails(completed)
+      let bodyPartDurations = bodyPartDurations(completed)
+      let routineProgress = try loadRoutineProgress(database)
       let recent = Array(completed.prefix(12))
       let hashes = surfaceHashes(
         theme: theme,
@@ -62,7 +87,10 @@ enum LoofitWorkoutProjection {
         next: next,
         completedToday: completedToday,
         daily: daily,
-        recent: recent
+        recent: recent,
+        dailyDetails: dailyDetails,
+        bodyPartDurations: bodyPartDurations,
+        routineProgress: routineProgress
       )
       return .init(
         revision: revisions.desired,
@@ -75,6 +103,9 @@ enum LoofitWorkoutProjection {
         completedToday: completedToday,
         dailyCompleted: daily,
         recentCompleted: recent,
+        dailyDetails: dailyDetails,
+        bodyPartDurations: bodyPartDurations,
+        routineProgress: routineProgress,
         surfaceHashes: hashes
       )
     }
@@ -206,6 +237,87 @@ enum LoofitWorkoutProjection {
     )
   }
 
+  private static func loadRoutineProgress(
+    _ database: LoofitSQLiteDatabase
+  ) throws -> LoofitRoutineProgressSnapshot? {
+    var order: [Int64] = []
+    var builders: [Int64: LoofitRoutineDayBuilder] = [:]
+    try database.query(
+      """
+      SELECT rd.id, rd.name, bp.id, bp.name, bp.color, rdp.sort_order
+      FROM routines r
+      JOIN routine_days rd ON rd.routine_id = r.id
+      LEFT JOIN routine_day_parts rdp ON rdp.routine_day_id = rd.id
+      LEFT JOIN body_parts bp ON bp.id = rdp.body_part_id AND bp.is_archived = 0
+      WHERE r.is_active = 1
+      ORDER BY rd.sort_order ASC, rd.id ASC, rdp.sort_order ASC
+      """
+    ) { statement in
+      let dayId = sqlite3_column_int64(statement, 0)
+      if builders[dayId] == nil {
+        order.append(dayId)
+        builders[dayId] = .init(
+          id: dayId,
+          title: LoofitSQLiteDatabase.string(statement, 1) ?? "",
+          parts: []
+        )
+      }
+      guard let name = LoofitSQLiteDatabase.string(statement, 3),
+            let color = LoofitSQLiteDatabase.string(statement, 4),
+            var builder = builders[dayId] else {
+        return
+      }
+      builder.parts.append(.init(
+        id: LoofitSQLiteDatabase.optionalInt64(statement, 2),
+        name: name,
+        color: color,
+        sortOrder: Int(sqlite3_column_int64(statement, 5))
+      ))
+      builders[dayId] = builder
+    }
+    guard !order.isEmpty else { return nil }
+
+    let currentDayId = try database.firstInt64(
+      "SELECT next_routine_day_id FROM routine_progress WHERE id = 1 LIMIT 1"
+    )
+    let items = try order.compactMap { dayId -> LoofitRoutineProgressItemSnapshot? in
+      guard let builder = builders[dayId] else { return nil }
+      return .init(
+        routineDayId: dayId,
+        title: builder.title,
+        parts: builder.parts,
+        latestCompleted: try loadLatestCompletedSession(database, routineDayId: dayId)
+      )
+    }
+    return .init(currentRoutineDayId: currentDayId, items: items)
+  }
+
+  private static func loadLatestCompletedSession(
+    _ database: LoofitSQLiteDatabase,
+    routineDayId: Int64
+  ) throws -> LoofitWorkoutSessionSnapshot? {
+    let sql = """
+      SELECT ws.id, ws.routine_id, ws.routine_day_id,
+             COALESCE(ws.routine_day_name_snapshot, ''),
+             ws.started_at, ws.ended_at, ws.duration_seconds,
+             sp.body_part_id, sp.body_part_name, sp.body_part_color, sp.sort_order
+      FROM workout_sessions ws
+      LEFT JOIN workout_session_parts_snapshot sp ON sp.workout_session_id = ws.id
+      WHERE ws.id = (
+        SELECT id FROM workout_sessions
+        WHERE status = 'completed' AND routine_day_id = ?
+        ORDER BY started_at DESC, id DESC LIMIT 1
+      )
+      ORDER BY sp.sort_order ASC, sp.id ASC
+      """
+    var builder: LoofitSessionBuilder?
+    try database.query(sql, [.integer(routineDayId)]) { statement in
+      if builder == nil { builder = sessionBuilder(statement) }
+      appendPart(statement, to: &builder)
+    }
+    return builder?.snapshot
+  }
+
   private static func sessionBuilder(_ statement: OpaquePointer) -> LoofitSessionBuilder {
     .init(
       id: sqlite3_column_int64(statement, 0),
@@ -257,13 +369,61 @@ enum LoofitWorkoutProjection {
     }
   }
 
+  private static func dailyDetails(
+    _ sessions: [LoofitWorkoutSessionSnapshot]
+  ) -> [LoofitWorkoutDailyDetail] {
+    var values: [String: [String]] = [:]
+    for session in sessions.reversed() {
+      guard let date = session.startedDate else { continue }
+      let key = localDateKey(date)
+      var names = values[key] ?? []
+      for part in session.parts.sorted(by: { $0.sortOrder < $1.sortOrder })
+      where !names.contains(part.name) {
+        names.append(part.name)
+      }
+      values[key] = names
+    }
+    return values.keys.sorted().map {
+      .init(dateKey: $0, bodyPartNames: values[$0] ?? [])
+    }
+  }
+
+  private static func bodyPartDurations(
+    _ sessions: [LoofitWorkoutSessionSnapshot]
+  ) -> [LoofitBodyPartDurationSnapshot] {
+    let calendar = Calendar.autoupdatingCurrent
+    let today = calendar.startOfDay(for: Date())
+    let start = calendar.date(
+      byAdding: .day,
+      value: -(LoofitWidgetLayoutContract.BodyPartDuration.rangeDays - 1),
+      to: today
+    ) ?? today
+    var totals: [String: Int] = [:]
+    for session in sessions {
+      guard let startedAt = session.startedDate, startedAt >= start else { continue }
+      for name in Set(session.parts.map(\.name)) {
+        totals[name, default: 0] += session.durationSeconds
+      }
+    }
+    return totals.map {
+      .init(bodyPartName: $0.key, durationSeconds: $0.value)
+    }.sorted {
+      $0.durationSeconds == $1.durationSeconds
+        ? $0.bodyPartName < $1.bodyPartName
+        : $0.durationSeconds > $1.durationSeconds
+    }
+  }
+
   private static func surfaceHashes(
     theme: LoofitWidgetTheme,
     active: LoofitWorkoutSessionSnapshot?,
     next: LoofitWorkoutTargetSnapshot?,
     completedToday: [LoofitWorkoutSessionSnapshot],
     daily: [LoofitWorkoutDailyAggregate],
-    recent: [LoofitWorkoutSessionSnapshot]
+    recent: [LoofitWorkoutSessionSnapshot],
+    dailyDetails: [LoofitWorkoutDailyDetail],
+    bodyPartDurations: [LoofitBodyPartDurationSnapshot],
+    routineProgress: LoofitRoutineProgressSnapshot?
   ) -> [String: String] {
     let control = stableHash(LoofitControlHashPayload(
       theme: theme,
@@ -286,14 +446,47 @@ enum LoofitWorkoutProjection {
     let weekHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: week, recent: recent))
     let monthHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: month, recent: []))
     let sixMonthHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: daily, recent: []))
+    let currentMonthStart = Calendar.autoupdatingCurrent.date(
+      from: Calendar.autoupdatingCurrent.dateComponents([.year, .month], from: today)
+    ) ?? today
+    let currentMonth = daily.filter { $0.dateKey >= localDateKey(currentMonthStart) }
+    let fourWeekStart = LoofitHeatmapProjection.calendarWeekRangeStart(
+      endingAt: today,
+      count: LoofitWidgetLayoutContract.Heatmap.fourWeekExpandedRangeWeeks
+    )
+    let fourWeekDaily = daily.filter { $0.dateKey >= localDateKey(fourWeekStart) }
+    let fourWeekDetails = dailyDetails.filter { $0.dateKey >= localDateKey(fourWeekStart) }
+    let currentMonthHash = stableHash(LoofitHeatmapHashPayload(
+      theme: theme,
+      daily: currentMonth,
+      recent: []
+    ))
+    let fourWeekHash = stableHash(LoofitDetailedHeatmapHashPayload(
+      theme: theme,
+      daily: fourWeekDaily,
+      details: fourWeekDetails
+    ))
+    let bodyPartDurationHash = stableHash(LoofitBodyPartDurationHashPayload(
+      theme: theme,
+      durations: bodyPartDurations
+    ))
+    let routineProgressHash = stableHash(LoofitRoutineProgressHashPayload(
+      theme: theme,
+      progress: routineProgress
+    ))
 
     return [
       LoofitWidgetKinds.control: control,
       LoofitWidgetKinds.heatmapWeek: weekHash,
       LoofitWidgetKinds.heatmapMonth: monthHash,
       LoofitWidgetKinds.heatmapSixMonths: sixMonthHash,
+      LoofitWidgetKinds.currentMonthCalendar: currentMonthHash,
+      LoofitWidgetKinds.heatmapFourWeekExpanded: fourWeekHash,
+      LoofitWidgetKinds.routineProgress: routineProgressHash,
+      LoofitWidgetKinds.bodyPartDuration: bodyPartDurationHash,
       LoofitWidgetKinds.lockScreenWorkout: control,
       LoofitWidgetKinds.lockScreenSummary: weekHash,
+      LoofitWidgetKinds.lockScreenRoutineProgress: routineProgressHash,
     ]
   }
 

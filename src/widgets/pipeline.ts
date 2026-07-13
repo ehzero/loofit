@@ -78,6 +78,7 @@ export function buildWidgetThemeSnapshot(colors: ThemeColors): WidgetThemeSnapsh
     heatmapBaseColor: widgetColor(colors, 'heatmapBase'),
     heatmapEmptyColor: widgetColor(colors, 'heatmapEmpty'),
     heatmapGapColor: '#00000000',
+    todayIndicatorColor: widgetColor(colors, 'todayIndicator'),
   };
 }
 

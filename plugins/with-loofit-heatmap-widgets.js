@@ -246,6 +246,15 @@ module.exports = function withLoofitNativeWidgets(config) {
         path.join(targetDirectory, 'WorkoutLockScreenSummaryWidget.swift'),
         readNativeSource('WorkoutLockScreenSummaryWidget.swift')
       );
+      for (const filename of [
+        'CurrentMonthCalendarWidget.swift',
+        'HeatmapFourWeekExpandedWidget.swift',
+        'RoutineProgressWidget.swift',
+        'BodyPartDurationWidget.swift',
+        'RoutineProgressLockScreenWidget.swift',
+      ]) {
+        write(path.join(targetDirectory, filename), readNativeSource(filename));
+      }
       write(
         path.join(targetDirectory, 'HeatmapWeekWidget.swift'),
         heatmapWidget({

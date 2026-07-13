@@ -27,6 +27,8 @@ public enum LoofitWidgetLayoutContract {
     public static let monthRangeWeeks = 5
     public static let sixMonthRangeMonths = 6
     public static let monthBoundaryGapSlots = 7
+    public static let currentMonthMaxRows = 6
+    public static let fourWeekExpandedRangeWeeks = 4
     public static let weekHeaderSummary: HeaderSummary = .none
     public static let monthHeaderSummary: HeaderSummary = .none
     public static let sixMonthHeaderSummary: HeaderSummary = .countTotalAverage
@@ -36,6 +38,15 @@ public enum LoofitWidgetLayoutContract {
     public static let weekStatOrder: [HeatmapStat] = [.count, .totalDuration, .averageDuration]
     public static let monthStatOrder: [HeatmapStat] = [.count, .totalDuration]
     public static let weekAlwaysShowsRecent = true
+  }
+
+  public enum RoutineProgress {
+    public static let visibleItemLimit = 3
+  }
+
+  public enum BodyPartDuration {
+    public static let rangeDays = 30
+    public static let visibleItemLimit = 4
   }
 
   public enum LockScreen {

@@ -2,6 +2,29 @@ import XCTest
 @testable import LoofitWorkoutCore
 
 final class LoofitHeatmapLayoutTests: XCTestCase {
+  func testCurrentMonthIncludesOnlyMonthCellsInACompleteCalendarGrid() throws {
+    var calendar = Calendar(identifier: .gregorian)
+    calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Seoul"))
+    let date = try XCTUnwrap(calendar.date(from: DateComponents(
+      year: 2026,
+      month: 7,
+      day: 13,
+      hour: 12
+    )))
+    let days = LoofitHeatmapProjection.currentMonth(
+      snapshot: nil,
+      containing: date,
+      calendar: calendar
+    )
+
+    XCTAssertEqual(days.count, 35)
+    XCTAssertEqual(days.first?.dateKey, "2026-06-28")
+    XCTAssertEqual(days.last?.dateKey, "2026-08-01")
+    XCTAssertEqual(days.filter(\.inRange).count, 31)
+    XCTAssertFalse(try XCTUnwrap(days.first).inRange)
+    XCTAssertTrue(try XCTUnwrap(days.first { $0.dateKey == "2026-07-31" }).inRange)
+  }
+
   func testFiveWeekProjectionStartsFourSundaysAgoAndIncludesBoundaryData() throws {
     let calendar = try seoulCalendar()
     let endingAt = try date(year: 2026, month: 7, day: 11, calendar: calendar)

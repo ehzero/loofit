@@ -98,6 +98,69 @@ enum LoofitWidgetRendererContract {
     static let rangeSize: CGFloat = 12
   }
 
+  enum CurrentMonth {
+    static let contentPadding: CGFloat = 12
+    static let cellGap: CGFloat = 4
+    static let cellRadius: CGFloat = 3
+    static let cellLabelSize: CGFloat = 8
+    static let headerGap: CGFloat = 8
+    static let headerFontSize: CGFloat = 12
+    static let todayIndicatorWidth: CGFloat = 1.5
+  }
+
+  enum FourWeekExpanded {
+    static let rangeWeeks = 4
+    static let columns = 7
+    static let contentPadding: CGFloat = 12
+    static let cellGap: CGFloat = 4
+    static let cellRadius: CGFloat = 3
+    static let cellLabelSize: CGFloat = 8
+    static let cellLabelLineHeight: CGFloat = 10
+    static let bodyPartLabelSize: CGFloat = 8
+    static let bodyPartLabelLineHeight: CGFloat = 10
+    static let bodyPartLabelOpacity: Double = 0.72
+    static let cellContentGap: CGFloat = 2
+    static let headerGap: CGFloat = 4
+    static let bodyPartSeparator = "·"
+  }
+
+  enum RoutineProgress {
+    static let visibleItemLimit = 3
+    static let contentPadding: CGFloat = 12
+    static let metadataSeparator = " · "
+    static let emptyRelativeDay = "기록 없음"
+    static let splitSize: CGFloat = 26
+    static let splitWeight: Font.Weight = .heavy
+    static let metadataSize: CGFloat = 8
+    static let metadataWeight: Font.Weight = .bold
+
+    enum LockScreen {
+      static let visibleItemLimit = 3
+      static let contentPadding: CGFloat = 4
+      static let columnGap: CGFloat = 4
+      static let itemGap: CGFloat = 2
+      static let workoutSize: CGFloat = 16
+      static let workoutWeight: Font.Weight = .heavy
+      static let relativeDaySize: CGFloat = 12
+      static let relativeDayWeight: Font.Weight = .bold
+    }
+  }
+
+  enum BodyPartDuration {
+    static let rangeDays = 30
+    static let visibleItemLimit = 4
+    static let title = "최근 30일"
+    static let contentPadding: CGFloat = 12
+    static let barHeight: CGFloat = 4
+    static let barRadius: CGFloat = 3
+    static let titleSize: CGFloat = 12
+    static let titleWeight: Font.Weight = .heavy
+    static let bodyPartSize: CGFloat = 12
+    static let bodyPartWeight: Font.Weight = .heavy
+    static let durationSize: CGFloat = 8
+    static let durationWeight: Font.Weight = .bold
+  }
+
   enum LiveActivity {
     enum Banner {
       static let contentPadding: CGFloat = 12

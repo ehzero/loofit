@@ -69,14 +69,17 @@ function validate(value) {
   const routineProgress = value.routineProgress;
   const routineProgressTextList = routineProgress?.textList;
   assert(
-    routineProgressTextList?.availability === 'previewOnly' &&
+    routineProgressTextList?.availability === 'native' &&
+      routineProgressTextList.kindAccessor === 'routineProgress' &&
       routineProgressTextList.family === 'systemSmall',
-    'routine progress text list must remain a preview-only systemSmall widget'
+    'routine progress text list must remain a native systemSmall widget'
   );
   assert(
     routineProgressTextList.progressBasis === 'nextSplitPosition' &&
       routineProgressTextList.orientation === 'vertical' &&
-      routineProgressTextList.verticalDistribution === 'spaceBetween',
+      routineProgressTextList.verticalDistribution === 'spaceBetween' &&
+      routineProgressTextList.visibleItemLimit === 3 &&
+      routineProgressTextList.visibleItemSelection === 'currentCentered',
     'routine progress text list must use next-split position and space-between distribution'
   );
   assert(
@@ -87,7 +90,8 @@ function validate(value) {
   );
   const routineProgressLockScreen = routineProgressTextList.lockScreen;
   assert(
-    routineProgressLockScreen?.availability === 'previewOnly' &&
+    routineProgressLockScreen?.availability === 'native' &&
+      routineProgressLockScreen.kindAccessor === 'lockScreenRoutineProgress' &&
       routineProgressLockScreen.family === 'accessoryRectangular' &&
       routineProgressLockScreen.orientation === 'horizontal',
     'lock-screen routine progress must remain a preview-only horizontal accessoryRectangular widget'
@@ -109,9 +113,10 @@ function validate(value) {
 
   const bodyPartDuration = value.bodyPartDuration;
   assert(
-    bodyPartDuration?.availability === 'previewOnly' &&
+    bodyPartDuration?.availability === 'native' &&
+      bodyPartDuration.kindAccessor === 'bodyPartDuration' &&
       bodyPartDuration.family === 'systemSmall',
-    'body part duration must remain a preview-only systemSmall widget'
+    'body part duration must remain a native systemSmall widget'
   );
   assert(
     bodyPartDuration.rangeDays === 30 &&
@@ -188,6 +193,9 @@ function validate(value) {
   const currentMonthPreview = value.heatmap.previewVariants?.currentMonth;
   assert(
     currentMonthPreview?.style === 'detailed' &&
+      currentMonthPreview.availability === 'native' &&
+      currentMonthPreview.kindAccessor === 'currentMonthCalendar' &&
+      currentMonthPreview.family === 'systemSmall' &&
       currentMonthPreview.headerSummary === 'count' &&
       currentMonthPreview.maxRows === 6,
     'current-month preview must use the detailed style with a count summary and up to six rows'
@@ -201,9 +209,10 @@ function validate(value) {
   const fourWeekExpandedPreview = value.heatmap.previewVariants?.fourWeekExpanded;
   assert(
     fourWeekExpandedPreview?.style === 'expanded' &&
-      fourWeekExpandedPreview.availability === 'previewOnly' &&
+      fourWeekExpandedPreview.availability === 'native' &&
+      fourWeekExpandedPreview.kindAccessor === 'heatmapFourWeekExpanded' &&
       fourWeekExpandedPreview.family === 'systemMedium',
-    'expanded four-week heatmap must remain a preview-only systemMedium widget'
+    'expanded four-week heatmap must remain a native systemMedium widget'
   );
   assert(
     fourWeekExpandedPreview.rangeWeeks === 4 &&
@@ -530,6 +539,11 @@ function renderSwift(value) {
   const footer = value.heatmap.weekFooter;
   const monthFooter = value.heatmap.monthFooter;
   const control = value.control;
+  const currentMonth = value.heatmap.previewVariants.currentMonth;
+  const fourWeekExpanded = value.heatmap.previewVariants.fourWeekExpanded;
+  const routineProgress = value.routineProgress.textList;
+  const routineProgressLock = routineProgress.lockScreen;
+  const bodyPartDuration = value.bodyPartDuration;
   const lock = value.lockScreen;
   const summary = lock.summary;
   const banner = value.liveActivity.banner;
@@ -636,6 +650,69 @@ enum LoofitWidgetRendererContract {
     static let buttonTextSize: CGFloat = ${swiftNumber(control.text.button.size)}
     static let durationSize: CGFloat = ${swiftNumber(control.text.duration.size)}
     static let rangeSize: CGFloat = ${swiftNumber(control.text.range.size)}
+  }
+
+  enum CurrentMonth {
+    static let contentPadding: CGFloat = ${swiftNumber(currentMonth.contentPadding)}
+    static let cellGap: CGFloat = ${swiftNumber(currentMonth.cellGap)}
+    static let cellRadius: CGFloat = ${swiftNumber(currentMonth.cellRadius)}
+    static let cellLabelSize: CGFloat = ${swiftNumber(currentMonth.cellLabelSize)}
+    static let headerGap: CGFloat = ${swiftNumber(currentMonth.headerGap)}
+    static let headerFontSize: CGFloat = ${swiftNumber(currentMonth.headerFontSize)}
+    static let todayIndicatorWidth: CGFloat = ${swiftNumber(currentMonth.todayIndicator.width)}
+  }
+
+  enum FourWeekExpanded {
+    static let rangeWeeks = ${fourWeekExpanded.rangeWeeks}
+    static let columns = ${fourWeekExpanded.columns}
+    static let contentPadding: CGFloat = ${swiftNumber(fourWeekExpanded.contentPadding)}
+    static let cellGap: CGFloat = ${swiftNumber(fourWeekExpanded.cellGap)}
+    static let cellRadius: CGFloat = ${swiftNumber(fourWeekExpanded.cellRadius)}
+    static let cellLabelSize: CGFloat = ${swiftNumber(fourWeekExpanded.cellLabelSize)}
+    static let cellLabelLineHeight: CGFloat = ${swiftNumber(fourWeekExpanded.cellLabelLineHeight)}
+    static let bodyPartLabelSize: CGFloat = ${swiftNumber(fourWeekExpanded.bodyPartLabelSize)}
+    static let bodyPartLabelLineHeight: CGFloat = ${swiftNumber(fourWeekExpanded.bodyPartLabelLineHeight)}
+    static let bodyPartLabelOpacity: Double = ${swiftNumber(fourWeekExpanded.bodyPartLabelOpacity)}
+    static let cellContentGap: CGFloat = ${swiftNumber(fourWeekExpanded.cellContentGap)}
+    static let headerGap: CGFloat = ${swiftNumber(fourWeekExpanded.headerGap)}
+    static let bodyPartSeparator = ${swiftString(fourWeekExpanded.bodyPartSeparator)}
+  }
+
+  enum RoutineProgress {
+    static let visibleItemLimit = ${routineProgress.visibleItemLimit}
+    static let contentPadding: CGFloat = ${swiftNumber(routineProgress.contentPadding)}
+    static let metadataSeparator = ${swiftString(routineProgress.metadataSeparator)}
+    static let emptyRelativeDay = ${swiftString(routineProgress.emptyRelativeDay)}
+    static let splitSize: CGFloat = ${swiftNumber(routineProgress.text.split.size)}
+    static let splitWeight: Font.Weight = .${swiftFontWeight(routineProgress.text.split.weight)}
+    static let metadataSize: CGFloat = ${swiftNumber(routineProgress.text.metadata.size)}
+    static let metadataWeight: Font.Weight = .${swiftFontWeight(routineProgress.text.metadata.weight)}
+
+    enum LockScreen {
+      static let visibleItemLimit = ${routineProgressLock.visibleItemLimit}
+      static let contentPadding: CGFloat = ${swiftNumber(routineProgressLock.contentPadding)}
+      static let columnGap: CGFloat = ${swiftNumber(routineProgressLock.columnGap)}
+      static let itemGap: CGFloat = ${swiftNumber(routineProgressLock.itemGap)}
+      static let workoutSize: CGFloat = ${swiftNumber(routineProgressLock.text.workout.size)}
+      static let workoutWeight: Font.Weight = .${swiftFontWeight(routineProgressLock.text.workout.weight)}
+      static let relativeDaySize: CGFloat = ${swiftNumber(routineProgressLock.text.relativeDay.size)}
+      static let relativeDayWeight: Font.Weight = .${swiftFontWeight(routineProgressLock.text.relativeDay.weight)}
+    }
+  }
+
+  enum BodyPartDuration {
+    static let rangeDays = ${bodyPartDuration.rangeDays}
+    static let visibleItemLimit = ${bodyPartDuration.visibleItemLimit}
+    static let title = ${swiftString(bodyPartDuration.title)}
+    static let contentPadding: CGFloat = ${swiftNumber(bodyPartDuration.contentPadding)}
+    static let barHeight: CGFloat = ${swiftNumber(bodyPartDuration.bar.height)}
+    static let barRadius: CGFloat = ${swiftNumber(bodyPartDuration.bar.radius)}
+    static let titleSize: CGFloat = ${swiftNumber(bodyPartDuration.text.title.size)}
+    static let titleWeight: Font.Weight = .${swiftFontWeight(bodyPartDuration.text.title.weight)}
+    static let bodyPartSize: CGFloat = ${swiftNumber(bodyPartDuration.text.bodyPart.size)}
+    static let bodyPartWeight: Font.Weight = .${swiftFontWeight(bodyPartDuration.text.bodyPart.weight)}
+    static let durationSize: CGFloat = ${swiftNumber(bodyPartDuration.text.duration.size)}
+    static let durationWeight: Font.Weight = .${swiftFontWeight(bodyPartDuration.text.duration.weight)}
   }
 
   enum LiveActivity {
@@ -749,6 +826,10 @@ enum LoofitWidgetRendererContract {
 
 function renderCoreSwift(value) {
   const variants = value.heatmap.variants;
+  const currentMonth = value.heatmap.previewVariants.currentMonth;
+  const fourWeekExpanded = value.heatmap.previewVariants.fourWeekExpanded;
+  const routineProgress = value.routineProgress.textList;
+  const bodyPartDuration = value.bodyPartDuration;
   return `// Generated by scripts/generate-widget-renderer-contract.mjs. Do not edit.
 // Edit src/widgets/widget-renderer-contract.json and regenerate instead.
 
@@ -778,6 +859,8 @@ public enum LoofitWidgetLayoutContract {
     public static let monthRangeWeeks = ${variants.month.rangeWeeks}
     public static let sixMonthRangeMonths = ${variants.year.rangeMonths}
     public static let monthBoundaryGapSlots = ${variants.year.monthBoundaryGapSlots}
+    public static let currentMonthMaxRows = ${currentMonth.maxRows}
+    public static let fourWeekExpandedRangeWeeks = ${fourWeekExpanded.rangeWeeks}
     public static let weekHeaderSummary: HeaderSummary = .${swiftCase(variants.week.headerSummary)}
     public static let monthHeaderSummary: HeaderSummary = .${swiftCase(variants.month.headerSummary)}
     public static let sixMonthHeaderSummary: HeaderSummary = .${swiftCase(variants.year.headerSummary)}
@@ -787,6 +870,15 @@ public enum LoofitWidgetLayoutContract {
     public static let weekStatOrder: [HeatmapStat] = ${swiftCaseArray(value.heatmap.weekFooter.statOrder)}
     public static let monthStatOrder: [HeatmapStat] = ${swiftCaseArray(value.heatmap.monthFooter.statOrder)}
     public static let weekAlwaysShowsRecent = ${value.heatmap.weekFooter.alwaysShowRecent}
+  }
+
+  public enum RoutineProgress {
+    public static let visibleItemLimit = ${routineProgress.visibleItemLimit}
+  }
+
+  public enum BodyPartDuration {
+    public static let rangeDays = ${bodyPartDuration.rangeDays}
+    public static let visibleItemLimit = ${bodyPartDuration.visibleItemLimit}
   }
 
   public enum LockScreen {

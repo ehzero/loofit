@@ -70,6 +70,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
   public let heatmapBaseColor: String
   public let heatmapEmptyColor: String
   public let heatmapGapColor: String
+  public let todayIndicatorColor: String
 
   public init(
     brandName: String = "루핏",
@@ -91,7 +92,8 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
     heatmapDayLabelColor: String = "#9A9AA0",
     heatmapBaseColor: String = "#16161A",
     heatmapEmptyColor: String = "#1B1B1F",
-    heatmapGapColor: String = "#00000000"
+    heatmapGapColor: String = "#00000000",
+    todayIndicatorColor: String = "#FFFFFF"
   ) {
     self.brandName = brandName
     self.accent = accent
@@ -113,6 +115,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
     self.heatmapBaseColor = heatmapBaseColor
     self.heatmapEmptyColor = heatmapEmptyColor
     self.heatmapGapColor = heatmapGapColor
+    self.todayIndicatorColor = todayIndicatorColor
   }
 
   public init(dictionary: [String: String]) {
@@ -157,7 +160,8 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
       heatmapDayLabelColor: value("heatmapDayLabelColor", fallback.heatmapDayLabelColor),
       heatmapBaseColor: value("heatmapBaseColor", fallback.heatmapBaseColor),
       heatmapEmptyColor: value("heatmapEmptyColor", fallback.heatmapEmptyColor),
-      heatmapGapColor: value("heatmapGapColor", fallback.heatmapGapColor)
+      heatmapGapColor: value("heatmapGapColor", fallback.heatmapGapColor),
+      todayIndicatorColor: value("todayIndicatorColor", fallback.todayIndicatorColor)
     )
   }
 
@@ -183,6 +187,7 @@ public struct LoofitWidgetTheme: Codable, Hashable, Sendable {
       "heatmapBaseColor": heatmapBaseColor,
       "heatmapEmptyColor": heatmapEmptyColor,
       "heatmapGapColor": heatmapGapColor,
+      "todayIndicatorColor": todayIndicatorColor,
     ]
   }
 }
@@ -272,6 +277,55 @@ public struct LoofitWorkoutDailyAggregate: Codable, Hashable, Sendable {
   }
 }
 
+public struct LoofitWorkoutDailyDetail: Codable, Hashable, Sendable {
+  public let dateKey: String
+  public let bodyPartNames: [String]
+
+  public init(dateKey: String, bodyPartNames: [String]) {
+    self.dateKey = dateKey
+    self.bodyPartNames = bodyPartNames
+  }
+}
+
+public struct LoofitBodyPartDurationSnapshot: Codable, Hashable, Sendable {
+  public let bodyPartName: String
+  public let durationSeconds: Int
+
+  public init(bodyPartName: String, durationSeconds: Int) {
+    self.bodyPartName = bodyPartName
+    self.durationSeconds = durationSeconds
+  }
+}
+
+public struct LoofitRoutineProgressItemSnapshot: Codable, Hashable, Sendable {
+  public let routineDayId: Int64
+  public let title: String
+  public let parts: [LoofitWorkoutPartSnapshot]
+  public let latestCompleted: LoofitWorkoutSessionSnapshot?
+
+  public init(
+    routineDayId: Int64,
+    title: String,
+    parts: [LoofitWorkoutPartSnapshot],
+    latestCompleted: LoofitWorkoutSessionSnapshot?
+  ) {
+    self.routineDayId = routineDayId
+    self.title = title
+    self.parts = parts
+    self.latestCompleted = latestCompleted
+  }
+}
+
+public struct LoofitRoutineProgressSnapshot: Codable, Hashable, Sendable {
+  public let currentRoutineDayId: Int64?
+  public let items: [LoofitRoutineProgressItemSnapshot]
+
+  public init(currentRoutineDayId: Int64?, items: [LoofitRoutineProgressItemSnapshot]) {
+    self.currentRoutineDayId = currentRoutineDayId
+    self.items = items
+  }
+}
+
 public struct LoofitWorkoutSnapshot: Codable, Sendable {
   public let revision: Int64
   public let generatedAt: String
@@ -283,6 +337,9 @@ public struct LoofitWorkoutSnapshot: Codable, Sendable {
   public let completedToday: [LoofitWorkoutSessionSnapshot]
   public let dailyCompleted: [LoofitWorkoutDailyAggregate]
   public let recentCompleted: [LoofitWorkoutSessionSnapshot]
+  public let dailyDetails: [LoofitWorkoutDailyDetail]?
+  public let bodyPartDurations: [LoofitBodyPartDurationSnapshot]?
+  public let routineProgress: LoofitRoutineProgressSnapshot?
   public let surfaceHashes: [String: String]
 
   public init(
@@ -296,6 +353,9 @@ public struct LoofitWorkoutSnapshot: Codable, Sendable {
     completedToday: [LoofitWorkoutSessionSnapshot],
     dailyCompleted: [LoofitWorkoutDailyAggregate],
     recentCompleted: [LoofitWorkoutSessionSnapshot],
+    dailyDetails: [LoofitWorkoutDailyDetail]? = nil,
+    bodyPartDurations: [LoofitBodyPartDurationSnapshot]? = nil,
+    routineProgress: LoofitRoutineProgressSnapshot? = nil,
     surfaceHashes: [String: String]
   ) {
     self.revision = revision
@@ -308,6 +368,9 @@ public struct LoofitWorkoutSnapshot: Codable, Sendable {
     self.completedToday = completedToday
     self.dailyCompleted = dailyCompleted
     self.recentCompleted = recentCompleted
+    self.dailyDetails = dailyDetails
+    self.bodyPartDurations = bodyPartDurations
+    self.routineProgress = routineProgress
     self.surfaceHashes = surfaceHashes
   }
 }
@@ -317,15 +380,25 @@ public enum LoofitWidgetKinds {
   public static let heatmapWeek = "HeatmapWeekWidget"
   public static let heatmapMonth = "HeatmapMonthWidget"
   public static let heatmapSixMonths = "HeatmapYearWidget"
+  public static let currentMonthCalendar = "CurrentMonthCalendarWidget"
+  public static let heatmapFourWeekExpanded = "HeatmapFourWeekExpandedWidget"
+  public static let routineProgress = "RoutineProgressWidget"
+  public static let bodyPartDuration = "BodyPartDurationWidget"
   public static let lockScreenWorkout = "WorkoutLockScreenWidget"
   public static let lockScreenSummary = "WorkoutLockScreenSummaryWidget"
+  public static let lockScreenRoutineProgress = "RoutineProgressLockScreenWidget"
   public static let all = [
     control,
     heatmapWeek,
     heatmapMonth,
     heatmapSixMonths,
+    currentMonthCalendar,
+    heatmapFourWeekExpanded,
+    routineProgress,
+    bodyPartDuration,
     lockScreenWorkout,
     lockScreenSummary,
+    lockScreenRoutineProgress,
   ]
 }
 

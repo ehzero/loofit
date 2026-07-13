@@ -42,6 +42,7 @@ export type WidgetThemeSnapshot = {
   heatmapBaseColor: string;
   heatmapEmptyColor: string;
   heatmapGapColor: string;
+  todayIndicatorColor: string;
 };
 
 type NativeLoofitWorkoutCore = {

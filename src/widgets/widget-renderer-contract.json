@@ -118,15 +118,19 @@
   },
   "routineProgress": {
     "textList": {
-      "availability": "previewOnly",
+      "availability": "native",
+      "kindAccessor": "routineProgress",
       "family": "systemSmall",
       "orientation": "vertical",
       "progressBasis": "nextSplitPosition",
       "verticalDistribution": "spaceBetween",
+      "visibleItemLimit": 3,
+      "visibleItemSelection": "currentCentered",
       "currentTextColorRole": "accent",
       "nonCurrentTextColorRole": "textLow",
       "rowContent": ["split", "relativeDay", "bodyParts", "duration"],
       "metadataSeparator": " · ",
+      "emptyRelativeDay": "기록 없음",
       "contentPadding": "{contentPadding}",
       "text": {
         "split": {
@@ -141,7 +145,8 @@
         }
       },
       "lockScreen": {
-        "availability": "previewOnly",
+        "availability": "native",
+        "kindAccessor": "lockScreenRoutineProgress",
         "family": "accessoryRectangular",
         "orientation": "horizontal",
         "visibleItemLimit": 3,
@@ -170,13 +175,15 @@
     }
   },
   "bodyPartDuration": {
-    "availability": "previewOnly",
+    "availability": "native",
+    "kindAccessor": "bodyPartDuration",
     "family": "systemSmall",
     "rangeDays": 30,
     "durationAttribution": "fullSessionPerBodyPart",
     "sort": "durationDescending",
     "visibleItemLimit": 4,
     "verticalDistribution": "spaceBetween",
+    "title": "최근 30일",
     "contentPadding": "{contentPadding}",
     "bar": {
       "height": "{spacing.sm}",
@@ -301,6 +308,9 @@
     "previewVariants": {
       "currentMonth": {
         "style": "detailed",
+        "availability": "native",
+        "kindAccessor": "currentMonthCalendar",
+        "family": "systemSmall",
         "headerVisible": true,
         "headerSummary": "count",
         "maxRows": 6,
@@ -312,7 +322,8 @@
       },
       "fourWeekExpanded": {
         "style": "expanded",
-        "availability": "previewOnly",
+        "availability": "native",
+        "kindAccessor": "heatmapFourWeekExpanded",
         "family": "systemMedium",
         "rangeWeeks": 4,
         "headerVisible": false,

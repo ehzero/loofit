@@ -217,6 +217,7 @@ struct LoofitWidgetThemeRecord: Record {
   @Field var heatmapBaseColor: String = ""
   @Field var heatmapEmptyColor: String = ""
   @Field var heatmapGapColor: String = ""
+  @Field var todayIndicatorColor: String = ""
 
   var theme: LoofitWidgetTheme {
     LoofitWidgetTheme(dictionary: [
@@ -240,6 +241,7 @@ struct LoofitWidgetThemeRecord: Record {
       "heatmapBaseColor": heatmapBaseColor,
       "heatmapEmptyColor": heatmapEmptyColor,
       "heatmapGapColor": heatmapGapColor,
+      "todayIndicatorColor": todayIndicatorColor,
     ])
   }
 }

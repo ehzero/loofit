@@ -95,6 +95,37 @@ public enum LoofitHeatmapProjection {
     )
   }
 
+  public static func currentMonth(
+    snapshot: LoofitWorkoutSnapshot?,
+    containing date: Date,
+    calendar: Calendar = .autoupdatingCurrent
+  ) -> [LoofitHeatmapDay] {
+    let today = calendar.startOfDay(for: date)
+    let monthStart = calendar.date(
+      from: calendar.dateComponents([.year, .month], from: today)
+    ) ?? today
+    let nextMonth = calendar.date(byAdding: .month, value: 1, to: monthStart) ?? monthStart
+    let monthEnd = calendar.date(byAdding: .day, value: -1, to: nextMonth) ?? today
+    let gridStart = calendar.date(
+      byAdding: .day,
+      value: -(calendar.component(.weekday, from: monthStart) - 1),
+      to: monthStart
+    ) ?? monthStart
+    let gridEnd = calendar.date(
+      byAdding: .day,
+      value: 7 - calendar.component(.weekday, from: monthEnd),
+      to: monthEnd
+    ) ?? monthEnd
+    return range(
+      snapshot: snapshot,
+      start: gridStart,
+      end: gridEnd,
+      inRangeStart: monthStart,
+      inRangeEnd: monthEnd,
+      calendar: calendar
+    )
+  }
+
   public static func calendarWeekRangeStart(
     endingAt date: Date,
     count: Int,
@@ -212,6 +243,7 @@ public enum LoofitHeatmapProjection {
     start: Date,
     end: Date,
     inRangeStart: Date,
+    inRangeEnd: Date? = nil,
     calendar: Calendar
   ) -> [LoofitHeatmapDay] {
     let values = Dictionary(
@@ -222,11 +254,15 @@ public enum LoofitHeatmapProjection {
 
     while calendar.compare(cursor, to: end, toGranularity: .day) != .orderedDescending {
       let key = dateKey(cursor, calendar: calendar)
-      let isInRange = calendar.compare(
+      let isAfterStart = calendar.compare(
         cursor,
         to: inRangeStart,
         toGranularity: .day
       ) != .orderedAscending
+      let isBeforeEnd = inRangeEnd.map {
+        calendar.compare(cursor, to: $0, toGranularity: .day) != .orderedDescending
+      } ?? true
+      let isInRange = isAfterStart && isBeforeEnd
       let aggregate = isInRange ? values[key] : nil
       result.append(
         LoofitHeatmapDay(

@@ -53,13 +53,15 @@ describe('widget renderer contract', () => {
     expect(source.routineProgress).not.toHaveProperty('indicator');
     expect(source.routineProgress).not.toHaveProperty('text');
     expect(source.routineProgress.textList).toMatchObject({
-      availability: 'previewOnly',
+      availability: 'native',
+      kindAccessor: 'routineProgress',
       family: 'systemSmall',
       orientation: 'vertical',
       progressBasis: 'nextSplitPosition',
     });
     expect(source.routineProgress.textList.lockScreen).toMatchObject({
-      availability: 'previewOnly',
+      availability: 'native',
+      kindAccessor: 'lockScreenRoutineProgress',
       family: 'accessoryRectangular',
       orientation: 'horizontal',
       visibleItemLimit: 3,
@@ -69,7 +71,8 @@ describe('widget renderer contract', () => {
       rowContent: ['workoutAliasOrBodyParts', 'relativeDay'],
     });
     expect(source.bodyPartDuration).toMatchObject({
-      availability: 'previewOnly',
+      availability: 'native',
+      kindAccessor: 'bodyPartDuration',
       family: 'systemSmall',
       rangeDays: 30,
       durationAttribution: 'fullSessionPerBodyPart',
@@ -80,8 +83,11 @@ describe('widget renderer contract', () => {
     expect(source.heatmap.variants.week.style).toBe('detailed');
     expect(source.heatmap.variants.month.style).toBe('detailed');
     expect(source.heatmap.variants.year.style).toBe('compact');
-    expect(source.heatmap.previewVariants.currentMonth).toEqual({
+    expect(source.heatmap.previewVariants.currentMonth).toMatchObject({
       style: 'detailed',
+      availability: 'native',
+      kindAccessor: 'currentMonthCalendar',
+      family: 'systemSmall',
       headerVisible: true,
       headerSummary: 'count',
       maxRows: 6,
@@ -397,7 +403,7 @@ describe('widget renderer contract', () => {
     expect(renderer).toContain('WeekFooter.statOrder');
     expect(renderer).toContain('WeekFooter.alwaysShowRecent');
     expect(renderer).toContain('.foregroundStyle(labelColor(for: day))');
-    expect(renderer).toContain('return LoofitColor(entry.palette.tx)');
+    expect(renderer).toContain('return LoofitColor(palette.tx)');
   });
 
   it('verifies the App Group identifier in both generated Info.plists', () => {

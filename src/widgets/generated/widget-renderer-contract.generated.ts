@@ -133,11 +133,14 @@ export const WIDGET_RENDERER_CONTRACT = {
   },
   "routineProgress": {
     "textList": {
-      "availability": "previewOnly",
+      "availability": "native",
+      "kindAccessor": "routineProgress",
       "family": "systemSmall",
       "orientation": "vertical",
       "progressBasis": "nextSplitPosition",
       "verticalDistribution": "spaceBetween",
+      "visibleItemLimit": 3,
+      "visibleItemSelection": "currentCentered",
       "currentTextColorRole": "accent",
       "nonCurrentTextColorRole": "textLow",
       "rowContent": [
@@ -147,6 +150,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "duration"
       ],
       "metadataSeparator": " · ",
+      "emptyRelativeDay": "기록 없음",
       "contentPadding": 12,
       "text": {
         "split": {
@@ -161,7 +165,8 @@ export const WIDGET_RENDERER_CONTRACT = {
         }
       },
       "lockScreen": {
-        "availability": "previewOnly",
+        "availability": "native",
+        "kindAccessor": "lockScreenRoutineProgress",
         "family": "accessoryRectangular",
         "orientation": "horizontal",
         "visibleItemLimit": 3,
@@ -193,13 +198,15 @@ export const WIDGET_RENDERER_CONTRACT = {
     }
   },
   "bodyPartDuration": {
-    "availability": "previewOnly",
+    "availability": "native",
+    "kindAccessor": "bodyPartDuration",
     "family": "systemSmall",
     "rangeDays": 30,
     "durationAttribution": "fullSessionPerBodyPart",
     "sort": "durationDescending",
     "visibleItemLimit": 4,
     "verticalDistribution": "spaceBetween",
+    "title": "최근 30일",
     "contentPadding": 12,
     "bar": {
       "height": 4,
@@ -342,6 +349,9 @@ export const WIDGET_RENDERER_CONTRACT = {
         "headerGap": 8,
         "headerFontSize": 12,
         "style": "detailed",
+        "availability": "native",
+        "kindAccessor": "currentMonthCalendar",
+        "family": "systemSmall",
         "headerVisible": true,
         "headerSummary": "count",
         "maxRows": 6,
@@ -367,7 +377,8 @@ export const WIDGET_RENDERER_CONTRACT = {
         "headerFontSize": 12,
         "aspectRatio": 2.14,
         "style": "expanded",
-        "availability": "previewOnly",
+        "availability": "native",
+        "kindAccessor": "heatmapFourWeekExpanded",
         "family": "systemMedium",
         "rangeWeeks": 4,
         "headerVisible": false,
