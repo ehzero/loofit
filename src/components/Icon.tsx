@@ -28,6 +28,7 @@ const ICONS = {
   edit: feather('sliders'),
   plus: feather('plus'),
   minus: feather('minus'),
+  widget: feather('grid'),
   dumbbell: mci('dumbbell'),
 } satisfies Record<string, IconSet>;
 

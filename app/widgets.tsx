@@ -179,7 +179,7 @@ export default function WidgetsScreen() {
   const lockScreenPreview = useMemo(() => buildPreviewLockScreenWidgets(colors), [colors]);
 
   return (
-    <Screen title="위젯 미리보기" onBack={() => router.back()}>
+    <Screen title="위젯" onBack={() => router.back()}>
       <Callout icon="info">
         위젯은 휴대폰 홈 화면과 잠금화면에 추가해서 사용해요. 미리보기는 예시 데이터로
         표시돼요.{' '}

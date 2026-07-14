@@ -70,7 +70,7 @@ export default function SettingsScreen() {
       <Screen title="설정">
         <Card padding={0} gap={0} style={styles.group}>
           <ListRow title="루틴 설정" chevron divider onPress={() => router.push('/routine')} />
-          <ListRow title="위젯 미리보기" chevron onPress={() => router.push('/widgets')} />
+          <ListRow title="위젯 둘러보기" chevron onPress={() => router.push('/widgets')} />
         </Card>
 
         <Card padding={spacing.md} gap={spacing.md}>

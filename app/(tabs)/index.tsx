@@ -20,6 +20,7 @@ import { SectionHeader } from '@/src/components/SectionHeader';
 import { StatTiles } from '@/src/components/StatTiles';
 import { BRAND } from '@/src/config/brand';
 import { ROUTINE_TEMPLATE_OPTIONS } from '@/src/config/routine-templates';
+import { getAppSetting, setAppSetting } from '@/src/db/repository';
 import {
   formatClock,
   formatDateFull,
@@ -27,7 +28,15 @@ import {
   formatElapsed,
 } from '@/src/domain/date';
 import { getHomeMessage } from '@/src/domain/home-messages';
+import {
+  HOME_WIDGET_GUIDE_DISMISSED_SETTING_KEY,
+  HOME_WIDGET_GUIDE_DISMISSED_SETTING_VALUE,
+  type HomeWidgetGuideDismissal,
+  resolveHomeWidgetGuideDismissal,
+  shouldShowHomeWidgetGuide,
+} from '@/src/domain/home-widget-guide';
 import { hasRoutineDayAlias, joinPartNames, routineDayDisplayName } from '@/src/domain/routine';
+import { appOperationCoordinator } from '@/src/store/app-operation-coordinator';
 import {
   isActionSuccessful,
   shouldDismissAfterAction,
@@ -59,6 +68,8 @@ export default function HomeScreen() {
   const [now, setNow] = useState(Date.now());
   const [messageSeed, setMessageSeed] = useState(createMessageSeed);
   const [isMessageRefreshing, setIsMessageRefreshing] = useState(false);
+  const [widgetGuideDismissal, setWidgetGuideDismissal] =
+    useState<HomeWidgetGuideDismissal>('loading');
   const messageRefreshTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const active = overview?.activeSession ?? null;
@@ -80,12 +91,47 @@ export default function HomeScreen() {
     []
   );
 
+  useEffect(() => {
+    let cancelled = false;
+
+    appOperationCoordinator
+      .runInPipeline(() => getAppSetting(HOME_WIDGET_GUIDE_DISMISSED_SETTING_KEY))
+      .then((savedValue) => {
+        if (!cancelled) {
+          setWidgetGuideDismissal(resolveHomeWidgetGuideDismissal(savedValue));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setWidgetGuideDismissal('visible');
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const elapsedSeconds = useMemo(() => {
     if (!active) {
       return 0;
     }
     return Math.max(0, Math.floor((now - new Date(active.startedAt).getTime()) / 1000));
   }, [active, now]);
+
+  const dismissWidgetGuide = () => {
+    setWidgetGuideDismissal('dismissed');
+    void appOperationCoordinator
+      .runInPipeline(() =>
+        setAppSetting(
+          HOME_WIDGET_GUIDE_DISMISSED_SETTING_KEY,
+          HOME_WIDGET_GUIDE_DISMISSED_SETTING_VALUE
+        )
+      )
+      .catch((settingError) => {
+        console.warn(`[${BRAND.displayName}] Widget guide dismissal was not persisted`, settingError);
+      });
+  };
 
   if (!overview) {
     return (
@@ -161,6 +207,10 @@ export default function HomeScreen() {
   }
 
   const nextDay = overview.nextRoutineDay;
+  const showWidgetGuide = shouldShowHomeWidgetGuide({
+    hasRoutine: Boolean(overview.activeRoutine),
+    dismissal: widgetGuideDismissal,
+  });
   const weekCountStr = `${overview.dashboard.weekWorkoutCount}회`;
   const totalStr = formatDuration(overview.dashboard.totalDurationSeconds);
 
@@ -413,6 +463,13 @@ export default function HomeScreen() {
           </Card>
         )}
 
+        {showWidgetGuide ? (
+          <HomeWidgetGuideCard
+            onOpen={() => router.push('/widgets')}
+            onDismiss={dismissWidgetGuide}
+          />
+        ) : null}
+
         <StatTiles
           tiles={[
             { label: '이번 주', value: weekCountStr },
@@ -477,6 +534,55 @@ export default function HomeScreen() {
 
 function createMessageSeed(): string {
   return `${Date.now()}:${Math.random().toString(36).slice(2)}`;
+}
+
+function HomeWidgetGuideCard({
+  onOpen,
+  onDismiss,
+}: {
+  onOpen: () => void;
+  onDismiss: () => void;
+}) {
+  const { colors } = useTheme();
+
+  return (
+    <View style={styles.widgetGuideCardWrap}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="위젯 둘러보기"
+        onPress={onOpen}>
+        <Card gap={spacing.sm}>
+          <View style={styles.widgetGuideHeader}>
+            <View style={[styles.widgetGuideIcon, { backgroundColor: colors.surface2 }]}>
+              <Icon name="widget" size={18} color={colors.accent} />
+            </View>
+            <View style={styles.widgetGuideCopy}>
+              <AppText variant="item" wordBreak>
+                홈 화면에서 다음 운동을 바로 확인해보세요
+              </AppText>
+              <AppText variant="footnote" tone="tertiary" wordBreak>
+                앱을 열지 않고 운동을 시작하고 기록을 확인할 수 있어요.
+              </AppText>
+            </View>
+          </View>
+          <View style={styles.widgetGuideAction}>
+            <AppText variant="footnote" weight="800" tone="accent">
+              위젯 둘러보기
+            </AppText>
+            <Icon name="chevronRight" size={16} color={colors.accent} />
+          </View>
+        </Card>
+      </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="위젯 안내 닫기"
+        hitSlop={spacing.xs}
+        onPress={onDismiss}
+        style={styles.widgetGuideClose}>
+        <Icon name="close" size={18} color={colors.tx4} />
+      </Pressable>
+    </View>
+  );
 }
 
 function StartSheet({
@@ -668,6 +774,44 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  widgetGuideHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    paddingRight: spacing.xl,
+  },
+  widgetGuideCardWrap: {
+    position: 'relative',
+  },
+  widgetGuideIcon: {
+    width: spacing.xxl,
+    height: spacing.xxl,
+    borderRadius: radius.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  widgetGuideCopy: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  widgetGuideClose: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    width: spacing.xl,
+    height: spacing.xl,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 1,
+  },
+  widgetGuideAction: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
+    paddingVertical: spacing.xxs,
+    marginLeft: spacing.xxl + spacing.sm,
   },
   recentBlock: {
     gap: spacing.sm,
