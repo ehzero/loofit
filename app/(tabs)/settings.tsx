@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { useCallback, useState } from 'react';
-import { Alert, Linking, Pressable, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 import { AppText } from '@/src/components/AppText';
 import { Card } from '@/src/components/Card';
@@ -10,8 +10,12 @@ import { Icon } from '@/src/components/Icon';
 import { ListRow } from '@/src/components/ListRow';
 import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
-import { APP_VERSION_LABEL } from '@/src/config/app-version';
+import { APP_VERSION, APP_VERSION_LABEL } from '@/src/config/app-version';
 import { BRAND } from '@/src/config/brand';
+import {
+  fetchAvailableAppUpdate,
+  type AppUpdateInfo,
+} from '@/src/services/app-update';
 import {
   isActionSuccessful,
   shouldDismissAfterAction,
@@ -36,6 +40,7 @@ const MODE_OPTIONS: Array<{ value: ThemeMode; label: string }> = [
 const TERMS_URL = BRAND.urls.terms;
 const PRIVACY_URL = BRAND.urls.privacy;
 const CONTACT_EMAIL = BRAND.contactEmail;
+const APP_UPDATE_LOOKUP_TIMEOUT_MS = 5_000;
 
 export default function SettingsScreen() {
   const router = useRouter();
@@ -43,6 +48,7 @@ export default function SettingsScreen() {
   const { showToast } = useToast();
   const resetDevData = useAppStore((state) => state.resetDevData);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
+  const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
   const openContactEmail = useCallback(async () => {
     const subject = encodeURIComponent(`[${BRAND.displayName}] 문의`);
 
@@ -64,6 +70,44 @@ export default function SettingsScreen() {
     },
     [setAccent]
   );
+  const openAppUpdate = useCallback(async () => {
+    if (!availableUpdate) {
+      return;
+    }
+
+    try {
+      await Linking.openURL(availableUpdate.storeUrl);
+    } catch {
+      Alert.alert('App Store를 열 수 없어요', '잠시 후 다시 시도해 주세요.');
+    }
+  }, [availableUpdate]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'ios' || !APP_VERSION) {
+      return;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), APP_UPDATE_LOOKUP_TIMEOUT_MS);
+
+    void fetchAvailableAppUpdate(APP_VERSION, { signal: controller.signal })
+      .then((update) => {
+        if (active) {
+          setAvailableUpdate(update);
+        }
+      })
+      .catch(() => {
+        // Version lookup is optional and must not interrupt the settings screen.
+      })
+      .finally(() => clearTimeout(timeout));
+
+    return () => {
+      active = false;
+      clearTimeout(timeout);
+      controller.abort();
+    };
+  }, []);
 
   return (
     <>
@@ -109,6 +153,35 @@ export default function SettingsScreen() {
             </View>
           </View>
         </Card>
+
+        {availableUpdate ? (
+          <Card gap={spacing.md} style={styles.updateCard}>
+            <View style={styles.updateInfo}>
+              <View style={[styles.updateIcon, { backgroundColor: colors.surface2 }]}>
+                <Icon name="download" size={18} color={colors.accent} />
+              </View>
+              <View style={styles.updateCopy}>
+                <AppText variant="item">새 버전 {availableUpdate.version}</AppText>
+                <AppText variant="footnote" tone="tertiary" wordBreak>
+                  최신 기능과 개선 사항을 사용할 수 있어요.
+                </AppText>
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={`새 버전 ${availableUpdate.version}으로 업데이트`}
+              onPress={() => void openAppUpdate()}
+              style={({ pressed }) => [
+                styles.updateAction,
+                { backgroundColor: colors.accent },
+                pressed ? styles.updatePressed : null,
+              ]}>
+              <AppText variant="body" weight="800" tone="accentContrast">
+                App Store에서 업데이트
+              </AppText>
+            </Pressable>
+          </Card>
+        ) : null}
 
         <Card padding={0} gap={0} style={styles.group}>
           <ListRow
@@ -200,6 +273,36 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  updateCard: {
+    overflow: 'hidden',
+  },
+  updateInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  updateIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  updateCopy: {
+    flex: 1,
+    gap: spacing.xxs,
+  },
+  updateAction: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  updatePressed: {
+    opacity: 0.85,
   },
   resetRow: {
     flexDirection: 'row',
