@@ -7,7 +7,7 @@ import { buildHeatmapWidgetProps, buildHeatmapWidgetRows } from './heatmap-widge
 import { buildCurrentMonthHeatmapModel } from './current-month-heatmap-model';
 
 describe('buildCurrentMonthHeatmapModel', () => {
-  it('keeps only current-month dates in a Sunday-first calendar grid', () => {
+  it('keeps outside-month dates as label-only cells in a Sunday-first calendar grid', () => {
     const source = new Map<string, HeatmapDay>([
       ['2026-06-30', { dateKey: '2026-06-30', durationSeconds: 1_800, bucket: 2 }],
       ['2026-07-01', { dateKey: '2026-07-01', durationSeconds: 3_600, bucket: 3 }],
@@ -20,9 +20,9 @@ describe('buildCurrentMonthHeatmapModel', () => {
     expect(model.title).toBe('7월');
     expect(model.cells).toHaveLength(35);
     expect(model.cells.slice(0, 3)).toEqual([
-      { dateKey: '', durationSeconds: 0, bucket: 0, inRange: false, isGap: true },
-      { dateKey: '', durationSeconds: 0, bucket: 0, inRange: false, isGap: true },
-      { dateKey: '', durationSeconds: 0, bucket: 0, inRange: false, isGap: true },
+      { dateKey: '2026-06-28', durationSeconds: 0, bucket: 0, inRange: false, isGap: true },
+      { dateKey: '2026-06-29', durationSeconds: 0, bucket: 0, inRange: false, isGap: true },
+      { dateKey: '2026-06-30', durationSeconds: 0, bucket: 0, inRange: false, isGap: true },
     ]);
     expect(model.cells[3]).toMatchObject({
       dateKey: '2026-07-01',
@@ -39,11 +39,29 @@ describe('buildCurrentMonthHeatmapModel', () => {
       expect.objectContaining({ dateKey: '2026-07-13', isToday: true }),
     ]);
     expect(model.cells.at(-1)).toEqual({
-      dateKey: '',
+      dateKey: '2026-08-01',
       durationSeconds: 0,
       bucket: 0,
       inRange: false,
       isGap: true,
+    });
+  });
+
+  it('serializes outside-month cells with a date label and transparent background', () => {
+    const colors = makeColors('dark', '#CFF56A');
+    const model = buildCurrentMonthHeatmapModel(new Map(), new Date(2026, 6, 13, 12));
+    const props = buildHeatmapWidgetProps({
+      title: model.title,
+      variant: 'month',
+      cells: model.cells,
+      colors,
+    });
+
+    expect(buildHeatmapWidgetRows(props, 'month').flat()[0]).toEqual({
+      color: '#00000000',
+      label: '28',
+      labelColor: colors.tx4,
+      isToday: false,
     });
   });
 

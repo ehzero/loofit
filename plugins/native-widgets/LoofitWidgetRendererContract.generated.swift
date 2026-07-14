@@ -109,6 +109,7 @@ enum LoofitWidgetRendererContract {
     static let cellLabelSize: CGFloat = 8
     static let headerGap: CGFloat = 8
     static let headerFontSize: CGFloat = 12
+    static let outsideMonthDateLabelOnly = true
     static let todayIndicatorWidth: CGFloat = 1.5
   }
 

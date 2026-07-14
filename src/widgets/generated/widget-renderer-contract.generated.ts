@@ -364,6 +364,7 @@ export const WIDGET_RENDERER_CONTRACT = {
         "headerVisible": true,
         "headerSummary": "count",
         "maxRows": 6,
+        "outsideMonthCells": "dateLabelOnly",
         "todayIndicator": {
           "style": "border",
           "colorRole": "todayIndicator",

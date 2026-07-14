@@ -65,7 +65,7 @@ export function buildHeatmapWidgetProps({
     // empty cells, not transparent holes, so the grid keeps a stable rectangular
     // silhouette that matches the app preview design.
     colors: widgetCells.map((cell) => heatmapCellColor(colors, cell)).join(','),
-    labels: widgetCells.map((cell) => (cell.isGap ? '' : dayOfMonthLabel(cell.dateKey))).join(','),
+    labels: widgetCells.map((cell) => dayOfMonthLabel(cell.dateKey)).join(','),
     labelColors: widgetCells.map((cell) => heatmapCellLabelColor(colors, cell)).join(','),
     todayFlags: widgetCells.map((cell) => (cell.isToday ? '1' : '0')).join(','),
     weekdayLabels: heatmapWeekdayLabels(variant, widgetCells).join(','),

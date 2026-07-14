@@ -207,7 +207,8 @@ function validate(value) {
       currentMonthPreview.kindAccessor === 'currentMonthCalendar' &&
       currentMonthPreview.family === 'systemSmall' &&
       currentMonthPreview.headerSummary === 'count' &&
-      currentMonthPreview.maxRows === 6,
+      currentMonthPreview.maxRows === 6 &&
+      currentMonthPreview.outsideMonthCells === 'dateLabelOnly',
     'current-month preview must use the detailed style with a count summary and up to six rows'
   );
   assert(
@@ -674,6 +675,7 @@ enum LoofitWidgetRendererContract {
     static let cellLabelSize: CGFloat = ${swiftNumber(currentMonth.cellLabelSize)}
     static let headerGap: CGFloat = ${swiftNumber(currentMonth.headerGap)}
     static let headerFontSize: CGFloat = ${swiftNumber(currentMonth.headerFontSize)}
+    static let outsideMonthDateLabelOnly = ${currentMonth.outsideMonthCells === 'dateLabelOnly'}
     static let todayIndicatorWidth: CGFloat = ${swiftNumber(currentMonth.todayIndicator.width)}
   }
 

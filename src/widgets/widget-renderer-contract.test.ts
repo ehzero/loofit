@@ -102,6 +102,7 @@ describe('widget renderer contract', () => {
       headerVisible: true,
       headerSummary: 'count',
       maxRows: 6,
+      outsideMonthCells: 'dateLabelOnly',
       todayIndicator: {
         style: 'border',
         colorRole: 'todayIndicator',

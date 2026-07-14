@@ -94,6 +94,10 @@ private struct CurrentMonthCalendarWidgetView: View {
         Text("\(Calendar.current.component(.day, from: day.date))")
           .font(.system(size: LoofitWidgetRendererContract.CurrentMonth.cellLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitHeatmapTextColor(for: day, palette: entry.palette))
+      } else if LoofitWidgetRendererContract.CurrentMonth.outsideMonthDateLabelOnly {
+        Text("\(Calendar.current.component(.day, from: day.date))")
+          .font(.system(size: LoofitWidgetRendererContract.CurrentMonth.cellLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
+          .foregroundStyle(LoofitColor(entry.palette.tx4))
       }
     }
     .frame(width: size, height: size)

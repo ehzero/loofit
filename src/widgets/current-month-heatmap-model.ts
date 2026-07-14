@@ -1,5 +1,6 @@
 import { addLocalDays, startOfLocalDay, toLocalDateKey } from '@/src/domain/date';
 import type { HeatmapDay, HeatmapGridCell } from '@/src/types';
+import { WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
 
 export type CurrentMonthHeatmapCell = HeatmapGridCell & {
   isGap?: boolean;
@@ -30,7 +31,17 @@ export function buildCurrentMonthHeatmapModel(
     const inMonth =
       cursor.getFullYear() === today.getFullYear() && cursor.getMonth() === today.getMonth();
     if (!inMonth) {
-      cells.push({ dateKey: '', durationSeconds: 0, bucket: 0, inRange: false, isGap: true });
+      cells.push({
+        dateKey:
+          WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.outsideMonthCells ===
+          'dateLabelOnly'
+            ? toLocalDateKey(cursor)
+            : '',
+        durationSeconds: 0,
+        bucket: 0,
+        inRange: false,
+        isGap: true,
+      });
       continue;
     }
 
