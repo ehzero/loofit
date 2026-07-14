@@ -43,6 +43,10 @@
   },
   "scripts": {
     "start": "expo start",
+    "showcase": "npm --prefix ./tools/showcase run dev",
+    "showcase:install": "npm --prefix ./tools/showcase install",
+    "showcase:typecheck": "npm --prefix ./tools/showcase run typecheck",
+    "showcase:build": "npm --prefix ./tools/showcase run build",
     "android": "expo run:android",
     "ios": "./scripts/build-generated-ios.sh",
     "ios:build": "./scripts/build-generated-ios.sh",

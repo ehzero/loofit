@@ -1,0 +1,56 @@
+# Keep this file aligned with .gitignore. EAS uses .easignore instead of .gitignore
+# when this file exists.
+
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+/fastlane/.env
+/fastlane/.env.*
+!/fastlane/.env.example
+
+# Fastlane local output
+/fastlane/Preview.html
+/fastlane/report.xml
+/fastlane/test_output/
+
+# Raw simulator captures used to render App Store screenshots
+/store-assets/captures/
+
+# typescript
+*.tsbuildinfo
+
+# generated native folders
+/ios
+/android
+
+# Standalone web-only showcase lab. Never upload it with mobile EAS builds.
+/tools/showcase/

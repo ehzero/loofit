@@ -1,0 +1,341 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Loofit 서비스 소개 썸네일 실험실</title>
+    <link rel="stylesheet" href="./showcase.css" />
+  </head>
+  <body data-theme="light" data-phase="before" data-panel-crop="enabled">
+    <main class="lab-shell">
+      <header class="toolbar" aria-label="썸네일 설정">
+        <div class="toolbar__title">
+          <span class="eyebrow">LOOFIT 3D LAB</span>
+          <strong>서비스 소개 썸네일</strong>
+        </div>
+
+        <div class="control control--size">
+          <span class="control__label">촬영 규격</span>
+          <span class="size-badge">6.9″ 3장 · 3960×2868</span>
+        </div>
+
+        <fieldset class="control control--crop">
+          <legend class="control__label">이미지 자름</legend>
+          <div class="segments" data-control="panelCrop">
+            <button class="is-selected" type="button" data-value="enabled">켜기</button>
+            <button type="button" data-value="disabled">끄기</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="control">
+          <legend class="control__label">홈 상태</legend>
+          <div class="segments" data-control="phase">
+            <button class="is-selected" type="button" data-value="before">운동 전</button>
+            <button type="button" data-value="active">운동 중</button>
+            <button type="button" data-value="completed">완료</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="control">
+          <legend class="control__label">테마</legend>
+          <div class="segments" data-control="theme">
+            <button class="is-selected" type="button" data-value="light">라이트</button>
+            <button type="button" data-value="dark">다크</button>
+          </div>
+        </fieldset>
+
+        <fieldset class="control">
+          <legend class="control__label">액센트</legend>
+          <div class="swatches" data-control="accent">
+            <button class="swatch is-selected" style="--swatch:#c9f31d" type="button" data-value="#c9f31d" aria-label="라임"></button>
+            <button class="swatch" style="--swatch:#f5a623" type="button" data-value="#f5a623" aria-label="오렌지"></button>
+            <button class="swatch" style="--swatch:#59c8fa" type="button" data-value="#59c8fa" aria-label="블루"></button>
+            <button class="swatch" style="--swatch:#ff6b6b" type="button" data-value="#ff6b6b" aria-label="레드"></button>
+            <button class="swatch" style="--swatch:#ad8cff" type="button" data-value="#ad8cff" aria-label="퍼플"></button>
+          </div>
+        </fieldset>
+
+        <button
+          class="inspector-toggle"
+          id="inspectorToggle"
+          type="button"
+          aria-controls="sceneInspector"
+          aria-expanded="true"
+        >3D 조절</button>
+        <button class="app-store-button" id="appStorePreviewButton" type="button">App Store 미리보기</button>
+        <button class="capture-button" id="captureButton" type="button">촬영 모드</button>
+      </header>
+
+      <aside class="scene-inspector" id="sceneInspector" aria-label="Three.js 장면 조절">
+        <header class="scene-inspector__header">
+          <div><span>SCENE CONTROLS</span><strong>카메라와 조명</strong></div>
+          <button id="resetSceneControls" type="button">기본값</button>
+        </header>
+
+        <section class="inspector-section">
+          <h2>메시 형태</h2>
+          <label class="range-control">
+            <span>위젯 두께</span><output data-view-output="meshDepthScale">1.00×</output>
+            <input data-view-control="meshDepthScale" type="range" min="0.25" max="3" step="0.05" value="1" />
+          </label>
+          <label class="range-control">
+            <span>위젯 라운딩</span><output data-view-output="cornerRadiusScale">1.00×</output>
+            <input data-view-control="cornerRadiusScale" type="range" min="0" max="2" step="0.05" value="1" />
+          </label>
+          <label class="range-control">
+            <span>바닥 높이 Z</span><output data-view-output="meshZ">0</output>
+            <input data-view-control="meshZ" type="range" min="0" max="120" step="1" value="0" />
+          </label>
+          <p class="control-help">Z가 0이면 모든 메시가 바닥에 놓입니다.</p>
+        </section>
+
+        <section class="inspector-section">
+          <h2>카메라 시점</h2>
+          <label class="range-control">
+            <span>틸트</span><output data-view-output="cameraTilt">50°</output>
+            <input data-view-control="cameraTilt" type="range" min="15" max="75" step="1" value="50" />
+          </label>
+          <label class="range-control">
+            <span>방위각</span><output data-view-output="cameraAzimuth">-17.25°</output>
+            <input data-view-control="cameraAzimuth" type="range" min="-45" max="45" step="0.25" value="-17.25" />
+          </label>
+          <label class="range-control">
+            <span>원근 거리</span><output data-view-output="cameraDistance">14,000</output>
+            <input data-view-control="cameraDistance" type="range" min="3000" max="30000" step="500" value="14000" />
+          </label>
+          <label class="range-control">
+            <span>장면 줌</span><output data-view-output="cameraZoom">1.00×</output>
+            <input data-view-control="cameraZoom" type="range" min="0.6" max="1.6" step="0.05" value="1" />
+          </label>
+          <p class="control-help">원근 거리는 왜곡 강도, 장면 줌은 전체 Mesh의 확대·축소를 조절합니다.</p>
+        </section>
+
+        <section class="inspector-section">
+          <h2>조명과 그림자</h2>
+          <label class="range-control">
+            <span>그림자 방향</span><output data-view-output="shadowDirection">90°</output>
+            <input data-view-control="shadowDirection" type="range" min="0" max="359" step="1" value="90" />
+          </label>
+          <label class="range-control">
+            <span>그림자 벌어짐</span><output data-view-output="shadowSpread">24</output>
+            <input data-view-control="shadowSpread" type="range" min="0" max="80" step="1" value="24" />
+          </label>
+          <label class="range-control">
+            <span>세기</span><output data-view-output="lightIntensity">1.00</output>
+            <input data-view-control="lightIntensity" type="range" min="0" max="6" step="0.01" value="1" />
+          </label>
+          <label class="range-control">
+            <span>그림자 부드러움</span><output data-view-output="shadowRadius">5.0</output>
+            <input data-view-control="shadowRadius" type="range" min="0" max="15" step="0.5" value="5" />
+          </label>
+          <p class="control-help">벌어짐이 작을수록 그림자가 메시 가까이에 붙습니다. 바닥 높이 Z도 실제 이격 거리에 영향을 줍니다.</p>
+        </section>
+      </aside>
+
+      <section class="viewer" id="viewer" aria-label="서비스 소개 썸네일 미리보기">
+        <div class="artboard-frame" id="artboardFrame">
+          <div
+            class="artboard"
+            id="artboard"
+            data-canvas-width="3960"
+            data-canvas-height="2868"
+          >
+            <canvas
+              id="showcaseCanvas"
+              width="3960"
+              height="2868"
+              aria-label="Three.js 서비스 소개 장면"
+            ></canvas>
+            <div class="editor-panel-strip" id="editorPanelStrip" aria-label="App Store 목록 간격 미리보기">
+              <section class="editor-panel" aria-label="첫 번째 스크린샷 편집 패널">
+                <canvas data-editor-panel="0" width="660" height="1434" aria-label="첫 번째 스크린샷 편집 미리보기"></canvas>
+                <section class="service-copy service-copy--first" aria-label="첫 번째 장 소개 문구">
+                  <h2>내 루틴대로,<br />운동을 가볍게.</h2>
+                  <p>다음 운동을 확인하고 바로 시작하세요.</p>
+                </section>
+              </section>
+              <section class="editor-panel" aria-label="두 번째 스크린샷 편집 패널">
+                <canvas data-editor-panel="1" width="660" height="1434" aria-label="두 번째 스크린샷 편집 미리보기"></canvas>
+              </section>
+              <section class="editor-panel" aria-label="세 번째 스크린샷 편집 패널">
+                <canvas data-editor-panel="2" width="660" height="1434" aria-label="세 번째 스크린샷 편집 미리보기"></canvas>
+                <section class="service-copy service-copy--last" aria-label="마지막 장 소개 문구">
+                  <h2>기록은 간단하게,<br />흐름은 한눈에.</h2>
+                  <p>위젯과 히트맵으로 쌓이는 운동을 확인하세요.</p>
+                </section>
+              </section>
+            </div>
+            <section class="service-copy service-copy--first" aria-label="첫 번째 장 소개 문구">
+              <h2>내 루틴대로,<br />운동을 가볍게.</h2>
+              <p>다음 운동을 확인하고 바로 시작하세요.</p>
+            </section>
+            <section class="service-copy service-copy--last" aria-label="마지막 장 소개 문구">
+              <h2>기록은 간단하게,<br />흐름은 한눈에.</h2>
+              <p>위젯과 히트맵으로 쌓이는 운동을 확인하세요.</p>
+            </section>
+            <div class="panel-guide panel-guide--one" aria-hidden="true"></div>
+            <div class="panel-guide panel-guide--two" aria-hidden="true"></div>
+            <span class="render-status" id="renderStatus" data-state="loading">3D 장면 준비 중</span>
+          </div>
+        </div>
+        <p class="capture-hint">촬영 모드에서는 캔버스를 클릭하거나 Esc를 눌러 돌아옵니다.</p>
+      </section>
+    </main>
+
+    <section
+      class="app-store-preview"
+      id="appStorePreview"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="appStorePreviewTitle"
+      hidden
+    >
+      <header class="app-store-preview__toolbar">
+        <div class="app-store-preview__heading">
+          <span>DEVICE PREVIEW</span>
+          <strong id="appStorePreviewTitle">App Store에서 보이는 모습</strong>
+        </div>
+        <div class="app-store-preview__modes" role="tablist" aria-label="App Store 화면 선택">
+          <button
+            class="is-selected"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            data-store-preview-mode="product"
+          >제품 페이지</button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected="false"
+            data-store-preview-mode="list"
+          >앱 목록</button>
+        </div>
+        <button id="appStorePreviewClose" type="button" aria-label="App Store 미리보기 닫기">닫기</button>
+      </header>
+
+      <div class="app-store-device" aria-label="아이폰 App Store 화면 미리보기">
+        <div class="app-store-device__screen">
+          <div class="app-store-device__island" aria-hidden="true"></div>
+          <div class="app-store-statusbar" aria-hidden="true">
+            <strong>9:41</strong><span>●●●  Wi-Fi  ▰</span>
+          </div>
+
+          <div
+            class="app-store-page app-store-page--product"
+            data-store-preview-page="product"
+          >
+            <nav class="app-store-nav" aria-label="App Store 탐색">
+              <span>‹ 검색</span><strong>App Store</strong><span>•••</span>
+            </nav>
+
+            <div class="app-store-product">
+              <header class="app-store-product__app">
+                <div class="app-store-icon" aria-hidden="true"><span>L</span></div>
+                <div class="app-store-product__identity">
+                  <h2>루핏</h2>
+                  <p>내 루틴대로, 운동을 가볍게 기록하세요.</p>
+                  <button type="button" tabindex="-1">열기</button>
+                </div>
+              </header>
+
+              <div class="app-store-facts" aria-label="앱 정보 요약">
+                <div><span>평가</span><strong>4.8</strong><small>★★★★★</small></div>
+                <div><span>연령</span><strong>4+</strong><small>세</small></div>
+                <div><span>카테고리</span><strong>건강</strong><small>및 피트니스</small></div>
+              </div>
+
+              <section class="app-store-screenshots" aria-labelledby="appStoreScreenshotsTitle">
+                <header>
+                  <h3 id="appStoreScreenshotsTitle">미리보기</h3>
+                  <span>iPhone</span>
+                </header>
+                <div class="app-store-screenshot-rail">
+                  <div class="app-store-shot">
+                    <canvas data-store-panel="0" width="1320" height="2868" aria-label="첫 번째 App Store 스크린샷"></canvas>
+                    <div class="app-store-shot__copy app-store-shot__copy--first">
+                      <strong>내 루틴대로,<br />운동을 가볍게.</strong>
+                      <span>다음 운동을 확인하고 바로 시작하세요.</span>
+                    </div>
+                  </div>
+                  <div class="app-store-shot">
+                    <canvas data-store-panel="1" width="1320" height="2868" aria-label="두 번째 App Store 스크린샷"></canvas>
+                  </div>
+                  <div class="app-store-shot">
+                    <canvas data-store-panel="2" width="1320" height="2868" aria-label="세 번째 App Store 스크린샷"></canvas>
+                    <div class="app-store-shot__copy app-store-shot__copy--last">
+                      <strong>기록은 간단하게,<br />흐름은 한눈에.</strong>
+                      <span>위젯과 히트맵으로 쌓이는 운동을 확인하세요.</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section class="app-store-whats-new">
+                <header><h3>새로운 기능</h3><span>버전 1.0.2</span></header>
+                <p>더 다양한 위젯과 운동 흐름을 한눈에 확인할 수 있도록 개선했어요.</p>
+              </section>
+            </div>
+          </div>
+
+          <div
+            class="app-store-page app-store-page--list"
+            data-store-preview-page="list"
+            hidden
+          >
+            <header class="app-store-search-header">
+              <h2>검색</h2>
+              <div class="app-store-search-field" aria-label="검색어 운동 기록">
+                <span aria-hidden="true">⌕</span> 운동 기록
+              </div>
+            </header>
+
+            <main class="app-store-search-results">
+              <section class="app-store-search-result" aria-label="루핏 검색 결과">
+                <header class="app-store-search-result__app">
+                  <div class="app-store-list-icon" aria-hidden="true"><span>L</span></div>
+                  <div class="app-store-search-result__identity">
+                    <h2>루핏</h2>
+                    <p>내 루틴대로, 운동을 가볍게 기록하세요.</p>
+                    <small>★★★★★ <b>4.8</b></small>
+                  </div>
+                  <button type="button" tabindex="-1">열기</button>
+                </header>
+
+                <div class="app-store-list-shots" aria-label="검색 결과 스크린샷 3장">
+                  <div class="app-store-list-shot">
+                    <canvas data-store-panel="0" width="1320" height="2868" aria-label="앱 목록 첫 번째 스크린샷"></canvas>
+                    <div class="app-store-shot__copy app-store-shot__copy--first">
+                      <strong>내 루틴대로,<br />운동을 가볍게.</strong>
+                      <span>다음 운동을 확인하고 바로 시작하세요.</span>
+                    </div>
+                  </div>
+                  <div class="app-store-list-shot">
+                    <canvas data-store-panel="1" width="1320" height="2868" aria-label="앱 목록 두 번째 스크린샷"></canvas>
+                  </div>
+                  <div class="app-store-list-shot">
+                    <canvas data-store-panel="2" width="1320" height="2868" aria-label="앱 목록 세 번째 스크린샷"></canvas>
+                    <div class="app-store-shot__copy app-store-shot__copy--last">
+                      <strong>기록은 간단하게,<br />흐름은 한눈에.</strong>
+                      <span>위젯과 히트맵으로 쌓이는 운동을 확인하세요.</span>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </main>
+
+            <nav class="app-store-tabbar" aria-label="App Store 탭">
+              <span>◉<small>투데이</small></span>
+              <span>◫<small>게임</small></span>
+              <span>▦<small>앱</small></span>
+              <span class="is-selected">⌕<small>검색</small></span>
+            </nav>
+          </div>
+          <div class="app-store-home-indicator" aria-hidden="true"></div>
+        </div>
+      </div>
+    </section>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
