@@ -50,9 +50,7 @@ private struct RoutineProgressLockScreenWidgetView: View {
 
   private func column(_ item: LoofitRoutineProgressItemSnapshot) -> some View {
     let current = item.routineDayId == progress?.currentRoutineDayId
-    let workout = item.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-      ? LoofitRoutineBodyParts(item)
-      : item.title
+    let workout = LoofitRoutineWorkoutLabel(item)
     let relativeDay = item.latestCompleted?.startedDate.map {
       LoofitFormat.relativeDay($0, now: entry.date)
     } ?? LoofitWidgetRendererContract.RoutineProgress.emptyRelativeDay

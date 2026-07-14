@@ -41,11 +41,11 @@ private struct HeatmapFourWeekExpandedWidgetView: View {
       let gap = spec.cellGap
       let width = max(0, geometry.size.width - contentPadding * 2 - gap * CGFloat(spec.columns - 1))
       let cellWidth = width / CGFloat(max(spec.columns, 1))
-      let height = max(
+      let verticalGapCount = CGFloat(rows.count)
+      let cellHeight = max(
         0,
-        geometry.size.height - contentPadding * 2 - cellWidth - gap * CGFloat(rows.count)
-      )
-      let cellHeight = height / CGFloat(max(rows.count, 1))
+        geometry.size.height - contentPadding * 2 - spec.weekdayHeaderHeight - gap * verticalGapCount
+      ) / CGFloat(max(rows.count, 1))
 
       VStack(alignment: .leading, spacing: gap) {
         HStack(spacing: gap) {
@@ -53,7 +53,7 @@ private struct HeatmapFourWeekExpandedWidgetView: View {
             Text(label)
               .font(.system(size: LoofitWidgetRendererContract.Heatmap.weekdayLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
               .foregroundStyle(weekdayColor(label))
-              .frame(width: cellWidth, height: cellWidth)
+              .frame(width: cellWidth, height: spec.weekdayHeaderHeight)
           }
         }
         ForEach(Array(rows.enumerated()), id: \.offset) { _, row in

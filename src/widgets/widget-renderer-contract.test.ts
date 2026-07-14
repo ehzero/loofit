@@ -118,6 +118,13 @@ describe('widget renderer contract', () => {
     expect(
       WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.headerSummary
     ).toBe('count');
+    expect(WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.fourWeekExpanded).toMatchObject({
+      aspectRatio: 2.14,
+      family: 'systemMedium',
+      rangeWeeks: 4,
+      weekdayHeaderHeight: WIDGET_RENDERER_CONTRACT.designSystem.typography.sm.lineHeight,
+    });
+    expect(WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabelHeightInCells).toBe(1);
     expect(WIDGET_RENDERER_CONTRACT.card.contentPadding).toBe(
       WIDGET_RENDERER_CONTRACT.designSystem.contentPadding
     );

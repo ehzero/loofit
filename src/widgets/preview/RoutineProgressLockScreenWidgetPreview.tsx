@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import type { RoutineProgressTextListItem } from '@/src/widgets/preview/RoutineProgressTextListWidgetPreview';
+import { resolveRoutineProgressLabels } from '@/src/widgets/routine-progress-widget-model';
 import { WIDGET_PREVIEW_SPEC } from '@/src/widgets/widget-spec';
 
 const SPEC = WIDGET_PREVIEW_SPEC.routineProgress.textList.lockScreen;
@@ -43,7 +44,7 @@ export function RoutineProgressLockScreenWidgetPreview({
     >
       {visibleItems.map((item, visibleIndex) => {
         const current = startIndex + visibleIndex === resolvedCurrentIndex;
-        const workoutLabel = item.workoutAlias?.trim() || item.bodyParts;
+        const { workoutLabel } = resolveRoutineProgressLabels(item);
         const textColor = current
           ? palette[SPEC.currentTextColorRole]
           : palette[SPEC.nonCurrentTextColorRole];

@@ -29,6 +29,13 @@ export function ExpandedHeatmapWidgetPreview({
   const rows = buildHeatmapWidgetRows(widget, 'month');
   const weekdayLabels = parseHeatmapWidgetList(widget.weekdayLabels).filter(Boolean);
   const contentPadding = resolveHomeWidgetContentPadding(cardSize, SPEC.contentPadding);
+  const verticalGapSpace =
+    SPEC.headerGap + SPEC.cellGap * Math.max(0, SPEC.rangeWeeks - 1);
+  const rowHeight = Math.max(
+    0,
+    (cardSize.height - contentPadding * 2 - SPEC.weekdayHeaderHeight - verticalGapSpace) /
+      SPEC.rangeWeeks
+  );
 
   return (
     <View
@@ -46,7 +53,7 @@ export function ExpandedHeatmapWidgetPreview({
         style,
       ]}
     >
-      <View style={styles.weekdayHeader}>
+      <View style={[styles.weekdayHeader, { height: SPEC.weekdayHeaderHeight }]}>
         {weekdayLabels.map((label) => (
           <View key={label} style={styles.weekdayCell}>
             <Text
@@ -65,7 +72,12 @@ export function ExpandedHeatmapWidgetPreview({
         ))}
       </View>
 
-      <View style={styles.grid}>
+      <View
+        style={[
+          styles.grid,
+          { height: rowHeight * SPEC.rangeWeeks + SPEC.cellGap * (SPEC.rangeWeeks - 1) },
+        ]}
+      >
         {rows.map((row, rowIndex) => (
           <View key={rowIndex} style={styles.row}>
             {row.map((cell, cellIndex) => {
@@ -117,7 +129,7 @@ const styles = StyleSheet.create({
   },
   weekdayHeader: {
     flexDirection: 'row',
-    height: SPEC.weekdayHeaderHeight,
+    minHeight: 0,
   },
   weekdayCell: {
     alignItems: 'center',
@@ -131,7 +143,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   grid: {
-    flex: 1,
     gap: SPEC.cellGap,
     minHeight: 0,
   },

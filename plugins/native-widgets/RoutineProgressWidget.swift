@@ -59,7 +59,7 @@ private struct RoutineProgressWidgetView: View {
       LoofitFormat.relativeDay($0, now: entry.date)
     } ?? LoofitWidgetRendererContract.RoutineProgress.emptyRelativeDay
     let metadata = [
-      LoofitRoutineBodyParts(item),
+      LoofitRoutineBodyPartDetail(item),
       item.latestCompleted.map { LoofitFormat.duration($0.durationSeconds) } ?? "",
     ].filter { !$0.isEmpty }.joined(
       separator: LoofitWidgetRendererContract.RoutineProgress.metadataSeparator
@@ -67,7 +67,7 @@ private struct RoutineProgressWidgetView: View {
 
     return VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Spacing.xs) {
       HStack(alignment: .firstTextBaseline, spacing: LoofitWidgetRendererContract.Spacing.sm) {
-        Text(item.title)
+        Text(LoofitRoutineWorkoutLabel(item))
           .font(.system(size: LoofitWidgetRendererContract.RoutineProgress.splitSize, weight: LoofitWidgetRendererContract.RoutineProgress.splitWeight))
           .lineLimit(1)
           .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.dense)

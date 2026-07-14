@@ -689,6 +689,7 @@ enum LoofitWidgetRendererContract {
     static let bodyPartLabelLineHeight: CGFloat = ${swiftNumber(fourWeekExpanded.bodyPartLabelLineHeight)}
     static let bodyPartLabelOpacity: Double = ${swiftNumber(fourWeekExpanded.bodyPartLabelOpacity)}
     static let cellContentGap: CGFloat = ${swiftNumber(fourWeekExpanded.cellContentGap)}
+    static let weekdayHeaderHeight: CGFloat = ${swiftNumber(fourWeekExpanded.weekdayHeaderHeight)}
     static let headerGap: CGFloat = ${swiftNumber(fourWeekExpanded.headerGap)}
     static let bodyPartSeparator = ${swiftString(fourWeekExpanded.bodyPartSeparator)}
   }

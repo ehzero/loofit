@@ -6,6 +6,7 @@ import {
   WIDGET_RENDERER_CONTRACT,
   resolveHomeWidgetContentPadding,
 } from '@/src/widgets/widget-spec';
+import { resolveRoutineProgressLabels } from '@/src/widgets/routine-progress-widget-model';
 
 const SPEC = WIDGET_PREVIEW_SPEC.routineProgress.textList;
 
@@ -14,7 +15,6 @@ export type RoutineProgressTextListItem = {
   duration: string;
   relativeDay: string;
   split: string;
-  workoutAlias?: string;
 };
 
 export type RoutineProgressTextListPalette = {
@@ -58,19 +58,20 @@ export function RoutineProgressTextListWidgetPreview({
       ]}
     >
       {items.map((item, index) => {
+        const labels = resolveRoutineProgressLabels(item);
         const current = index === resolvedCurrentIndex;
         const rowColor = current
           ? palette[SPEC.currentTextColorRole]
           : palette[SPEC.nonCurrentTextColorRole];
-        const metadata = [item.bodyParts, item.duration]
+        const metadata = [labels.bodyPartDetail, item.duration]
           .filter(Boolean)
           .join(SPEC.metadataSeparator);
 
         return (
           <View
-            accessibilityLabel={`${current ? '현재 순서, ' : ''}${item.split}, ${item.relativeDay}, ${metadata}`}
+            accessibilityLabel={`${current ? '현재 순서, ' : ''}${labels.workoutLabel}, ${item.relativeDay}, ${metadata}`}
             accessible
-            key={`${item.split}-${index}`}
+            key={`${labels.workoutLabel}-${index}`}
             style={styles.item}
           >
             <View style={styles.row}>
@@ -79,7 +80,7 @@ export function RoutineProgressTextListWidgetPreview({
                 numberOfLines={1}
                 style={[styles.split, { color: rowColor }]}
               >
-                {item.split}
+                {labels.workoutLabel}
               </Text>
               <Text
                 ellipsizeMode="tail"

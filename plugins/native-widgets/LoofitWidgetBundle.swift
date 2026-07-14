@@ -359,6 +359,17 @@ func LoofitRoutineBodyParts(_ item: LoofitRoutineProgressItemSnapshot) -> String
   return LoofitFormat.uniqueJoined(parts.sorted { $0.sortOrder < $1.sortOrder }.map(\.name))
 }
 
+func LoofitRoutineWorkoutLabel(_ item: LoofitRoutineProgressItemSnapshot) -> String {
+  let alias = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+  return alias.isEmpty ? LoofitRoutineBodyParts(item) : alias
+}
+
+func LoofitRoutineBodyPartDetail(_ item: LoofitRoutineProgressItemSnapshot) -> String {
+  let alias = item.title.trimmingCharacters(in: .whitespacesAndNewlines)
+  let bodyParts = LoofitRoutineBodyParts(item)
+  return alias.isEmpty || alias == bodyParts ? "" : bodyParts
+}
+
 // MARK: - Heatmap projection and view
 
 enum LoofitHeatmapVariant {

@@ -124,6 +124,7 @@ enum LoofitWidgetRendererContract {
     static let bodyPartLabelLineHeight: CGFloat = 10
     static let bodyPartLabelOpacity: Double = 0.72
     static let cellContentGap: CGFloat = 2
+    static let weekdayHeaderHeight: CGFloat = 10
     static let headerGap: CGFloat = 4
     static let bodyPartSeparator = "·"
   }

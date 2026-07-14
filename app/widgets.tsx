@@ -126,16 +126,14 @@ const ROUTINE_PROGRESS_PREVIEW_ITEMS: RoutineProgressTextListItem[] = [
     bodyParts: '가슴·어깨·삼두',
     duration: '1시간 8분',
     relativeDay: '어제',
-    workoutAlias: 'Push',
   },
   {
     split: 'Pull',
     bodyParts: '등·이두',
     duration: '48분',
     relativeDay: '오늘',
-    workoutAlias: 'Pull',
   },
-  { split: 'Legs', bodyParts: '하체', duration: '56분', relativeDay: '4일 전' },
+  { split: '', bodyParts: '하체', duration: '56분', relativeDay: '4일 전' },
 ];
 const ROUTINE_PROGRESS_CURRENT_INDEX = 1;
 
