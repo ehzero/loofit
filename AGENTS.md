@@ -166,7 +166,11 @@
 - Fastlane은 App Store Connect의 한국어 제품 페이지 메타데이터, 스크린샷, 선택적 앱 미리보기 영상만 관리한다. iOS 바이너리 빌드와 제출은 EAS가 담당한다.
 - 원천 파일은 `fastlane/metadata`, `fastlane/screenshots`, `fastlane/app-previews`에 둔다. `fastlane/Deliverfile`은 실행 위치에 흔들리지 않도록 저장소 루트 기준 절대 경로를 사용한다.
 - `npm run store:metadata`는 메타데이터만, `npm run store:screenshots`는 스크린샷만, `npm run store:listing`은 두 항목을 함께 업로드한다. 모든 lane은 바이너리 업로드와 심사 제출을 생략하며 앱을 출시하지 않는다.
-- `APP_STORE_VERSION`은 수정할 편집 가능 버전을 명시한다. 현재 대상은 `1.0.1`이며 한국어 메타데이터와 앱 심사 연락처는 App Store Connect에 업로드되어 있다.
+- `APP_STORE_VERSION`은 메타데이터를 반영할 편집 가능한 App Store 버전을 명시한다. App Store에 출시된 `1.0.1`은 더 이상 메타데이터 업로드 대상으로 사용하지 않으며, 다음 업데이트를 준비할 때 `package.json` 버전과 함께 다음 버전(현재 계획은 `1.0.2`)으로 맞춘다.
+- 배포 준비에는 직전 App Store 출시 이후의 사용자 체감 변경을 기준으로 한국어 패치노트를 작성하는 작업이 포함된다. 기능 추가·동작 변경·오류 수정은 사용자 관점에서 간결하게 설명하고 내부 구현, 리팩터링, 테스트 변경은 제외한다.
+- App Store `새로운 기능` 원천은 `fastlane/metadata/ko/release_notes.txt`이며 업로드 시 `APP_STORE_VERSION`이 가리키는 앱 버전에 귀속된다. 같은 버전의 초안은 배포 전까지 여러 번 수정할 수 있지만, 출시된 버전의 패치노트를 바꾸려 하지 않고 다음 버전의 내용으로 갱신한다.
+- `배포 준비`만 요청받으면 대상 버전과 패치노트를 작성·검토 가능한 상태로 준비하되 App Store Connect에 업로드하지 않는다. 실제 App Store 메타데이터 업로드는 명시적으로 요청받았을 때만 `store:metadata` 또는 `store:listing`으로 수행한다.
+- TestFlight의 `테스트할 내용`은 App Store 패치노트와 달리 빌드별 정보다. TestFlight 배포를 요청받으면 해당 빌드에서 확인할 사용자 체감 변경을 별도로 정리하고, App Store용 `release_notes.txt`를 자동 업로드한 것으로 간주하지 않는다.
 - App Store Connect 인증 값은 Git에서 제외된 `fastlane/.env`에만 둔다. `.p8` 개인키는 저장소 밖에서 권한 `600`으로 보관하고 출력·로그·커밋에 포함하지 않는다. Team API 키는 `ASC_ISSUER_ID`가 필요하고 Individual API 키는 비워둔다.
 - 시스템 Ruby를 사용하지 않는다. 현재 로컬 검증은 Ruby 3.2.2로 수행했지만 Fastlane의 지원 종료 경고가 있으므로 다음 환경 갱신 시 Ruby 3.3 이상으로 올린다.
 - 앱 심사 정보는 성 `윤`, 이름 `태영`, 국제 형식 전화번호 `+82 10-3773-0967`, 이메일 `support@physiquehub.kr`를 사용한다. 로그인과 데모 계정은 필요 없으며 관련 필드를 비워둔다.
@@ -290,7 +294,7 @@ TestFlight 제출:
 - `app.config.js`가 dynamic config라 EAS projectId는 자동 삽입되지 않았고, `extra.eas.projectId`에 수동으로 넣어둔 상태다.
 - iOS 암호화 수출 규정 프롬프트에서 EAS CLI가 한 번 크래시했으므로 `app.config.js`의 `ios.config.usesNonExemptEncryption: false`와 `app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`를 유지한다.
 - 첫 `production` 빌드 시 EAS remote `buildNumber`는 `1`로 초기화되었다.
-- TestFlight 업로드는 아직 완료되지 않았다. 직전 시도는 Apple 2단계 인증 코드 입력 단계에서 중단했다.
+- `1.0.1`은 App Store에 출시되어 있으며 다음 배포 준비 대상 버전은 `1.0.2`다.
 - iOS 빌드는 앱 타깃 `com.loofit.app`과 위젯 타깃 `com.loofit.app.widgets`의 credentials를 모두 설정해야 한다. 두 타깃은 Distribution Certificate를 공유할 수 있지만 Provisioning Profile은 각각 필요하다.
 
 Patch 관리:
