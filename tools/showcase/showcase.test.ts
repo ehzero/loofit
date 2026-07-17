@@ -1,4 +1,6 @@
 import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
   CARD_SPECS,
@@ -12,20 +14,25 @@ import {
 } from './export';
 import { createRoundedPrismGeometry } from './three/geometry';
 
-const html = fs.readFileSync('tools/showcase/index.html', 'utf8');
-const css = fs.readFileSync('tools/showcase/showcase.css', 'utf8');
-const entry = fs.readFileSync('tools/showcase/main.ts', 'utf8');
-const imageExport = fs.readFileSync('tools/showcase/export.ts', 'utf8');
-const config = fs.readFileSync('tools/showcase/config.ts', 'utf8');
-const scene = fs.readFileSync('tools/showcase/three/scene.ts', 'utf8');
-const geometry = fs.readFileSync('tools/showcase/three/geometry.ts', 'utf8');
-const textures = fs.readFileSync('tools/showcase/three/textures.ts', 'utf8');
-const rootPackage = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-const showcasePackage = JSON.parse(fs.readFileSync('tools/showcase/package.json', 'utf8'));
-const easIgnore = fs.readFileSync('.easignore', 'utf8');
+const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+const repositoryPath = (relativePath: string) => path.join(repositoryRoot, relativePath);
+const readRepositoryFile = (relativePath: string) =>
+  fs.readFileSync(repositoryPath(relativePath), 'utf8');
+
+const html = readRepositoryFile('tools/showcase/index.html');
+const css = readRepositoryFile('tools/showcase/showcase.css');
+const entry = readRepositoryFile('tools/showcase/main.ts');
+const imageExport = readRepositoryFile('tools/showcase/export.ts');
+const config = readRepositoryFile('tools/showcase/config.ts');
+const scene = readRepositoryFile('tools/showcase/three/scene.ts');
+const geometry = readRepositoryFile('tools/showcase/three/geometry.ts');
+const textures = readRepositoryFile('tools/showcase/three/textures.ts');
+const rootPackage = JSON.parse(readRepositoryFile('package.json'));
+const showcasePackage = JSON.parse(readRepositoryFile('tools/showcase/package.json'));
+const easIgnore = readRepositoryFile('.easignore');
 const phoneModelRoot = 'tools/showcase/public/models/iphone-17-pro-max-silver';
-const phoneModel = JSON.parse(fs.readFileSync(`${phoneModelRoot}/scene.gltf`, 'utf8'));
-const phoneLicense = fs.readFileSync(`${phoneModelRoot}/license.txt`, 'utf8');
+const phoneModel = JSON.parse(readRepositoryFile(`${phoneModelRoot}/scene.gltf`));
+const phoneLicense = readRepositoryFile(`${phoneModelRoot}/license.txt`);
 
 describe('Three.js showcase', () => {
   it('uses the exact three-panel App Store canvas', () => {
@@ -140,8 +147,8 @@ describe('Three.js showcase', () => {
     expect(css).not.toContain('preserve-3d');
     expect(css).not.toContain('.solid');
     expect(css).not.toContain('.phone__');
-    expect(fs.existsSync('tools/showcase/showcase.js')).toBe(false);
-    expect(fs.existsSync('tools/showcase/fixtures.js')).toBe(false);
+    expect(fs.existsSync(repositoryPath('tools/showcase/showcase.js'))).toBe(false);
+    expect(fs.existsSync(repositoryPath('tools/showcase/fixtures.js'))).toBe(false);
   });
 
   it('previews the three live panels inside an App Store iPhone product page', () => {

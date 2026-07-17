@@ -43,6 +43,40 @@ jobs:
       - name: Check style tokens
         run: npm run lint:tokens
 
+  web-projects:
+    name: Showcase and website
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            tools/showcase/package-lock.json
+            website/package-lock.json
+
+      - name: Install showcase dependencies
+        working-directory: tools/showcase
+        run: npm ci
+
+      - name: Test and build showcase
+        working-directory: tools/showcase
+        run: npm run build
+
+      - name: Install website dependencies
+        working-directory: website
+        run: npm ci
+
+      - name: Check and build website
+        working-directory: website
+        run: npm run check && npm run build
+
   ios:
     name: iOS full-widget and app-only
     runs-on: macos-26
