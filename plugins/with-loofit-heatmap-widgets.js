@@ -176,6 +176,50 @@ function removeWidgetExpoRuntimeBuildArtifacts(project, target) {
   }
 }
 
+function removeLegacyWidgetSource(project, platformProjectRoot) {
+  const legacyFilename = 'WorkoutLockScreenSummaryWidget.swift';
+  const objects = project.hash.project.objects;
+  const fileReferences = objects.PBXFileReference ?? {};
+  const buildFiles = objects.PBXBuildFile ?? {};
+  const legacyFileReferences = new Set(
+    Object.entries(fileReferences)
+      .filter(([, file]) =>
+        typeof file === 'object' &&
+        String(file.path ?? file.name ?? '').replaceAll('"', '') === legacyFilename
+      )
+      .map(([uuid]) => uuid)
+  );
+  const legacyBuildFiles = new Set(
+    Object.entries(buildFiles)
+      .filter(([, file]) =>
+        typeof file === 'object' &&
+        (legacyFileReferences.has(file.fileRef) || String(file.comment ?? '').includes(legacyFilename))
+      )
+      .map(([uuid]) => uuid)
+  );
+
+  for (const phase of Object.values(objects.PBXSourcesBuildPhase ?? {})) {
+    if (typeof phase === 'object' && Array.isArray(phase.files)) {
+      phase.files = phase.files.filter((file) => !legacyBuildFiles.has(file.value));
+    }
+  }
+  for (const group of Object.values(objects.PBXGroup ?? {})) {
+    if (typeof group === 'object' && Array.isArray(group.children)) {
+      group.children = group.children.filter((child) => !legacyFileReferences.has(child.value));
+    }
+  }
+  for (const uuid of legacyBuildFiles) {
+    delete buildFiles[uuid];
+    delete buildFiles[`${uuid}_comment`];
+  }
+  for (const uuid of legacyFileReferences) {
+    delete fileReferences[uuid];
+    delete fileReferences[`${uuid}_comment`];
+  }
+
+  fs.rmSync(path.join(platformProjectRoot, TARGET_NAME, legacyFilename), { force: true });
+}
+
 function includeGeneratedRendererContract(project) {
   if (project.hasFile(RENDERER_CONTRACT_FILE)) {
     return;
@@ -207,6 +251,7 @@ function withWidgetBuildSettings(config) {
     }
 
     removeWidgetExpoRuntimeBuildArtifacts(project, target);
+    removeLegacyWidgetSource(project, nextConfig.modRequest.platformProjectRoot);
     includeGeneratedRendererContract(project);
 
     const configurationList = project.pbxXCConfigurationList()[target.buildConfigurationList];
@@ -274,8 +319,12 @@ module.exports = function withLoofitNativeWidgets(config) {
         readNativeSource('WorkoutLockScreenWidget.swift')
       );
       write(
-        path.join(targetDirectory, 'WorkoutLockScreenSummaryWidget.swift'),
-        readNativeSource('WorkoutLockScreenSummaryWidget.swift')
+        path.join(targetDirectory, 'ThreeWeekCalendarLockScreenWidget.swift'),
+        readNativeSource('ThreeWeekCalendarLockScreenWidget.swift')
+      );
+      write(
+        path.join(targetDirectory, 'NextThreeWeekCalendarLockScreenWidget.swift'),
+        readNativeSource('NextThreeWeekCalendarLockScreenWidget.swift')
       );
       for (const filename of [
         'CurrentMonthCalendarWidget.swift',
@@ -292,8 +341,8 @@ module.exports = function withLoofitNativeWidgets(config) {
           name: 'HeatmapWeekWidget',
           kind: widgetRendererContract.heatmap.variants.week.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.week.nativeCase,
-          displayName: `${brand.displayName} 히트맵 · 7일`,
-          description: '지난 7일의 운동 기록과 요약을 확인합니다.',
+          displayName: `${brand.displayName} 히트맵 · 지난 7일`,
+          description: '지난 7일의 운동 기록과 요약을 히트맵으로 확인합니다.',
           family: widgetRendererContract.heatmap.variants.week.family,
         })
       );
@@ -303,8 +352,8 @@ module.exports = function withLoofitNativeWidgets(config) {
           name: 'HeatmapMonthWidget',
           kind: widgetRendererContract.heatmap.variants.month.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.month.nativeCase,
-          displayName: `${brand.displayName} 히트맵 · 5주`,
-          description: '이번 주를 포함한 지난 5주의 운동 기록을 확인합니다.',
+          displayName: `${brand.displayName} 히트맵 · 지난 5주`,
+          description: '이번 주를 포함한 지난 5주의 운동 기록을 히트맵으로 확인합니다.',
           family: widgetRendererContract.heatmap.variants.month.family,
         })
       );
@@ -314,8 +363,8 @@ module.exports = function withLoofitNativeWidgets(config) {
           name: 'HeatmapYearWidget',
           kind: widgetRendererContract.heatmap.variants.year.kindAccessor,
           variant: widgetRendererContract.heatmap.variants.year.nativeCase,
-          displayName: `${brand.displayName} 히트맵 · 6개월`,
-          description: '최근 6개월의 운동 기록을 확인합니다.',
+          displayName: `${brand.displayName} 히트맵 · 지난 6개월`,
+          description: '지난 6개월의 운동 기록을 히트맵으로 확인합니다.',
           family: widgetRendererContract.heatmap.variants.year.family,
         })
       );

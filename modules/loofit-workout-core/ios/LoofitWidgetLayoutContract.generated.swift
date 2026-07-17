@@ -50,6 +50,7 @@ public enum LoofitWidgetLayoutContract {
   }
 
   public enum LockScreen {
-    public static let summaryDays = 7
+    public static let threeWeekCalendarRangeWeeks = 3
+    public static let nextThreeWeekCalendarRangeWeeks = 3
   }
 }

@@ -387,7 +387,8 @@ public enum LoofitWidgetKinds {
   public static let routineProgress = "RoutineProgressWidget"
   public static let bodyPartDuration = "BodyPartDurationWidget"
   public static let lockScreenWorkout = "WorkoutLockScreenWidget"
-  public static let lockScreenSummary = "WorkoutLockScreenSummaryWidget"
+  public static let lockScreenThreeWeekCalendar = "ThreeWeekCalendarLockScreenWidget"
+  public static let lockScreenNextThreeWeekCalendar = "NextThreeWeekCalendarLockScreenWidget"
   public static let lockScreenRoutineProgress = "RoutineProgressLockScreenWidget"
   public static let all = [
     control,
@@ -399,7 +400,8 @@ public enum LoofitWidgetKinds {
     routineProgress,
     bodyPartDuration,
     lockScreenWorkout,
-    lockScreenSummary,
+    lockScreenThreeWeekCalendar,
+    lockScreenNextThreeWeekCalendar,
     lockScreenRoutineProgress,
   ]
 }

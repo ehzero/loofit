@@ -429,11 +429,9 @@
       "completedEyebrow": "오늘 완료",
       "completedBadge": "오운완",
       "idle": "다음 운동",
-      "routineRequired": "루틴 설정 필요",
-      "summaryTitle": "지난 7일"
+      "routineRequired": "루틴 설정 필요"
     },
     "compactCharacterLimit": 3,
-    "summaryDays": 7,
     "text": {
       "inline": {
         "size": "{typography.md.size}",
@@ -454,20 +452,39 @@
         "size": "{typography.lg.size}",
         "lineHeight": "{typography.lg.lineHeight}",
         "weight": "{fontWeight.medium}"
-      },
-      "summary": {
-        "size": "{typography.lg.size}",
-        "lineHeight": "{typography.lg.lineHeight}",
-        "weight": "{fontWeight.bold}"
       }
     },
-    "summary": {
-      "cellSize": 18,
-      "cellGap": "{spacing.sm}",
+    "threeWeekCalendar": {
+      "availability": "native",
+      "kindAccessor": "lockScreenThreeWeekCalendar",
+      "family": "accessoryRectangular",
+      "rangeWeeks": 3,
+      "calendarAlignment": "completeCalendarWeeks",
+      "columns": 7,
+      "contentPadding": "{spacing.xs}",
+      "cellGap": "{spacing.xs}",
       "cellRadius": "{radius.cell}",
-      "fontSize": "{typography.lg.size}",
-      "contentGap": "{spacing.md}",
-      "contentPadding": "{spacing.sm}"
+      "cellLabelSize": "{typography.sm.size}",
+      "weekdayLabelSize": "{typography.sm.size}",
+      "weekdayLabelLineHeight": "{typography.sm.lineHeight}",
+      "dimmedWeekdayLabels": ["일", "토"],
+      "dimmedWeekdayOpacity": "{opacity.muted}",
+      "emptyCellFill": "transparent",
+      "bucketOpacities": [0.28, 0.48, 0.72, 1],
+      "todayIndicator": {
+        "style": "border",
+        "color": "#FFFFFF",
+        "width": 1
+      }
+    },
+    "nextThreeWeekCalendar": {
+      "availability": "native",
+      "kindAccessor": "lockScreenNextThreeWeekCalendar",
+      "family": "accessoryRectangular",
+      "rangeWeeks": 3,
+      "calendarAlignment": "upcomingCompleteCalendarWeeks",
+      "columns": 7,
+      "sharedStyle": "threeWeekCalendar"
     }
   }
 }

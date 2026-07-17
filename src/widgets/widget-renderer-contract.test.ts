@@ -9,7 +9,7 @@ import {
   buildHeatmapWidgetRows,
   parseHeatmapWidgetList,
 } from './heatmap-widget-model';
-import { buildWorkoutLockScreenSummaryFromCells } from './lock-screen-widget-model';
+import { buildWorkoutLockScreenCalendarFromCells } from './lock-screen-widget-model';
 import {
   WIDGET_PREVIEW_SPEC,
   WIDGET_RENDERER_CONTRACT,
@@ -80,6 +80,34 @@ describe('widget renderer contract', () => {
       progressBasis: 'nextSplitPosition',
       horizontalAlignment: 'center',
       rowContent: ['workoutAliasOrBodyParts', 'relativeDay'],
+    });
+    expect(source.lockScreen.threeWeekCalendar).toMatchObject({
+      availability: 'native',
+      kindAccessor: 'lockScreenThreeWeekCalendar',
+      family: 'accessoryRectangular',
+      rangeWeeks: 3,
+      calendarAlignment: 'completeCalendarWeeks',
+      columns: 7,
+      dimmedWeekdayLabels: ['일', '토'],
+      dimmedWeekdayOpacity: '{opacity.muted}',
+      emptyCellFill: 'transparent',
+      todayIndicator: {
+        style: 'border',
+        color: '#FFFFFF',
+        width: 1,
+      },
+    });
+    expect(
+      WIDGET_RENDERER_CONTRACT.lockScreen.threeWeekCalendar.dimmedWeekdayOpacity
+    ).toBe(0.72);
+    expect(source.lockScreen.nextThreeWeekCalendar).toMatchObject({
+      availability: 'native',
+      kindAccessor: 'lockScreenNextThreeWeekCalendar',
+      family: 'accessoryRectangular',
+      rangeWeeks: 3,
+      calendarAlignment: 'upcomingCompleteCalendarWeeks',
+      columns: 7,
+      sharedStyle: 'threeWeekCalendar',
     });
     expect(source.bodyPartDuration).toMatchObject({
       availability: 'native',
@@ -376,19 +404,36 @@ describe('widget renderer contract', () => {
     );
   });
 
-  it('keeps the lock-screen summary at seven cells with zero data', () => {
-    const summary = buildWorkoutLockScreenSummaryFromCells({
-      cells: [],
-      colors: makeColors('dark', '#CFF56A'),
-      durationSeconds: 0,
-      workoutCount: 0,
+  it('builds a three-week lock-screen calendar with dates and four heat levels', () => {
+    const cells = dailyCells(new Date(2026, 5, 28), new Date(2026, 6, 18)).map(
+      (cell, index) => ({ ...cell, bucket: (index % 5) as 0 | 1 | 2 | 3 | 4 })
+    );
+    const calendar = buildWorkoutLockScreenCalendarFromCells({
+      cells,
+      todayDateKey: '2026-07-15',
     });
 
-    expect(summary.title).toBe(WIDGET_RENDERER_CONTRACT.lockScreen.copy.summaryTitle);
-    expect(summary.streakFlags.split(',')).toHaveLength(
-      WIDGET_RENDERER_CONTRACT.lockScreen.summaryDays
+    expect(calendar.weekdayLabels).toBe('일,월,화,수,목,금,토');
+    expect(calendar.dateLabels.split(',')).toHaveLength(21);
+    expect(calendar.dateLabels.split(',').at(0)).toBe('28');
+    expect(calendar.dateLabels.split(',').at(-1)).toBe('18');
+    expect(calendar.heatLevels.split(',')).toHaveLength(21);
+    expect(calendar.todayFlags.split(',')).toHaveLength(21);
+    expect(calendar.todayFlags.split(',').filter((flag) => flag === '1')).toHaveLength(1);
+    expect(calendar).not.toHaveProperty('weekendColor');
+
+    const renderer = fs.readFileSync(
+      'plugins/native-widgets/ThreeWeekCalendarLockScreenWidget.swift',
+      'utf8'
     );
-    expect(summary.summaryText).toBe('0회 · 총 0분');
+    expect(renderer).toContain('ThreeWeekCalendar.dimmedWeekdayLabels.contains(label)');
+    expect(renderer).toContain('primaryColor.opacity(opacity)');
+    expect(renderer).toContain('guard level > 0 else { return .clear }');
+    expect(renderer).toContain('LoofitColor(spec.todayIndicatorColor)');
+    expect(renderer).not.toContain('textWeekend');
+    expect(renderer).not.toContain('LoofitHeatmapFillColor');
+    expect(renderer).not.toContain('entry.palette');
+    expect(renderer).not.toContain('Color(white:');
   });
 
   it('links the generated Swift contract into the Widget Extension target', () => {
@@ -397,6 +442,68 @@ describe('widget renderer contract', () => {
     expect(plugin).toContain("const RENDERER_CONTRACT_FILE = 'LoofitWidgetRendererContract.generated.swift'");
     expect(plugin).toContain('includeGeneratedRendererContract(project)');
     expect(plugin).toContain('IOSConfig.XcodeUtils.addBuildSourceFileToGroup');
+    expect(plugin).toContain("readNativeSource('ThreeWeekCalendarLockScreenWidget.swift')");
+    expect(plugin).toContain("readNativeSource('NextThreeWeekCalendarLockScreenWidget.swift')");
+  });
+
+  it('removes the legacy seven-day lock-screen summary surface', () => {
+    const appConfig = fs.readFileSync('app.config.js', 'utf8');
+    const plugin = fs.readFileSync('plugins/with-loofit-heatmap-widgets.js', 'utf8');
+    const bundle = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
+    const coreModels = fs.readFileSync(
+      'modules/loofit-workout-core/ios/LoofitWorkoutModels.swift',
+      'utf8'
+    );
+
+    for (const source of [appConfig, bundle, coreModels]) {
+      expect(source).not.toContain('WorkoutLockScreenSummaryWidget');
+    }
+    expect(plugin).toContain('removeLegacyWidgetSource');
+    expect(WIDGET_RENDERER_CONTRACT.lockScreen).not.toHaveProperty('summary');
+    expect(WIDGET_RENDERER_CONTRACT.lockScreen).not.toHaveProperty('summaryDays');
+  });
+
+  it('uses one description format across heatmap widgets', () => {
+    const appConfig = fs.readFileSync('app.config.js', 'utf8');
+    const plugin = fs.readFileSync('plugins/with-loofit-heatmap-widgets.js', 'utf8');
+    const nativeDescriptions = [
+      'CurrentMonthCalendarWidget.swift',
+      'HeatmapFourWeekExpandedWidget.swift',
+      'ThreeWeekCalendarLockScreenWidget.swift',
+      'NextThreeWeekCalendarLockScreenWidget.swift',
+    ]
+      .map((filename) => fs.readFileSync(`plugins/native-widgets/${filename}`, 'utf8'))
+      .join('\n');
+
+    for (const source of [appConfig, plugin, nativeDescriptions]) {
+      expect(source).not.toContain('달력으로 확인합니다.');
+    }
+
+    const descriptions = [
+      '지난 7일의 운동 기록과 요약을 히트맵으로 확인합니다.',
+      '이번 주를 포함한 지난 5주의 운동 기록을 히트맵으로 확인합니다.',
+      '지난 6개월의 운동 기록을 히트맵으로 확인합니다.',
+      '이번 달 운동 기록을 히트맵으로 확인합니다.',
+      '지난 4주의 운동 날짜와 부위를 히트맵으로 확인합니다.',
+      '지난 3주의 운동 기록을 히트맵으로 확인합니다.',
+      '이번 주와 다음 2주의 운동 기록을 히트맵으로 확인합니다.',
+    ];
+    for (const description of descriptions) {
+      expect(appConfig).toContain(description);
+    }
+
+    const displayNames = [
+      '히트맵 · 지난 7일',
+      '히트맵 · 지난 5주',
+      '히트맵 · 지난 6개월',
+      '히트맵 · 이번 달',
+      '히트맵 · 지난 4주 상세',
+      '잠금화면 히트맵 · 지난 3주',
+      '잠금화면 히트맵 · 다음 3주',
+    ];
+    for (const displayName of displayNames) {
+      expect(appConfig).toContain(displayName);
+    }
   });
 
   it('keeps native iOS surfaces Korean-localized while the launch is Korea-only', () => {
@@ -465,6 +572,7 @@ describe('widget renderer contract', () => {
       'weekStatOrder: [HeatmapStat] = [.count, .totalDuration, .averageDuration]'
     );
     expect(coreContract).toContain('weekAlwaysShowsRecent = true');
+    expect(coreContract).toContain('threeWeekCalendarRangeWeeks = 3');
     expect(renderer).toContain('switch rendererSpec.headerSummary');
     expect(renderer).toContain('switch rendererSpec.calendarAlignment');
     expect(renderer).toContain('WeekFooter.statOrder');

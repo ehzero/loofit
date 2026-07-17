@@ -189,6 +189,8 @@ final class LoofitWorkoutProjectionTests: LoofitWorkoutCoreTestCase {
     XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.heatmapFourWeekExpanded])
     XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.routineProgress])
     XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.bodyPartDuration])
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.lockScreenThreeWeekCalendar])
+    XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.lockScreenNextThreeWeekCalendar])
     XCTAssertNotNil(snapshot.surfaceHashes[LoofitWidgetKinds.lockScreenRoutineProgress])
   }
 

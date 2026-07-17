@@ -63,13 +63,13 @@ export type WorkoutLockScreenWidgetProps = {
   detailColor: string;
 };
 
-export type WorkoutLockScreenSummaryWidgetProps = {
-  brandName: string;
-  title: string;
-  streakFlags: string;
-  summaryText: string;
-  accent: string;
-  background: string;
-  titleColor: string;
-  detailColor: string;
+export type WorkoutLockScreenCalendarWidgetProps = {
+  /** Sunday-first weekday labels. */
+  weekdayLabels: string;
+  /** Day-of-month labels for the three complete calendar weeks. */
+  dateLabels: string;
+  /** Heat levels from 0 (empty) through 4, aligned with `dateLabels`. */
+  heatLevels: string;
+  /** Current-day flags aligned with `dateLabels`, encoded as 1 or 0. */
+  todayFlags: string;
 };

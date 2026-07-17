@@ -1,9 +1,11 @@
 import { BRAND } from '@/src/config/brand';
-import { formatDuration } from '@/src/domain/date';
 import type { HeatmapDay } from '@/src/types';
 import type { ThemeColors } from '@/src/theme/tokens';
 
-import type { WorkoutLockScreenSummaryWidgetProps, WorkoutLockScreenWidgetProps } from './types';
+import type {
+  WorkoutLockScreenCalendarWidgetProps,
+  WorkoutLockScreenWidgetProps,
+} from './types';
 import { widgetColor } from './widget-design-system';
 import { WIDGET_RENDERER_CONTRACT } from './widget-spec';
 
@@ -74,35 +76,32 @@ export function buildWorkoutLockScreenProps(
   };
 }
 
-export function buildWorkoutLockScreenSummaryFromCells({
+export function buildWorkoutLockScreenCalendarFromCells({
   cells,
-  colors,
-  durationSeconds,
-  workoutCount,
+  todayDateKey,
 }: {
-  cells: HeatmapDay[];
-  colors: ThemeColors;
-  durationSeconds: number;
-  workoutCount: number;
-}): WorkoutLockScreenSummaryWidgetProps {
-  const recentCells = cells.slice(-LOCK_SCREEN.summaryDays);
-  const paddedCells = [
-    ...Array.from(
-      { length: Math.max(0, LOCK_SCREEN.summaryDays - recentCells.length) },
-      () => false
-    ),
-    ...recentCells.map((cell) => cell.durationSeconds > 0),
-  ].slice(-LOCK_SCREEN.summaryDays);
+  cells: Array<Pick<HeatmapDay, 'bucket' | 'dateKey'>>;
+  todayDateKey: string;
+}): WorkoutLockScreenCalendarWidgetProps {
+  const calendar = LOCK_SCREEN.threeWeekCalendar;
+  const cellCount = calendar.rangeWeeks * calendar.columns;
+  const recentCells = cells.slice(-cellCount);
+  const missingCellCount = Math.max(0, cellCount - recentCells.length);
 
   return {
-    brandName: BRAND.displayName,
-    title: LOCK_SCREEN.copy.summaryTitle,
-    streakFlags: paddedCells.map((active) => (active ? '1' : '0')).join(','),
-    summaryText: `${workoutCount}회 · 총 ${formatDuration(durationSeconds)}`,
-    accent: widgetColor(colors, 'accent'),
-    background: widgetColor(colors, 'raisedSurface'),
-    titleColor: widgetColor(colors, 'textHigh'),
-    detailColor: widgetColor(colors, 'textMedium'),
+    weekdayLabels: WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabels.join(','),
+    dateLabels: [
+      ...Array.from({ length: missingCellCount }, () => ''),
+      ...recentCells.map((cell) => dayOfMonth(cell.dateKey)),
+    ].join(','),
+    heatLevels: [
+      ...Array.from({ length: missingCellCount }, () => '0'),
+      ...recentCells.map((cell) => String(Math.min(4, Math.max(0, cell.bucket)))),
+    ].join(','),
+    todayFlags: [
+      ...Array.from({ length: missingCellCount }, () => '0'),
+      ...recentCells.map((cell) => (cell.dateKey === todayDateKey ? '1' : '0')),
+    ].join(','),
   };
 }
 
@@ -143,4 +142,9 @@ function formatElapsedMinuteLabel(startedAt: string, now: Date): string {
   }
   const minutes = Math.max(0, Math.floor((now.getTime() - started.getTime()) / 60000));
   return `${minutes}분`;
+}
+
+function dayOfMonth(dateKey: string): string {
+  const day = Number(dateKey.split('-')[2]);
+  return Number.isFinite(day) && day > 0 ? String(day) : '';
 }

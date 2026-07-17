@@ -9,8 +9,8 @@ struct CurrentMonthCalendarWidget: Widget {
     StaticConfiguration(kind: kind, provider: LoofitSnapshotTimelineProvider()) { entry in
       CurrentMonthCalendarWidgetView(entry: entry)
     }
-    .configurationDisplayName("루핏 이번 달 캘린더")
-    .description("이번 달 운동 기록을 달력으로 확인합니다.")
+    .configurationDisplayName("루핏 히트맵 · 이번 달")
+    .description("이번 달 운동 기록을 히트맵으로 확인합니다.")
     .supportedFamilies([.systemSmall])
     .contentMarginsDisabled()
   }

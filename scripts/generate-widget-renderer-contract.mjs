@@ -121,6 +121,58 @@ function validate(value) {
     'lock-screen routine progress must emphasize only the current split'
   );
 
+  const lockScreenCalendar = value.lockScreen?.threeWeekCalendar;
+  assert(
+    lockScreenCalendar?.availability === 'native' &&
+      lockScreenCalendar.kindAccessor === 'lockScreenThreeWeekCalendar' &&
+      lockScreenCalendar.family === 'accessoryRectangular',
+    'three-week lock-screen calendar must remain a native accessoryRectangular widget'
+  );
+  assert(
+    lockScreenCalendar.rangeWeeks === 3 &&
+      lockScreenCalendar.calendarAlignment === 'completeCalendarWeeks' &&
+      lockScreenCalendar.columns === 7,
+    'lock-screen calendar must show three complete Sunday-first calendar weeks'
+  );
+  assert(
+    lockScreenCalendar.dimmedWeekdayLabels?.join(',') === '일,토' &&
+      lockScreenCalendar.dimmedWeekdayLabels.every((label) =>
+        value.heatmap.weekdayLabels.includes(label)
+      ) &&
+      lockScreenCalendar.dimmedWeekdayOpacity > 0 &&
+      lockScreenCalendar.dimmedWeekdayOpacity < 1,
+    'lock-screen calendar must dim the Sunday and Saturday labels'
+  );
+  assert(
+    lockScreenCalendar.bucketOpacities?.length === 4 &&
+      lockScreenCalendar.bucketOpacities.every(
+        (opacity, index, values) =>
+          opacity > 0 && opacity <= 1 && (index === 0 || opacity > values[index - 1])
+      ) &&
+      lockScreenCalendar.emptyCellFill === 'transparent',
+    'lock-screen calendar heat levels must use four increasing opacities and transparent empty cells'
+  );
+  assert(
+    lockScreenCalendar.todayIndicator?.style === 'border' &&
+      lockScreenCalendar.todayIndicator.color === '#FFFFFF' &&
+      lockScreenCalendar.todayIndicator.width > 0,
+    'lock-screen calendar must outline today with a white border'
+  );
+  const nextLockScreenCalendar = value.lockScreen?.nextThreeWeekCalendar;
+  assert(
+    nextLockScreenCalendar?.availability === 'native' &&
+      nextLockScreenCalendar.kindAccessor === 'lockScreenNextThreeWeekCalendar' &&
+      nextLockScreenCalendar.family === 'accessoryRectangular',
+    'next-three-week lock-screen calendar must remain a native accessoryRectangular widget'
+  );
+  assert(
+    nextLockScreenCalendar.rangeWeeks === 3 &&
+      nextLockScreenCalendar.calendarAlignment === 'upcomingCompleteCalendarWeeks' &&
+      nextLockScreenCalendar.columns === 7 &&
+      nextLockScreenCalendar.sharedStyle === 'threeWeekCalendar',
+    'next-three-week lock-screen calendar must show the current and following two weeks'
+  );
+
   const bodyPartDuration = value.bodyPartDuration;
   assert(
     bodyPartDuration?.availability === 'native' &&
@@ -293,8 +345,6 @@ function validate(value) {
     typeof monthFooter.totalDurationPrefix === 'string',
     'month footer total duration prefix must be a string'
   );
-  assert(value.lockScreen?.summaryDays === 7, 'lock-screen summary must cover seven days');
-
   const compact = value.liveActivity?.compact;
   assert(compact, 'liveActivity.compact is required');
   for (const [name, dimension] of Object.entries(compact)) {
@@ -556,7 +606,8 @@ function renderSwift(value) {
   const routineProgressLock = routineProgress.lockScreen;
   const bodyPartDuration = value.bodyPartDuration;
   const lock = value.lockScreen;
-  const summary = lock.summary;
+  const lockScreenCalendar = lock.threeWeekCalendar;
+  const nextLockScreenCalendar = lock.nextThreeWeekCalendar;
   const banner = value.liveActivity.banner;
   const compact = value.liveActivity.compact;
   const minimal = value.liveActivity.minimal;
@@ -820,22 +871,27 @@ enum LoofitWidgetRendererContract {
     static let completedBadge = ${swiftString(copy.completedBadge)}
     static let idle = ${swiftString(copy.idle)}
     static let routineRequired = ${swiftString(copy.routineRequired)}
-    static let summaryTitle = ${swiftString(copy.summaryTitle)}
     static let compactCharacterLimit = ${lock.compactCharacterLimit}
-    static let summaryDays = ${lock.summaryDays}
     static let inlineFontSize: CGFloat = ${swiftNumber(lock.text.inline.size)}
     static let circularDefaultFontSize: CGFloat = ${swiftNumber(lock.text.circular.size)}
     static let circularCompletedFontSize: CGFloat = ${swiftNumber(lock.text.circular.size)}
     static let rectangularTitleFontSize: CGFloat = ${swiftNumber(lock.text.rectangularTitle.size)}
     static let rectangularDetailFontSize: CGFloat = ${swiftNumber(lock.text.rectangularDetail.size)}
 
-    enum Summary {
-      static let cellSize: CGFloat = ${swiftNumber(summary.cellSize)}
-      static let cellGap: CGFloat = ${swiftNumber(summary.cellGap)}
-      static let cellRadius: CGFloat = ${swiftNumber(summary.cellRadius)}
-      static let fontSize: CGFloat = ${swiftNumber(summary.fontSize)}
-      static let contentGap: CGFloat = ${swiftNumber(summary.contentGap)}
-      static let contentPadding: CGFloat = ${swiftNumber(summary.contentPadding)}
+    enum ThreeWeekCalendar {
+      static let rangeWeeks = ${lockScreenCalendar.rangeWeeks}
+      static let columns = ${lockScreenCalendar.columns}
+      static let contentPadding: CGFloat = ${swiftNumber(lockScreenCalendar.contentPadding)}
+      static let cellGap: CGFloat = ${swiftNumber(lockScreenCalendar.cellGap)}
+      static let cellRadius: CGFloat = ${swiftNumber(lockScreenCalendar.cellRadius)}
+      static let cellLabelSize: CGFloat = ${swiftNumber(lockScreenCalendar.cellLabelSize)}
+      static let weekdayLabelSize: CGFloat = ${swiftNumber(lockScreenCalendar.weekdayLabelSize)}
+      static let weekdayLabelLineHeight: CGFloat = ${swiftNumber(lockScreenCalendar.weekdayLabelLineHeight)}
+      static let dimmedWeekdayLabels = ${swiftStringArray(lockScreenCalendar.dimmedWeekdayLabels)}
+      static let dimmedWeekdayOpacity: Double = ${swiftNumber(lockScreenCalendar.dimmedWeekdayOpacity)}
+      static let bucketOpacities: [Double] = ${swiftNumberArray(lockScreenCalendar.bucketOpacities)}
+      static let todayIndicatorColor = ${swiftString(lockScreenCalendar.todayIndicator.color)}
+      static let todayIndicatorWidth: CGFloat = ${swiftNumber(lockScreenCalendar.todayIndicator.width)}
     }
   }
 }
@@ -848,6 +904,8 @@ function renderCoreSwift(value) {
   const fourWeekExpanded = value.heatmap.previewVariants.fourWeekExpanded;
   const routineProgress = value.routineProgress.textList;
   const bodyPartDuration = value.bodyPartDuration;
+  const lockScreenCalendar = value.lockScreen.threeWeekCalendar;
+  const nextLockScreenCalendar = value.lockScreen.nextThreeWeekCalendar;
   return `// Generated by scripts/generate-widget-renderer-contract.mjs. Do not edit.
 // Edit src/widgets/widget-renderer-contract.json and regenerate instead.
 
@@ -900,7 +958,8 @@ public enum LoofitWidgetLayoutContract {
   }
 
   public enum LockScreen {
-    public static let summaryDays = ${value.lockScreen.summaryDays}
+    public static let threeWeekCalendarRangeWeeks = ${lockScreenCalendar.rangeWeeks}
+    public static let nextThreeWeekCalendarRangeWeeks = ${nextLockScreenCalendar.rangeWeeks}
   }
 }
 `;
@@ -932,6 +991,10 @@ function swiftString(value) {
 
 function swiftStringArray(values) {
   return `[${values.map(swiftString).join(', ')}]`;
+}
+
+function swiftNumberArray(values) {
+  return `[${values.map(swiftNumber).join(', ')}]`;
 }
 
 function swiftCase(value) {

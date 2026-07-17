@@ -71,6 +71,58 @@ final class LoofitHeatmapLayoutTests: XCTestCase {
     }
   }
 
+  func testThreeWeekCalendarKeepsTwentyOneSundayThroughSaturdayCells() throws {
+    let calendar = try seoulCalendar()
+    let containing = try date(year: 2026, month: 7, day: 15, calendar: calendar)
+    let snapshot = makeSnapshot(daily: [
+      .init(dateKey: "2026-06-28", workoutCount: 1, durationSeconds: 3_600),
+      .init(dateKey: "2026-07-17", workoutCount: 1, durationSeconds: 7_200),
+    ])
+
+    let days = LoofitHeatmapProjection.completeCalendarWeeks(
+      snapshot: snapshot,
+      containing: containing,
+      count: 3,
+      calendar: calendar
+    )
+
+    XCTAssertEqual(days.count, 21)
+    XCTAssertEqual(days.first?.dateKey, "2026-06-28")
+    XCTAssertEqual(days.last?.dateKey, "2026-07-18")
+    XCTAssertEqual(calendar.component(.weekday, from: try XCTUnwrap(days.first?.date)), 1)
+    XCTAssertEqual(calendar.component(.weekday, from: try XCTUnwrap(days.last?.date)), 7)
+    XCTAssertEqual(days.first?.durationSeconds, 3_600)
+    let future = try XCTUnwrap(days.first { $0.dateKey == "2026-07-17" })
+    XCTAssertFalse(future.inRange)
+    XCTAssertEqual(future.durationSeconds, 0)
+  }
+
+  func testNextThreeWeekCalendarKeepsCurrentAndFollowingTwoWeeks() throws {
+    let calendar = try seoulCalendar()
+    let containing = try date(year: 2026, month: 7, day: 15, calendar: calendar)
+    let snapshot = makeSnapshot(daily: [
+      .init(dateKey: "2026-07-13", workoutCount: 1, durationSeconds: 3_600),
+      .init(dateKey: "2026-07-17", workoutCount: 1, durationSeconds: 7_200),
+    ])
+
+    let days = LoofitHeatmapProjection.upcomingCompleteCalendarWeeks(
+      snapshot: snapshot,
+      containing: containing,
+      count: 3,
+      calendar: calendar
+    )
+
+    XCTAssertEqual(days.count, 21)
+    XCTAssertEqual(days.first?.dateKey, "2026-07-12")
+    XCTAssertEqual(days.last?.dateKey, "2026-08-01")
+    XCTAssertEqual(calendar.component(.weekday, from: try XCTUnwrap(days.first?.date)), 1)
+    XCTAssertEqual(calendar.component(.weekday, from: try XCTUnwrap(days.last?.date)), 7)
+    XCTAssertEqual(days.first { $0.dateKey == "2026-07-13" }?.durationSeconds, 3_600)
+    let future = try XCTUnwrap(days.first { $0.dateKey == "2026-07-17" })
+    XCTAssertFalse(future.inRange)
+    XCTAssertEqual(future.durationSeconds, 0)
+  }
+
   func testSixMonthLayoutInsertsMonthBoundaryStepsAndLabelsEveryMonth() throws {
     let calendar = try seoulCalendar()
     let endingAt = try date(year: 2026, month: 7, day: 11, calendar: calendar)

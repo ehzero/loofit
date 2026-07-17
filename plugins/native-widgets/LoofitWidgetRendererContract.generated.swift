@@ -311,22 +311,27 @@ enum LoofitWidgetRendererContract {
     static let completedBadge = "오운완"
     static let idle = "다음 운동"
     static let routineRequired = "루틴 설정 필요"
-    static let summaryTitle = "지난 7일"
     static let compactCharacterLimit = 3
-    static let summaryDays = 7
     static let inlineFontSize: CGFloat = 12
     static let circularDefaultFontSize: CGFloat = 16
     static let circularCompletedFontSize: CGFloat = 16
     static let rectangularTitleFontSize: CGFloat = 26
     static let rectangularDetailFontSize: CGFloat = 16
 
-    enum Summary {
-      static let cellSize: CGFloat = 18
-      static let cellGap: CGFloat = 4
+    enum ThreeWeekCalendar {
+      static let rangeWeeks = 3
+      static let columns = 7
+      static let contentPadding: CGFloat = 2
+      static let cellGap: CGFloat = 2
       static let cellRadius: CGFloat = 3
-      static let fontSize: CGFloat = 16
-      static let contentGap: CGFloat = 8
-      static let contentPadding: CGFloat = 4
+      static let cellLabelSize: CGFloat = 8
+      static let weekdayLabelSize: CGFloat = 8
+      static let weekdayLabelLineHeight: CGFloat = 10
+      static let dimmedWeekdayLabels = ["일", "토"]
+      static let dimmedWeekdayOpacity: Double = 0.72
+      static let bucketOpacities: [Double] = [0.28, 0.48, 0.72, 1]
+      static let todayIndicatorColor = "#FFFFFF"
+      static let todayIndicatorWidth: CGFloat = 1
     }
   }
 }

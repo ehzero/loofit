@@ -441,10 +441,34 @@ enum LoofitWorkoutProjection {
       endingAt: today,
       count: LoofitWidgetLayoutContract.Heatmap.monthRangeWeeks
     )
+    let lockScreenCalendarStart = LoofitHeatmapProjection.calendarWeekRangeStart(
+      endingAt: today,
+      count: LoofitWidgetLayoutContract.LockScreen.threeWeekCalendarRangeWeeks
+    )
+    let nextLockScreenCalendarStart = LoofitHeatmapProjection.calendarWeekRangeStart(
+      endingAt: today,
+      count: 1
+    )
     let week = daily.filter { $0.dateKey >= localDateKey(weekStart) }
     let month = daily.filter { $0.dateKey >= localDateKey(monthStart) }
+    let lockScreenCalendar = daily.filter {
+      $0.dateKey >= localDateKey(lockScreenCalendarStart)
+    }
+    let nextLockScreenCalendar = daily.filter {
+      $0.dateKey >= localDateKey(nextLockScreenCalendarStart)
+    }
     let weekHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: week, recent: recent))
     let monthHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: month, recent: []))
+    let lockScreenCalendarHash = stableHash(LoofitHeatmapHashPayload(
+      theme: theme,
+      daily: lockScreenCalendar,
+      recent: []
+    ))
+    let nextLockScreenCalendarHash = stableHash(LoofitHeatmapHashPayload(
+      theme: theme,
+      daily: nextLockScreenCalendar,
+      recent: []
+    ))
     let sixMonthHash = stableHash(LoofitHeatmapHashPayload(theme: theme, daily: daily, recent: []))
     let currentMonthStart = Calendar.autoupdatingCurrent.date(
       from: Calendar.autoupdatingCurrent.dateComponents([.year, .month], from: today)
@@ -485,7 +509,8 @@ enum LoofitWorkoutProjection {
       LoofitWidgetKinds.routineProgress: routineProgressHash,
       LoofitWidgetKinds.bodyPartDuration: bodyPartDurationHash,
       LoofitWidgetKinds.lockScreenWorkout: control,
-      LoofitWidgetKinds.lockScreenSummary: weekHash,
+      LoofitWidgetKinds.lockScreenThreeWeekCalendar: lockScreenCalendarHash,
+      LoofitWidgetKinds.lockScreenNextThreeWeekCalendar: nextLockScreenCalendarHash,
       LoofitWidgetKinds.lockScreenRoutineProgress: routineProgressHash,
     ]
   }

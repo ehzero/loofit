@@ -23,7 +23,8 @@ struct ExportWidgets0: WidgetBundle {
 struct ExportWidgets1: WidgetBundle {
   var body: some Widget {
     WorkoutLockScreenWidget()
-    WorkoutLockScreenSummaryWidget()
+    ThreeWeekCalendarLockScreenWidget()
+    NextThreeWeekCalendarLockScreenWidget()
     RoutineProgressLockScreenWidget()
     LoofitWorkoutLiveActivity()
   }

@@ -9,8 +9,8 @@ struct HeatmapFourWeekExpandedWidget: Widget {
     StaticConfiguration(kind: kind, provider: LoofitSnapshotTimelineProvider()) { entry in
       HeatmapFourWeekExpandedWidgetView(entry: entry)
     }
-    .configurationDisplayName("루핏 지난 4주 상세")
-    .description("지난 4주의 운동 날짜와 부위를 함께 확인합니다.")
+    .configurationDisplayName("루핏 히트맵 · 지난 4주 상세")
+    .description("지난 4주의 운동 날짜와 부위를 히트맵으로 확인합니다.")
     .supportedFamilies([.systemMedium])
     .contentMarginsDisabled()
   }

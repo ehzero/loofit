@@ -95,6 +95,49 @@ public enum LoofitHeatmapProjection {
     )
   }
 
+  public static func completeCalendarWeeks(
+    snapshot: LoofitWorkoutSnapshot?,
+    containing date: Date,
+    count: Int,
+    calendar: Calendar = .autoupdatingCurrent
+  ) -> [LoofitHeatmapDay] {
+    let today = calendar.startOfDay(for: date)
+    let start = calendarWeekRangeStart(endingAt: today, count: count, calendar: calendar)
+    let daysUntilSaturday = 7 - calendar.component(.weekday, from: today)
+    let end = calendar.date(byAdding: .day, value: daysUntilSaturday, to: today) ?? today
+    return range(
+      snapshot: snapshot,
+      start: start,
+      end: end,
+      inRangeStart: start,
+      inRangeEnd: today,
+      calendar: calendar
+    )
+  }
+
+  public static func upcomingCompleteCalendarWeeks(
+    snapshot: LoofitWorkoutSnapshot?,
+    containing date: Date,
+    count: Int,
+    calendar: Calendar = .autoupdatingCurrent
+  ) -> [LoofitHeatmapDay] {
+    let today = calendar.startOfDay(for: date)
+    let start = calendarWeekRangeStart(endingAt: today, count: 1, calendar: calendar)
+    let end = calendar.date(
+      byAdding: .day,
+      value: max(count, 1) * 7 - 1,
+      to: start
+    ) ?? start
+    return range(
+      snapshot: snapshot,
+      start: start,
+      end: end,
+      inRangeStart: start,
+      inRangeEnd: today,
+      calendar: calendar
+    )
+  }
+
   public static func currentMonth(
     snapshot: LoofitWorkoutSnapshot?,
     containing date: Date,

@@ -28,13 +28,14 @@ import {
   type HeatmapWidgetFooterProps,
 } from '@/src/widgets/heatmap-widget-model';
 import {
+  buildWorkoutLockScreenCalendarFromCells,
   buildWorkoutLockScreenProps,
-  buildWorkoutLockScreenSummaryFromCells,
   lockScreenThemeFromColors,
 } from '@/src/widgets/lock-screen-widget-model';
 import { BodyPartDurationWidgetPreview } from '@/src/widgets/preview/BodyPartDurationWidgetPreview';
 import { ExpandedHeatmapWidgetPreview } from '@/src/widgets/preview/ExpandedHeatmapWidgetPreview';
 import { HeatmapWidgetPreview } from '@/src/widgets/preview/HeatmapWidgetPreview';
+import { LockScreenCalendarWidgetPreview } from '@/src/widgets/preview/LockScreenCalendarWidgetPreview';
 import { RoutineProgressLockScreenWidgetPreview } from '@/src/widgets/preview/RoutineProgressLockScreenWidgetPreview';
 import {
   RoutineProgressTextListWidgetPreview,
@@ -44,7 +45,7 @@ import { widgetColor } from '@/src/widgets/widget-design-system';
 import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
 import type {
   HeatmapWidgetProps,
-  WorkoutLockScreenSummaryWidgetProps,
+  WorkoutLockScreenCalendarWidgetProps,
   WorkoutLockScreenWidgetProps,
 } from '@/src/widgets/types';
 
@@ -275,7 +276,7 @@ export default function WidgetsScreen() {
 
           <View style={styles.smallRow}>
             <WidgetTypePreview
-              label="Small · 이번 달 캘린더"
+              label="Small · 이번 달"
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquareSingle}
             >
@@ -359,7 +360,8 @@ export default function WidgetsScreen() {
 
         <LockScreenWidgetsPreview
           previewTheme={previewTheme}
-          summary={lockScreenPreview.summary}
+          calendar={lockScreenPreview.calendar}
+          nextCalendar={lockScreenPreview.nextCalendar}
           states={lockScreenPreview.states}
         />
       </View>
@@ -581,17 +583,19 @@ function ControlActionPreview({
 }
 
 function LockScreenWidgetsPreview({
+  calendar,
+  nextCalendar,
   previewTheme,
   states,
-  summary,
 }: {
+  calendar: WorkoutLockScreenCalendarWidgetProps;
+  nextCalendar: WorkoutLockScreenCalendarWidgetProps;
   previewTheme: WidgetPreviewTheme;
   states: {
     idle: WorkoutLockScreenWidgetProps;
     active: WorkoutLockScreenWidgetProps;
     completed: WorkoutLockScreenWidgetProps;
   };
-  summary: WorkoutLockScreenSummaryWidgetProps;
 }) {
   return (
     <View style={styles.lockScreenPreviewList}>
@@ -660,14 +664,37 @@ function LockScreenWidgetsPreview({
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type B · 지난 7일
+          Rectangular Type B · 지난 3주
         </Text>
-        <RectangularWeekSummaryPreview previewTheme={previewTheme} summary={summary} />
+        <LockScreenCalendarWidgetPreview
+          calendar={calendar}
+          palette={{
+            inverse: previewTheme.cardBackground,
+            primary: LOCK_SCREEN_SYSTEM_PREVIEW.primary,
+            secondary: LOCK_SCREEN_SYSTEM_PREVIEW.secondary,
+          }}
+          style={styles.lockRectangularCalendarWidget}
+        />
       </View>
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type C · 루틴 진행
+          Rectangular Type C · 다음 3주
+        </Text>
+        <LockScreenCalendarWidgetPreview
+          calendar={nextCalendar}
+          palette={{
+            inverse: previewTheme.cardBackground,
+            primary: LOCK_SCREEN_SYSTEM_PREVIEW.primary,
+            secondary: LOCK_SCREEN_SYSTEM_PREVIEW.secondary,
+          }}
+          style={styles.lockRectangularCalendarWidget}
+        />
+      </View>
+
+      <View style={styles.previewGroup}>
+        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+          Rectangular Type D · 루틴 진행
         </Text>
         <RoutineProgressLockScreenWidgetPreview
           currentIndex={ROUTINE_PROGRESS_CURRENT_INDEX}
@@ -711,52 +738,6 @@ function RectangularStatusPreview({
         style={[styles.lockRectStatusDetail, { color: LOCK_SCREEN_SYSTEM_PREVIEW.secondary }]}
         numberOfLines={1}>
         {detail}
-      </Text>
-    </View>
-  );
-}
-
-function RectangularWeekSummaryPreview({
-  previewTheme,
-  summary,
-}: {
-  previewTheme: WidgetPreviewTheme;
-  summary: WorkoutLockScreenSummaryWidgetProps;
-}) {
-  const cells = summary.streakFlags.split(',').map((flag) => flag === '1').slice(0, 7);
-
-  return (
-    <View
-      style={[
-        styles.lockRectangularWidget,
-        styles.lockRectangularSummaryWidget,
-        {
-          backgroundColor: LOCK_SCREEN_SYSTEM_PREVIEW.surface,
-          borderColor: LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder,
-        },
-      ]}>
-      <View style={styles.lockRectStreakRow}>
-        {cells.map((active, index) => (
-          <View
-            key={`${index}-${active}`}
-            style={[
-              styles.lockRectStreakCell,
-              {
-                backgroundColor: active
-                  ? LOCK_SCREEN_SYSTEM_PREVIEW.primary
-                  : LOCK_SCREEN_SYSTEM_PREVIEW.inactive,
-                borderColor: active
-                  ? LOCK_SCREEN_SYSTEM_PREVIEW.primary
-                  : LOCK_SCREEN_SYSTEM_PREVIEW.cellBorder,
-              },
-            ]}
-          />
-        ))}
-      </View>
-      <Text
-        style={[styles.lockRectSummaryText, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
-        numberOfLines={1}>
-        {summary.summaryText}
       </Text>
     </View>
   );
@@ -1085,21 +1066,34 @@ function buildPreviewBodyPartLabels(cells: HeatmapGridCell[]): string[] {
 }
 
 function buildPreviewLockScreenWidgets(colors: ThemeColors): {
+  calendar: WorkoutLockScreenCalendarWidgetProps;
+  nextCalendar: WorkoutLockScreenCalendarWidgetProps;
   states: {
     idle: WorkoutLockScreenWidgetProps;
     active: WorkoutLockScreenWidgetProps;
     completed: WorkoutLockScreenWidgetProps;
   };
-  summary: WorkoutLockScreenSummaryWidgetProps;
 } {
   const now = new Date();
   const startedAt = new Date(now.getTime() - 42 * 60 * 1000).toISOString();
   const theme = lockScreenThemeFromColors(colors);
-  const source = buildPreviewHeatmapSource(7);
-  const cells = buildPreviewHeatmapDays(source, 7);
-  const stats = rangeStatsFromCells(cells);
+  const calendarSpec = WIDGET_RENDERER_CONTRACT.lockScreen.threeWeekCalendar;
+  const source = buildPreviewHeatmapSource(calendarSpec.rangeWeeks * calendarSpec.columns);
+  const calendarCells = buildPreviewCompleteCalendarWeeks(source, calendarSpec.rangeWeeks);
+  const nextCalendarCells = buildPreviewUpcomingCompleteCalendarWeeks(
+    source,
+    WIDGET_RENDERER_CONTRACT.lockScreen.nextThreeWeekCalendar.rangeWeeks
+  );
 
   return {
+    calendar: buildWorkoutLockScreenCalendarFromCells({
+      cells: calendarCells,
+      todayDateKey: toLocalDateKey(now),
+    }),
+    nextCalendar: buildWorkoutLockScreenCalendarFromCells({
+      cells: nextCalendarCells,
+      todayDateKey: toLocalDateKey(now),
+    }),
     states: {
       idle: buildWorkoutLockScreenProps({
         state: 'idle',
@@ -1121,13 +1115,34 @@ function buildPreviewLockScreenWidgets(colors: ThemeColors): {
         ...theme,
       }),
     },
-    summary: buildWorkoutLockScreenSummaryFromCells({
-      cells,
-      colors,
-      durationSeconds: stats.durationSeconds,
-      workoutCount: stats.workoutCount,
-    }),
   };
+}
+
+function buildPreviewCompleteCalendarWeeks(
+  source: Map<string, HeatmapDay>,
+  weeks: number
+): HeatmapDay[] {
+  const today = startOfLocalDay(new Date());
+  const currentWeekStart = addLocalDays(today, -today.getDay());
+  const rangeStart = addLocalDays(currentWeekStart, -(Math.max(weeks, 1) - 1) * 7);
+  const cellCount = Math.max(weeks, 1) * 7;
+
+  return Array.from({ length: cellCount }, (_, index) =>
+    previewCellFromSource(source, addLocalDays(rangeStart, index))
+  );
+}
+
+function buildPreviewUpcomingCompleteCalendarWeeks(
+  source: Map<string, HeatmapDay>,
+  weeks: number
+): HeatmapDay[] {
+  const today = startOfLocalDay(new Date());
+  const currentWeekStart = addLocalDays(today, -today.getDay());
+  const cellCount = Math.max(weeks, 1) * 7;
+
+  return Array.from({ length: cellCount }, (_, index) =>
+    previewCellFromSource(source, addLocalDays(currentWeekStart, index))
+  );
 }
 
 function buildPreviewWeekFooter(stats: RangeStats): HeatmapWidgetFooterProps {
@@ -1495,12 +1510,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: WIDGET_SPACE.xs,
   },
-  lockRectangularSummaryWidget: {
-    justifyContent: 'center',
-    gap: WIDGET_SPACE.md,
-  },
   lockRectangularRoutineWidget: {
     borderRadius: 0,
+    height: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.height,
+    width: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.width,
+  },
+  lockRectangularCalendarWidget: {
     height: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.height,
     width: LOCK_SCREEN_WIDGET_PREVIEW.rectangular.width,
   },
@@ -1522,25 +1537,6 @@ const styles = StyleSheet.create({
     fontSize: LOCK_SCREEN_TEXT.rectangularDetail.size,
     lineHeight: LOCK_SCREEN_TEXT.rectangularDetail.lineHeight,
     fontWeight: LOCK_SCREEN_TEXT.rectangularDetail.weight,
-    textAlign: 'center',
-  },
-  lockRectStreakRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: WIDGET_SPACE.sm,
-  },
-  lockRectStreakCell: {
-    width: 18,
-    height: 18,
-    borderRadius: WIDGET_RADIUS.cell,
-    borderWidth: 1,
-  },
-  lockRectSummaryText: {
-    alignSelf: 'stretch',
-    fontSize: LOCK_SCREEN_TEXT.summary.size,
-    lineHeight: LOCK_SCREEN_TEXT.summary.lineHeight,
-    fontWeight: LOCK_SCREEN_TEXT.summary.weight,
     textAlign: 'center',
   },
   liveBanner: {

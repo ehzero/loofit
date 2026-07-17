@@ -516,11 +516,9 @@ export const WIDGET_RENDERER_CONTRACT = {
       "completedEyebrow": "오늘 완료",
       "completedBadge": "오운완",
       "idle": "다음 운동",
-      "routineRequired": "루틴 설정 필요",
-      "summaryTitle": "지난 7일"
+      "routineRequired": "루틴 설정 필요"
     },
     "compactCharacterLimit": 3,
-    "summaryDays": 7,
     "text": {
       "inline": {
         "size": 12,
@@ -541,20 +539,47 @@ export const WIDGET_RENDERER_CONTRACT = {
         "size": 16,
         "lineHeight": 21,
         "weight": "700"
-      },
-      "summary": {
-        "size": 16,
-        "lineHeight": 21,
-        "weight": "800"
       }
     },
-    "summary": {
-      "cellSize": 18,
-      "cellGap": 4,
+    "threeWeekCalendar": {
+      "availability": "native",
+      "kindAccessor": "lockScreenThreeWeekCalendar",
+      "family": "accessoryRectangular",
+      "rangeWeeks": 3,
+      "calendarAlignment": "completeCalendarWeeks",
+      "columns": 7,
+      "contentPadding": 2,
+      "cellGap": 2,
       "cellRadius": 3,
-      "fontSize": 16,
-      "contentGap": 8,
-      "contentPadding": 4
+      "cellLabelSize": 8,
+      "weekdayLabelSize": 8,
+      "weekdayLabelLineHeight": 10,
+      "dimmedWeekdayLabels": [
+        "일",
+        "토"
+      ],
+      "dimmedWeekdayOpacity": 0.72,
+      "emptyCellFill": "transparent",
+      "bucketOpacities": [
+        0.28,
+        0.48,
+        0.72,
+        1
+      ],
+      "todayIndicator": {
+        "style": "border",
+        "color": "#FFFFFF",
+        "width": 1
+      }
+    },
+    "nextThreeWeekCalendar": {
+      "availability": "native",
+      "kindAccessor": "lockScreenNextThreeWeekCalendar",
+      "family": "accessoryRectangular",
+      "rangeWeeks": 3,
+      "calendarAlignment": "upcomingCompleteCalendarWeeks",
+      "columns": 7,
+      "sharedStyle": "threeWeekCalendar"
     }
   }
 } as const;
