@@ -2,6 +2,7 @@ import type * as SQLite from 'expo-sqlite';
 
 import { getRoutineDayAfterCompletion, routineDayDisplayName } from '@/src/domain/routine';
 import type {
+  ChangeWorkoutInput,
   SessionStatus,
   StartWorkoutInput,
   WorkoutSession,
@@ -195,29 +196,15 @@ export async function startWorkout(input: StartWorkoutInput): Promise<Repository
     }
 
     const now = new Date().toISOString();
-    let routineId: number | null = null;
-    let routineDayId: number | null = null;
-    let routineDayNameSnapshot: string | null = null;
-    let parts: Array<{ id: number | null; name: string; color: string }> = [];
-
-    if (input.kind === 'routine') {
-      const routineDay = await getRoutineDayByIdFromDatabase(transaction, input.routineDayId);
-      if (!routineDay) {
-        outcome.value = { status: 'rejected', session: null };
-        return;
-      }
-      routineId = routineDay.routineId;
-      routineDayId = routineDay.id;
-      routineDayNameSnapshot = routineDayDisplayName(routineDay);
-      parts = routineDay.parts;
-    } else {
-      const allParts = await getBodyPartsFromDatabase(transaction, false);
-      parts = allParts.filter((part) => input.bodyPartIds.includes(part.id));
-      const label = input.label?.trim();
-      if (parts.length === 0 && label) {
-        parts = [{ id: null, name: label, color: '#6C757D' }];
-      }
+    const routineDay = await getRoutineDayByIdFromDatabase(transaction, input.routineDayId);
+    if (!routineDay) {
+      outcome.value = { status: 'rejected', session: null };
+      return;
     }
+    const routineId = routineDay.routineId;
+    const routineDayId = routineDay.id;
+    const routineDayNameSnapshot = routineDayDisplayName(routineDay);
+    const parts = routineDay.parts;
 
     if (parts.length === 0) {
       outcome.value = { status: 'rejected', session: null };
@@ -248,7 +235,7 @@ export async function startWorkout(input: StartWorkoutInput): Promise<Repository
 
 export async function changeActiveWorkout(
   expectedSessionId: number,
-  input: StartWorkoutInput
+  input: ChangeWorkoutInput
 ): Promise<RepositoryWorkoutResult> {
   const db = await getDatabase();
   const outcome: { value?: RepositoryWorkoutResult } = {};
@@ -265,37 +252,53 @@ export async function changeActiveWorkout(
       return;
     }
 
-    let routineId: number | null = null;
-    let routineDayId: number | null = null;
-    let routineDayNameSnapshot: string | null = null;
-    let parts: Array<{ id: number | null; name: string; color: string }> = [];
-
-    if (input.kind === 'routine') {
-      const routineDay = await getRoutineDayByIdFromDatabase(transaction, input.routineDayId);
-      if (!routineDay) {
-        outcome.value = { status: 'rejected', session: active };
-        return;
-      }
-      routineId = routineDay.routineId;
-      routineDayId = routineDay.id;
-      routineDayNameSnapshot = routineDayDisplayName(routineDay);
-      parts = routineDay.parts;
-    } else {
-      const allParts = await getBodyPartsFromDatabase(transaction, false);
-      parts = allParts.filter((part) => input.bodyPartIds.includes(part.id));
-    }
+    const allParts = await getBodyPartsFromDatabase(transaction, false);
+    const requestedIds = new Set(input.bodyPartIds);
+    const parts = allParts.filter((part) => requestedIds.has(part.id));
 
     if (parts.length === 0) {
       outcome.value = { status: 'rejected', session: active };
       return;
     }
 
+    if (!active.routineId || !active.routineDayId) {
+      outcome.value = { status: 'rejected', session: active };
+      return;
+    }
+    const routineDay = await getRoutineDayByIdFromDatabase(transaction, active.routineDayId);
+    if (!routineDay) {
+      outcome.value = { status: 'rejected', session: active };
+      return;
+    }
+
+    if (input.updateRoutine) {
+      await transaction.runAsync(
+        `DELETE FROM routine_day_parts WHERE routine_day_id = ?`,
+        routineDay.id
+      );
+      for (const [index, part] of parts.entries()) {
+        await transaction.runAsync(
+          `INSERT INTO routine_day_parts (routine_day_id, body_part_id, sort_order)
+           VALUES (?, ?, ?)`,
+          routineDay.id,
+          part.id,
+          index
+        );
+      }
+      await transaction.runAsync(
+        `UPDATE routine_days SET updated_at = ? WHERE id = ?`,
+        new Date().toISOString(),
+        routineDay.id
+      );
+    }
+
+    const routineDayNameSnapshot =
+      routineDay.name.trim() || parts.map((part) => part.name).join(' · ');
+
     const updated = await transaction.runAsync(
       `UPDATE workout_sessions
-       SET routine_id = ?, routine_day_id = ?, routine_day_name_snapshot = ?, updated_at = ?
+       SET routine_day_name_snapshot = ?, updated_at = ?
        WHERE id = ? AND status = 'active'`,
-      routineId,
-      routineDayId,
       routineDayNameSnapshot,
       new Date().toISOString(),
       active.id
@@ -356,6 +359,10 @@ async function finishActiveWorkout(
       outcome.value = { status: 'stale', session: active };
       return;
     }
+    if (status === 'completed' && !active.routineDayId) {
+      outcome.value = { status: 'rejected', session: active };
+      return;
+    }
 
     const now = new Date();
     const durationSeconds = Math.max(
@@ -378,10 +385,10 @@ async function finishActiveWorkout(
       return;
     }
 
-    if (status === 'completed' && active.routineDayId) {
+    if (status === 'completed') {
       const routine = await getActiveRoutineFromDatabase(transaction);
       const routineDays = await getRoutineDaysFromDatabase(transaction, routine?.id);
-      const nextDay = getRoutineDayAfterCompletion(routineDays, active.routineDayId);
+      const nextDay = getRoutineDayAfterCompletion(routineDays, active.routineDayId!);
       await upsertRoutineProgress(transaction, routine?.id ?? null, nextDay?.id ?? null);
     }
 
@@ -410,8 +417,7 @@ export async function updateSession(
     startedAt?: string;
     endedAt?: string | null;
     note?: string | null;
-    routineDayId?: number | null;
-    bodyPartIds?: number[];
+    routineDayId?: number;
   }
 ): Promise<boolean> {
   const current = await getSessionById(id);
@@ -446,45 +452,19 @@ export async function updateSession(
     let routineDayNameSnapshot = current.routineDayNameSnapshot;
     let parts: Array<{ id: number | null; name: string; color: string }> | null = null;
 
-    const requestsFreeTarget =
-      updates.routineDayId === null ||
-      (updates.routineDayId === undefined &&
-        current.routineDayId === null &&
-        updates.bodyPartIds !== undefined);
-
-    if (requestsFreeTarget) {
-      const requestedBodyPartIds =
-        updates.bodyPartIds ??
-        (current.routineDayId === null ? sessionBodyPartIds(current.parts) : []);
-      const targetChanged =
-        current.routineDayId !== null ||
-        !sameBodyPartIds(current.parts, requestedBodyPartIds);
-
-      routineId = null;
-      routineDayId = null;
-      routineDayNameSnapshot = null;
-      if (targetChanged) {
-        parts = await buildFreeSessionParts(
-          transaction,
-          current.routineDayId === null ? current.parts : [],
-          requestedBodyPartIds
-        );
-      }
-    } else if (
+    if (
       updates.routineDayId !== undefined &&
       updates.routineDayId !== current.routineDayId
     ) {
-      if (updates.routineDayId !== null) {
-        const routineDay = await getRoutineDayByIdFromDatabase(
-          transaction,
-          updates.routineDayId
-        );
-        if (routineDay) {
-          routineId = routineDay.routineId;
-          routineDayId = routineDay.id;
-          routineDayNameSnapshot = routineDayDisplayName(routineDay);
-          parts = routineDay.parts;
-        }
+      const routineDay = await getRoutineDayByIdFromDatabase(
+        transaction,
+        updates.routineDayId
+      );
+      if (routineDay) {
+        routineId = routineDay.routineId;
+        routineDayId = routineDay.id;
+        routineDayNameSnapshot = routineDayDisplayName(routineDay);
+        parts = routineDay.parts;
       }
     }
 
@@ -512,54 +492,6 @@ export async function updateSession(
     }
   });
   return updated;
-}
-
-function sameBodyPartIds(
-  currentParts: WorkoutSessionPartSnapshot[],
-  requestedBodyPartIds: number[]
-): boolean {
-  const currentIds = new Set(sessionBodyPartIds(currentParts));
-  const requestedIds = new Set(requestedBodyPartIds);
-  return (
-    currentIds.size === requestedIds.size &&
-    [...currentIds].every((bodyPartId) => requestedIds.has(bodyPartId))
-  );
-}
-
-function sessionBodyPartIds(parts: WorkoutSessionPartSnapshot[]): number[] {
-  return parts.flatMap((part) => (part.bodyPartId === null ? [] : [part.bodyPartId]));
-}
-
-async function buildFreeSessionParts(
-  db: SQLite.SQLiteDatabase,
-  currentParts: WorkoutSessionPartSnapshot[],
-  requestedBodyPartIds: number[]
-): Promise<Array<{ id: number | null; name: string; color: string }>> {
-  const requestedIds = new Set(requestedBodyPartIds);
-  const preservedIds = new Set<number>();
-  const parts = currentParts.flatMap((part) => {
-    if (part.bodyPartId !== null && !requestedIds.has(part.bodyPartId)) {
-      return [];
-    }
-    if (part.bodyPartId !== null) {
-      preservedIds.add(part.bodyPartId);
-    }
-    return [
-      {
-        id: part.bodyPartId,
-        name: part.bodyPartName,
-        color: part.bodyPartColor,
-      },
-    ];
-  });
-
-  const availableParts = await getBodyPartsFromDatabase(db, false);
-  parts.push(
-    ...availableParts
-      .filter((part) => requestedIds.has(part.id) && !preservedIds.has(part.id))
-      .map((part) => ({ id: part.id, name: part.name, color: part.color }))
-  );
-  return parts;
 }
 
 export async function deleteSession(id: number): Promise<boolean> {

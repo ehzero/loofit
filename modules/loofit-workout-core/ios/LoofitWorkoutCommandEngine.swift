@@ -10,6 +10,7 @@ private struct LoofitActiveSessionRecord {
   let id: Int64
   let routineId: Int64?
   let routineDayId: Int64?
+  let routineDayNameSnapshot: String?
   let startedAt: String
 }
 
@@ -24,18 +25,11 @@ enum LoofitWorkoutCommandEngine {
         return try startNext(database)
       case .startRoutine(let routineDayId):
         return try startRoutine(routineDayId: routineDayId, database: database)
-      case .startFree(let bodyPartIds, let label):
-        return try startFree(bodyPartIds: bodyPartIds, label: label, database: database)
-      case .changeRoutine(let expectedSessionId, let routineDayId):
-        return try changeRoutine(
-          expectedSessionId: expectedSessionId,
-          routineDayId: routineDayId,
-          database: database
-        )
-      case .changeFree(let expectedSessionId, let bodyPartIds):
-        return try changeFree(
+      case .changeParts(let expectedSessionId, let bodyPartIds, let updateRoutine):
+        return try changeParts(
           expectedSessionId: expectedSessionId,
           bodyPartIds: bodyPartIds,
+          updateRoutine: updateRoutine,
           database: database
         )
       case .complete(let expectedSessionId):
@@ -79,60 +73,10 @@ enum LoofitWorkoutCommandEngine {
     return try insertSession(target: target, database: database)
   }
 
-  private static func startFree(
-    bodyPartIds: [Int64],
-    label: String?,
-    database: LoofitSQLiteDatabase
-  ) throws -> LoofitWorkoutMutationOutcome {
-    if let active = try activeSession(database) {
-      return .init(status: .noop, sessionId: active.id)
-    }
-    var parts = try bodyParts(ids: bodyPartIds, database: database)
-    if parts.isEmpty,
-       let label = label?.trimmingCharacters(in: .whitespacesAndNewlines),
-       !label.isEmpty {
-      parts = [.init(id: nil, name: label, color: "#6C757D", sortOrder: 0)]
-    }
-    guard !parts.isEmpty else {
-      return .init(status: .rejected, sessionId: nil)
-    }
-    return try insertSession(
-      routineId: nil,
-      routineDayId: nil,
-      routineDayNameSnapshot: nil,
-      parts: parts,
-      database: database
-    )
-  }
-
-  private static func changeRoutine(
-    expectedSessionId: Int64,
-    routineDayId: Int64,
-    database: LoofitSQLiteDatabase
-  ) throws -> LoofitWorkoutMutationOutcome {
-    guard let active = try activeSession(database) else {
-      return .init(status: .stale, sessionId: nil)
-    }
-    guard active.id == expectedSessionId else {
-      return .init(status: .stale, sessionId: active.id)
-    }
-    guard let target = try routineTarget(id: routineDayId, database: database) else {
-      return .init(status: .rejected, sessionId: active.id)
-    }
-    try replaceTarget(
-      activeSessionId: active.id,
-      routineId: target.routineId,
-      routineDayId: target.routineDayId,
-      routineDayNameSnapshot: target.title,
-      parts: target.parts,
-      database: database
-    )
-    return .init(status: .applied, sessionId: active.id)
-  }
-
-  private static func changeFree(
+  private static func changeParts(
     expectedSessionId: Int64,
     bodyPartIds: [Int64],
+    updateRoutine: Bool,
     database: LoofitSQLiteDatabase
   ) throws -> LoofitWorkoutMutationOutcome {
     guard let active = try activeSession(database) else {
@@ -145,11 +89,28 @@ enum LoofitWorkoutCommandEngine {
     guard !parts.isEmpty else {
       return .init(status: .rejected, sessionId: active.id)
     }
+
+    guard
+      let routineId = active.routineId,
+      let routineDayId = active.routineDayId,
+      let routineMetadata = try activeRoutineDayMetadata(id: routineDayId, database: database)
+    else {
+      return .init(status: .rejected, sessionId: active.id)
+    }
+    if updateRoutine {
+      try replaceRoutineDayParts(
+        routineDayId: routineDayId,
+        parts: parts,
+        database: database
+      )
+    }
+
+    let routineDayNameSnapshot = workoutTitle(alias: routineMetadata.alias, parts: parts)
     try replaceTarget(
       activeSessionId: active.id,
-      routineId: nil,
-      routineDayId: nil,
-      routineDayNameSnapshot: nil,
+      routineId: routineId,
+      routineDayId: routineDayId,
+      routineDayNameSnapshot: routineDayNameSnapshot,
       parts: parts,
       database: database
     )
@@ -171,6 +132,15 @@ enum LoofitWorkoutCommandEngine {
     }
     guard active.id == expectedSessionId else {
       return .init(status: .stale, sessionId: active.id)
+    }
+    let completedDayId: Int64?
+    if status == "completed" {
+      guard let routineDayId = active.routineDayId else {
+        return .init(status: .rejected, sessionId: active.id)
+      }
+      completedDayId = routineDayId
+    } else {
+      completedDayId = nil
     }
 
     let now = Date()
@@ -197,7 +167,7 @@ enum LoofitWorkoutCommandEngine {
       return .init(status: .stale, sessionId: active.id)
     }
 
-    if status == "completed", let completedDayId = active.routineDayId {
+    if let completedDayId {
       try advanceRoutineProgress(after: completedDayId, database: database)
     }
     return .init(status: .applied, sessionId: active.id)
@@ -257,22 +227,6 @@ enum LoofitWorkoutCommandEngine {
     target: LoofitWorkoutTargetSnapshot,
     database: LoofitSQLiteDatabase
   ) throws -> LoofitWorkoutMutationOutcome {
-    try insertSession(
-      routineId: target.routineId,
-      routineDayId: target.routineDayId,
-      routineDayNameSnapshot: target.title,
-      parts: target.parts,
-      database: database
-    )
-  }
-
-  private static func insertSession(
-    routineId: Int64?,
-    routineDayId: Int64?,
-    routineDayNameSnapshot: String?,
-    parts: [LoofitWorkoutPartSnapshot],
-    database: LoofitSQLiteDatabase
-  ) throws -> LoofitWorkoutMutationOutcome {
     let now = LoofitWorkoutDate.nowISO8601()
     try database.run(
       """
@@ -282,24 +236,24 @@ enum LoofitWorkoutCommandEngine {
       VALUES (?, ?, ?, ?, NULL, 0, 'active', NULL, ?, ?)
       """,
       [
-        routineId.map(LoofitSQLiteValue.integer) ?? .null,
-        routineDayId.map(LoofitSQLiteValue.integer) ?? .null,
-        routineDayNameSnapshot.map(LoofitSQLiteValue.text) ?? .null,
+        .integer(target.routineId),
+        .integer(target.routineDayId),
+        .text(target.title),
         .text(now),
         .text(now),
         .text(now),
       ]
     )
     let sessionId = database.lastInsertRowId
-    try insertParts(parts, sessionId: sessionId, database: database)
+    try insertParts(target.parts, sessionId: sessionId, database: database)
     return .init(status: .applied, sessionId: sessionId)
   }
 
   private static func replaceTarget(
     activeSessionId: Int64,
-    routineId: Int64?,
-    routineDayId: Int64?,
-    routineDayNameSnapshot: String?,
+    routineId: Int64,
+    routineDayId: Int64,
+    routineDayNameSnapshot: String,
     parts: [LoofitWorkoutPartSnapshot],
     database: LoofitSQLiteDatabase
   ) throws {
@@ -310,9 +264,9 @@ enum LoofitWorkoutCommandEngine {
       WHERE id = ? AND status = 'active'
       """,
       [
-        routineId.map(LoofitSQLiteValue.integer) ?? .null,
-        routineDayId.map(LoofitSQLiteValue.integer) ?? .null,
-        routineDayNameSnapshot.map(LoofitSQLiteValue.text) ?? .null,
+        .integer(routineId),
+        .integer(routineDayId),
+        .text(routineDayNameSnapshot),
         .text(LoofitWorkoutDate.nowISO8601()),
         .integer(activeSessionId),
       ]
@@ -353,7 +307,7 @@ enum LoofitWorkoutCommandEngine {
     var record: LoofitActiveSessionRecord?
     try database.query(
       """
-      SELECT id, routine_id, routine_day_id, started_at
+      SELECT id, routine_id, routine_day_id, routine_day_name_snapshot, started_at
       FROM workout_sessions WHERE status = 'active'
       ORDER BY started_at DESC, id DESC LIMIT 1
       """
@@ -362,7 +316,8 @@ enum LoofitWorkoutCommandEngine {
         id: sqlite3_column_int64(statement, 0),
         routineId: LoofitSQLiteDatabase.optionalInt64(statement, 1),
         routineDayId: LoofitSQLiteDatabase.optionalInt64(statement, 2),
-        startedAt: LoofitSQLiteDatabase.string(statement, 3) ?? ""
+        routineDayNameSnapshot: LoofitSQLiteDatabase.string(statement, 3),
+        startedAt: LoofitSQLiteDatabase.string(statement, 4) ?? ""
       )
     }
     return record
@@ -457,8 +412,8 @@ enum LoofitWorkoutCommandEngine {
     parts: [LoofitWorkoutPartSnapshot]
   ) -> LoofitWorkoutTargetSnapshot {
     let partNames = parts.map(\.name).joined(separator: " · ")
+    let title = workoutTitle(alias: alias, parts: parts)
     let trimmedAlias = alias.trimmingCharacters(in: .whitespacesAndNewlines)
-    let title = trimmedAlias.isEmpty ? partNames : trimmedAlias
     let detail = trimmedAlias.isEmpty || trimmedAlias == partNames ? "" : partNames
     return .init(
       routineId: routineId,
@@ -467,6 +422,62 @@ enum LoofitWorkoutCommandEngine {
       detail: detail,
       parts: parts
     )
+  }
+
+  private struct RoutineDayMetadata {
+    let alias: String
+  }
+
+  private static func activeRoutineDayMetadata(
+    id: Int64,
+    database: LoofitSQLiteDatabase
+  ) throws -> RoutineDayMetadata? {
+    var metadata: RoutineDayMetadata?
+    try database.query(
+      """
+      SELECT rd.name
+      FROM routine_days rd
+      JOIN routines r ON r.id = rd.routine_id AND r.is_active = 1
+      WHERE rd.id = ? LIMIT 1
+      """,
+      [.integer(id)]
+    ) { statement in
+      metadata = .init(alias: LoofitSQLiteDatabase.string(statement, 0) ?? "")
+    }
+    return metadata
+  }
+
+  private static func replaceRoutineDayParts(
+    routineDayId: Int64,
+    parts: [LoofitWorkoutPartSnapshot],
+    database: LoofitSQLiteDatabase
+  ) throws {
+    try database.run(
+      "DELETE FROM routine_day_parts WHERE routine_day_id = ?",
+      [.integer(routineDayId)]
+    )
+    for (index, part) in parts.enumerated() {
+      guard let bodyPartId = part.id else { continue }
+      try database.run(
+        """
+        INSERT INTO routine_day_parts (routine_day_id, body_part_id, sort_order)
+        VALUES (?, ?, ?)
+        """,
+        [.integer(routineDayId), .integer(bodyPartId), .integer(Int64(index))]
+      )
+    }
+    try database.run(
+      "UPDATE routine_days SET updated_at = ? WHERE id = ?",
+      [.text(LoofitWorkoutDate.nowISO8601()), .integer(routineDayId)]
+    )
+  }
+
+  private static func workoutTitle(
+    alias: String,
+    parts: [LoofitWorkoutPartSnapshot]
+  ) -> String {
+    let trimmedAlias = alias.trimmingCharacters(in: .whitespacesAndNewlines)
+    return trimmedAlias.isEmpty ? parts.map(\.name).joined(separator: " · ") : trimmedAlias
   }
 
   private static func bodyParts(

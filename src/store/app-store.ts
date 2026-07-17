@@ -30,6 +30,7 @@ import {
 } from '@/src/widgets/pipeline';
 import type {
   AppOverview,
+  ChangeWorkoutInput,
   RoutineTemplate,
   SessionStatus,
   StartWorkoutInput,
@@ -74,7 +75,7 @@ type AppState = {
   start: (input: StartWorkoutInput) => Promise<AppActionResult>;
   completeActive: () => Promise<AppActionResult>;
   cancelActive: () => Promise<AppActionResult>;
-  changeActive: (input: StartWorkoutInput) => Promise<AppActionResult>;
+  changeActive: (input: ChangeWorkoutInput) => Promise<AppActionResult>;
   createCustom: () => Promise<AppActionResult>;
   addPart: (name: string) => Promise<AppActionResult>;
   archivePart: (id: number) => Promise<AppActionResult>;
@@ -92,8 +93,7 @@ type AppState = {
       startedAt?: string;
       endedAt?: string | null;
       note?: string | null;
-      routineDayId?: number | null;
-      bodyPartIds?: number[];
+      routineDayId?: number;
     }
   ) => Promise<AppActionResult>;
   deleteRecord: (id: number) => Promise<AppActionResult>;
@@ -397,13 +397,14 @@ function errorMessage(error: unknown, fallback: string): string {
 }
 
 function startCommand(input: StartWorkoutInput): WorkoutCommand {
-  return input.kind === 'routine'
-    ? { type: 'startRoutine', routineDayId: input.routineDayId }
-    : { type: 'startFree', bodyPartIds: input.bodyPartIds, label: input.label };
+  return { type: 'startRoutine', routineDayId: input.routineDayId };
 }
 
-function changeCommand(input: StartWorkoutInput, expectedSessionId: number): WorkoutCommand {
-  return input.kind === 'routine'
-    ? { type: 'changeRoutine', expectedSessionId, routineDayId: input.routineDayId }
-    : { type: 'changeFree', expectedSessionId, bodyPartIds: input.bodyPartIds };
+function changeCommand(input: ChangeWorkoutInput, expectedSessionId: number): WorkoutCommand {
+  return {
+    type: 'changeParts',
+    expectedSessionId,
+    bodyPartIds: input.bodyPartIds,
+    updateRoutine: input.updateRoutine,
+  };
 }

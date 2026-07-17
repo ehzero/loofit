@@ -36,9 +36,9 @@ function makeSession(
 ): WorkoutSession {
   return {
     id: Math.random(),
-    routineId: null,
-    routineDayId: null,
-    routineDayNameSnapshot: null,
+    routineId: 1,
+    routineDayId: 1,
+    routineDayNameSnapshot: 'Push',
     startedAt,
     endedAt: startedAt,
     durationSeconds,

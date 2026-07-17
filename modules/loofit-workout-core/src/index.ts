@@ -3,9 +3,12 @@ import { requireOptionalNativeModule } from 'expo-modules-core';
 export type WorkoutCommand =
   | { type: 'startNext' }
   | { type: 'startRoutine'; routineDayId: number }
-  | { type: 'startFree'; bodyPartIds: number[]; label?: string }
-  | { type: 'changeRoutine'; expectedSessionId: number; routineDayId: number }
-  | { type: 'changeFree'; expectedSessionId: number; bodyPartIds: number[] }
+  | {
+      type: 'changeParts';
+      expectedSessionId: number;
+      bodyPartIds: number[];
+      updateRoutine: boolean;
+    }
   | { type: 'complete'; expectedSessionId: number }
   | { type: 'cancel'; expectedSessionId: number };
 

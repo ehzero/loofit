@@ -172,6 +172,7 @@ body[data-theme="dark"] {
 }
 
 .capture-button,
+.download-button,
 .app-store-button,
 .inspector-toggle {
   min-height: 42px;
@@ -204,6 +205,114 @@ body[data-theme="dark"] {
   box-shadow: inset 0 0 0 1px var(--toolbar-border);
 }
 
+.download-menu {
+  position: relative;
+  flex: none;
+}
+
+.download-button {
+  min-width: 96px;
+  color: var(--accent-ink);
+  background: var(--accent);
+}
+
+.download-button[aria-expanded="true"] {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+}
+
+.download-popover {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 10px);
+  right: 0;
+  display: grid;
+  width: 220px;
+  gap: 4px;
+  padding: 6px;
+  border: 1px solid color-mix(in srgb, var(--toolbar-border) 82%, transparent);
+  border-radius: 14px;
+  background: var(--toolbar);
+  box-shadow: 0 18px 48px rgba(20, 25, 33, 0.22);
+}
+
+.download-popover[hidden] {
+  display: none;
+}
+
+.download-popover button {
+  display: grid;
+  gap: 2px;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: 10px;
+  color: var(--text);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+
+.download-popover button:hover,
+.download-popover button:focus-visible {
+  outline: 0;
+  background: var(--surface);
+}
+
+.download-popover button:disabled {
+  cursor: wait;
+  opacity: 0.52;
+}
+
+.download-popover strong {
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.download-popover span {
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.download-status {
+  position: absolute;
+  right: 0;
+  bottom: -18px;
+  width: max-content;
+  max-width: 220px;
+  overflow: hidden;
+  color: var(--text-3);
+  font-size: 9px;
+  font-weight: 700;
+  pointer-events: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 1200px) {
+  .toolbar {
+    align-content: center;
+    flex-wrap: wrap;
+  }
+
+  .toolbar__title,
+  .control,
+  .inspector-toggle,
+  .app-store-button,
+  .capture-button {
+    flex: none;
+  }
+
+  .inspector-toggle {
+    margin-left: 0;
+  }
+
+  .scene-inspector {
+    top: auto;
+    bottom: 24px;
+    max-height: calc(100% - 240px);
+  }
+}
+
 .scene-inspector {
   position: absolute;
   z-index: 20;
@@ -234,9 +343,14 @@ body[data-theme="dark"] {
   border-bottom: 1px solid var(--toolbar-border);
 }
 
-.scene-inspector__header > div {
+.scene-inspector__heading {
   display: grid;
   gap: 2px;
+}
+
+.scene-inspector__actions {
+  display: flex;
+  gap: 6px;
 }
 
 .scene-inspector__header span {
@@ -260,6 +374,11 @@ body[data-theme="dark"] {
   cursor: pointer;
   font-size: 10px;
   font-weight: 800;
+}
+
+.scene-inspector__header #saveSceneControls[data-state="saved"] {
+  color: var(--accent-ink);
+  background: var(--accent);
 }
 
 .inspector-section {
@@ -394,8 +513,7 @@ body[data-panel-crop="enabled"]:not(.is-capturing) .editor-panel-strip {
   display: grid;
 }
 
-body[data-panel-crop="enabled"]:not(.is-capturing) .artboard > .service-copy,
-body[data-panel-crop="enabled"]:not(.is-capturing) .panel-guide {
+body[data-panel-crop="enabled"]:not(.is-capturing) .artboard > .service-copy {
   display: none;
 }
 
@@ -433,24 +551,6 @@ body[data-panel-crop="enabled"]:not(.is-capturing) .panel-guide {
   font-weight: 680;
   letter-spacing: -0.025em;
   line-height: 1.45;
-}
-
-.panel-guide {
-  position: absolute;
-  z-index: 3;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: rgba(61, 70, 82, 0.25);
-  pointer-events: none;
-}
-
-.panel-guide--one {
-  left: 1320px;
-}
-
-.panel-guide--two {
-  left: 2640px;
 }
 
 .render-status {
@@ -509,8 +609,7 @@ body.is-capturing #showcaseCanvas {
   visibility: visible;
 }
 
-body.is-capturing .editor-panel-strip,
-body.is-capturing .panel-guide {
+body.is-capturing .editor-panel-strip {
   display: none;
 }
 

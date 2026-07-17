@@ -70,6 +70,7 @@ private struct LoofitWorkoutControlWidgetView: View {
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         if let startedAt = presentation.startedAt {
           Text(startedAt, style: .timer)
+            .environment(\.locale, LoofitFormat.koreanLocale)
             .font(.system(size: LoofitWidgetRendererContract.Control.timerSize, weight: LoofitWidgetRendererContract.FontWeight.bold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(LoofitColor(palette.tx))

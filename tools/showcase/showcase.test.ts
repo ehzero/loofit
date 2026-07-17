@@ -5,11 +5,17 @@ import {
   SCREENSHOT_LAYOUT,
   SHOWCASE_GAP,
 } from './config';
+import {
+  COMBINED_EXPORT_FILENAME,
+  SHOWCASE_EXPORT_SLICES,
+  SPLIT_EXPORT_FILENAME,
+} from './export';
 import { createRoundedPrismGeometry } from './three/geometry';
 
 const html = fs.readFileSync('tools/showcase/index.html', 'utf8');
 const css = fs.readFileSync('tools/showcase/showcase.css', 'utf8');
 const entry = fs.readFileSync('tools/showcase/main.ts', 'utf8');
+const imageExport = fs.readFileSync('tools/showcase/export.ts', 'utf8');
 const config = fs.readFileSync('tools/showcase/config.ts', 'utf8');
 const scene = fs.readFileSync('tools/showcase/three/scene.ts', 'utf8');
 const geometry = fs.readFileSync('tools/showcase/three/geometry.ts', 'utf8');
@@ -29,8 +35,8 @@ describe('Three.js showcase', () => {
     expect(html).toContain('height="2868"');
     expect(css).toContain('--canvas-width: 3960px');
     expect(css).toContain('--canvas-height: 2868px');
-    expect(css).toContain('left: 1320px');
-    expect(css).toContain('left: 2640px');
+    expect(html).not.toContain('panel-guide');
+    expect(css).not.toContain('.panel-guide');
     expect(css).toContain('linear-gradient(135deg, var(--canvas-a), var(--canvas-b))');
     expect(css).toContain('--canvas-a: #f2f3f5');
     expect(css).toContain('--canvas-b: #e9ebee');
@@ -96,6 +102,32 @@ describe('Three.js showcase', () => {
     expect(css).toContain('right: 160px');
     expect(scene).not.toContain('내 루틴대로,');
     expect(textures).not.toContain('기록은 간단하게,');
+  });
+
+  it('downloads the finished artwork as one PNG or three panel PNGs', () => {
+    expect(html).toContain('id="downloadButton"');
+    expect(html).toContain('data-export-mode="split"');
+    expect(html).toContain('data-export-mode="combined"');
+    expect(html).toContain('1320×2868 PNG 3장 · ZIP');
+    expect(html).toContain('3960×2868 PNG');
+    expect(entry).toContain('await Promise.all([showcase.ready, document.fonts.ready])');
+    expect(entry).toContain('composeShowcaseImage({');
+    expect(entry).toContain('downloadShowcaseImage(mode, output)');
+    expect(imageExport).toContain("export type ShowcaseExportMode = 'combined' | 'split'");
+    expect(imageExport).toContain("'loofit-showcase-3960x2868.png'");
+    expect(imageExport).toContain("'loofit-showcase-1320x2868-3pack.zip'");
+    expect(imageExport).toContain("canvas.toBlob((blob)");
+    expect(imageExport).toContain("}, 'image/png')");
+    expect(imageExport).toContain('zipSync(archiveEntries, { level: 0 })');
+    expect(imageExport).toContain('URL.revokeObjectURL(url)');
+    expect(COMBINED_EXPORT_FILENAME).toBe('loofit-showcase-3960x2868.png');
+    expect(SPLIT_EXPORT_FILENAME).toBe('loofit-showcase-1320x2868-3pack.zip');
+    expect(SHOWCASE_EXPORT_SLICES).toEqual([
+      { panel: 0, x: 0, y: 0, width: 1320, height: 2868, filename: 'loofit-showcase-01.png' },
+      { panel: 1, x: 1320, y: 0, width: 1320, height: 2868, filename: 'loofit-showcase-02.png' },
+      { panel: 2, x: 2640, y: 0, width: 1320, height: 2868, filename: 'loofit-showcase-03.png' },
+    ]);
+    expect(SHOWCASE_EXPORT_SLICES.at(-1)!.x + SCREENSHOT_LAYOUT.panelWidth).toBe(3960);
   });
 
   it('contains only a canvas instead of legacy HTML cards', () => {
@@ -178,7 +210,7 @@ describe('Three.js showcase', () => {
     expect(geometry).not.toContain('RoundedBoxGeometry');
     expect(config.match(/kind: '/g)).toHaveLength(18);
     expect(config).toContain('distance: 14000');
-    expect(config).toContain('tilt: 50');
+    expect(config).toContain('tilt: 35');
     expect(config).toContain('azimuth: -17.25');
     expect(scene).toContain('MathUtils.degToRad(-this.viewControls.cameraTilt)');
     expect(scene).toContain('MathUtils.degToRad(-this.viewControls.cameraAzimuth)');
@@ -345,7 +377,7 @@ describe('Three.js showcase', () => {
     expect(scene).toContain('envMapIntensity: 0.35');
     expect(scene).toContain('private createWidgetSurfaceMaterial(surface: CardSurface): MeshBasicMaterial');
     expect(scene).toContain('toneMapped: false');
-    expect(config).toContain('lightIntensity: 1');
+    expect(config).toContain('lightIntensity: 0.97');
   });
 
   it('lets the rounded widget material own the background and highlight', () => {
@@ -355,6 +387,12 @@ describe('Three.js showcase', () => {
     expect(textures).not.toContain('base.addColorStop');
     expect(textures).not.toContain('shine.addColorStop');
     expect(textures).not.toContain('metal.addColorStop');
+  });
+
+  it('fills the six-month widget width with its complete heatmap grid', () => {
+    expect(textures).toContain('const gridWidth = width - 40');
+    expect(textures).toContain('const cell = (gridWidth - gap * (columns - 1)) / columns');
+    expect(textures).not.toContain('Math.min((gridWidth - gap * (columns - 1)) / columns, 9.3)');
   });
 
   it('keeps theme, accent and phase controls in the Three.js texture pipeline', () => {
@@ -401,10 +439,10 @@ describe('Three.js showcase', () => {
     expect(html).toContain('data-view-control="cameraTilt"');
     expect(html).toContain('data-view-control="cameraAzimuth"');
     expect(html).toContain('data-view-control="cameraDistance"');
-    expect(html).toContain('data-view-control="cameraZoom" type="range" min="0.6" max="1.6" step="0.05" value="1"');
+    expect(html).toContain('data-view-control="cameraZoom" type="range" min="0.6" max="1.6" step="0.05" value="1.15"');
     expect(html).toContain('<span>장면 줌</span>');
     expect(html).toContain('data-view-control="shadowDirection"');
-    expect(html).toContain('data-view-control="shadowSpread" type="range" min="0" max="80" step="1" value="24"');
+    expect(html).toContain('data-view-control="shadowSpread" type="range" min="0" max="80" step="1" value="9"');
     expect(html).toContain('data-view-control="lightIntensity"');
     expect(html).toContain('data-view-control="lightIntensity" type="range" min="0" max="6" step="0.01"');
     expect(html).toContain('data-view-control="shadowRadius"');
@@ -420,9 +458,13 @@ describe('Three.js showcase', () => {
     expect(scene).toContain('private applyScreenSpaceShadowDirection(): void');
     expect(scene).toContain('const desiredY = -Math.sin(angle)');
     expect(scene).toContain('multiplyScalar(this.viewControls.shadowSpread)');
-    expect(config).toContain('shadowDirection: 90');
-    expect(config).toContain('cameraZoom: 1');
-    expect(config).toContain('shadowSpread: 24');
+    expect(config).toContain('shadowDirection: 104');
+    expect(config).toContain('cameraZoom: 1.15');
+    expect(config).toContain('shadowSpread: 9');
+    expect(config).toContain('lightIntensity: 0.97');
+    expect(config).toContain('shadowRadius: 15');
+    expect(config).toContain('meshDepthScale: 0.8');
+    expect(config).toContain('meshZ: 20');
     expect(config).not.toContain('shadowDistance:');
     expect(config).not.toContain('lightX:');
     expect(config).not.toContain('lightY:');
@@ -434,6 +476,21 @@ describe('Three.js showcase', () => {
     expect(scene).not.toContain('model.scale.set(baseScale, baseScale, -baseScale)');
     expect(scene).not.toContain('-baseScale * depthScale');
     expect(config).not.toContain('lift:');
+  });
+
+  it('persists and restores custom scene controls from the inspector', () => {
+    expect(html).toContain('id="saveSceneControls"');
+    expect(html).toContain('>저장</button>');
+    expect(entry).toContain("const VIEW_CONTROLS_STORAGE_KEY = 'loofit-showcase:view-controls'");
+    expect(entry).toContain('function readViewControls(): ShowcaseViewControls');
+    expect(entry).toContain('function loadStoredViewControls(): ShowcaseViewControls | null');
+    expect(entry).toContain('localStorage.setItem(VIEW_CONTROLS_STORAGE_KEY');
+    expect(entry).toContain('localStorage.removeItem(VIEW_CONTROLS_STORAGE_KEY)');
+    expect(entry).toContain('loadStoredViewControls() ?? { ...DEFAULT_VIEW_CONTROLS }');
+    expect(entry).toContain('applyViewControls(initialViewControls)');
+    expect(entry).toContain("window.addEventListener(\n  'pageshow'");
+    expect(entry).toContain('applyViewControls(restoredViewControls)');
+    expect(css).toContain('#saveSceneControls[data-state="saved"]');
   });
 
   it('keeps web-only dependencies out of the mobile app package', () => {

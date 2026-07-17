@@ -41,7 +41,7 @@ export const CANVAS = Object.freeze({
 export const STAGE = Object.freeze({ width: 1491.6318, height: 1080, scale: 0.88 });
 export const CAMERA = Object.freeze({
   distance: 14000,
-  tilt: 50,
+  tilt: 35,
   azimuth: -17.25,
   perspectiveOriginY: 0.46,
 });
@@ -151,12 +151,12 @@ export const DEFAULT_VIEW_CONTROLS: ShowcaseViewControls = Object.freeze({
   cameraTilt: CAMERA.tilt,
   cameraAzimuth: CAMERA.azimuth,
   cameraDistance: CAMERA.distance,
-  cameraZoom: 1,
-  shadowDirection: 90,
-  shadowSpread: 24,
-  lightIntensity: 1,
-  shadowRadius: 5,
-  meshDepthScale: 1,
+  cameraZoom: 1.15,
+  shadowDirection: 104,
+  shadowSpread: 9,
+  lightIntensity: 0.97,
+  shadowRadius: 15,
+  meshDepthScale: 0.8,
   cornerRadiusScale: 1,
-  meshZ: 0,
+  meshZ: 20,
 });

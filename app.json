@@ -9,6 +9,10 @@
       "supportsTablet": false,
       "bundleIdentifier": "com.loofit.app",
       "infoPlist": {
+        "CFBundleDevelopmentRegion": "ko",
+        "CFBundleLocalizations": [
+          "ko"
+        ],
         "ITSAppUsesNonExemptEncryption": false
       }
     },

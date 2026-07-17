@@ -59,27 +59,16 @@ export type RoutineProgress = {
   updatedAt: string;
 };
 
-export type StartWorkoutInput =
-  | {
-      kind: 'routine';
-      routineDayId: number;
-    }
-  | {
-      kind: 'free';
-      bodyPartIds: number[];
-      label?: string;
-    };
+export type StartWorkoutInput = {
+  kind: 'routine';
+  routineDayId: number;
+};
 
-export type SessionTarget =
-  | {
-      kind: 'routine';
-      routineDay: RoutineDay;
-    }
-  | {
-      kind: 'free';
-      bodyParts: BodyPart[];
-      label?: string;
-    };
+export type ChangeWorkoutInput = {
+  bodyPartIds: number[];
+  /** Also replace the active split's default body parts for future workouts. */
+  updateRoutine: boolean;
+};
 
 export type HeatmapBucket = 0 | 1 | 2 | 3 | 4;
 

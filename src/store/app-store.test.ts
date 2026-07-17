@@ -99,6 +99,22 @@ describe('app workout pipeline', () => {
     expect(repositoryMocks.completeActiveWorkout).not.toHaveBeenCalled();
   });
 
+  it('sends the selected workout edit scope with the active session id', async () => {
+    useAppStore.setState({ overview: overviewWithSession(42) });
+
+    await useAppStore
+      .getState()
+      .changeActive({ bodyPartIds: [3], updateRoutine: true });
+
+    expect(pipelineMocks.executeAppWorkoutCommand).toHaveBeenCalledWith({
+      type: 'changeParts',
+      expectedSessionId: 42,
+      bodyPartIds: [3],
+      updateRoutine: true,
+    });
+    expect(repositoryMocks.changeActiveWorkout).not.toHaveBeenCalled();
+  });
+
   it('treats a committed command with deferred publication as applied and rereads the database', async () => {
     pipelineMocks.executeAppWorkoutCommand.mockResolvedValue({
       ...commandResult,
@@ -238,18 +254,18 @@ describe('app workout pipeline', () => {
     );
   });
 
-  it('retains the repository fallback outside iOS', async () => {
+  it('retains the routine repository fallback outside iOS', async () => {
     pipelineMocks.usesNativeWorkoutPipeline.mockReturnValue(false);
     repositoryMocks.startWorkout.mockResolvedValue({
       status: 'applied',
       session: { id: 9 },
     });
 
-    const result = await useAppStore.getState().start({ kind: 'free', bodyPartIds: [3] });
+    const result = await useAppStore.getState().start({ kind: 'routine', routineDayId: 7 });
 
     expect(repositoryMocks.startWorkout).toHaveBeenCalledWith({
-      kind: 'free',
-      bodyPartIds: [3],
+      kind: 'routine',
+      routineDayId: 7,
     });
     expect(pipelineMocks.executeAppWorkoutCommand).not.toHaveBeenCalled();
     expect(result).toMatchObject({
@@ -268,7 +284,7 @@ describe('app workout pipeline', () => {
     const noop = await useAppStore.getState().start({ kind: 'routine', routineDayId: 7 });
     const rejected = await useAppStore
       .getState()
-      .start({ kind: 'free', bodyPartIds: [] });
+      .start({ kind: 'routine', routineDayId: 999 });
 
     expect(noop).toMatchObject({ status: 'noop', sessionId: 42 });
     expect(rejected).toMatchObject({
@@ -285,7 +301,7 @@ describe('app workout pipeline', () => {
       status: 'stale',
       session: { id: 99 },
     });
-    const input = { kind: 'routine', routineDayId: 7 } as const;
+    const input = { bodyPartIds: [3], updateRoutine: false };
 
     const result = await useAppStore.getState().changeActive(input);
 

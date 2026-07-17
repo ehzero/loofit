@@ -9,8 +9,17 @@ import {
   DATABASE_VERSION,
   type DatabaseSchemaMigrationStep,
 } from './generated/workout-schema.generated';
+import { DEFAULT_BODY_PARTS } from './schema';
 
 describe('generated database schema', () => {
+  it('includes the complete default body-part catalog without duplicate names', () => {
+    const names = DEFAULT_BODY_PARTS.map((part) => part.name);
+
+    expect(names).toContain('전신');
+    expect(names).toContain('스트레칭');
+    expect(new Set(names).size).toBe(names.length);
+  });
+
   it('uses the complete unreleased schema as the version 1 baseline', () => {
     expect(DATABASE_VERSION).toBe(1);
     expect(schemaContract.database.version).toBe(1);
@@ -157,7 +166,7 @@ function insertActiveSession(database: DatabaseSync, id: number): void {
       `INSERT INTO workout_sessions
         (id, routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at,
          duration_seconds, status, note, created_at, updated_at)
-       VALUES (?, NULL, NULL, NULL, ?, NULL, 0, 'active', NULL, ?, ?)`
+       VALUES (?, 10, 101, 'Push', ?, NULL, 0, 'active', NULL, ?, ?)`
     )
     .run(id, now, now, now);
 }

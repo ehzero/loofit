@@ -14,6 +14,9 @@ export type ConfirmConfig = {
   danger?: boolean;
   /** Return false when the action failed and the dialog should stay open. */
   onConfirm: () => boolean | void | Promise<boolean | void>;
+  /** Optional second choice for non-destructive scope decisions. */
+  alternateLabel?: string;
+  onAlternate?: () => boolean | void | Promise<boolean | void>;
 };
 
 export function ConfirmDialog({
@@ -30,14 +33,14 @@ export function ConfirmDialog({
     setIsSubmitting(false);
   }, [config]);
 
-  async function confirm() {
-    if (!config || isSubmitting) {
+  async function runAction(action?: () => boolean | void | Promise<boolean | void>) {
+    if (!action || isSubmitting) {
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const shouldClose = await config.onConfirm();
+      const shouldClose = await action();
       if (shouldClose !== false) {
         onClose();
       }
@@ -70,24 +73,45 @@ export function ConfirmDialog({
             style={styles.description}>
             {config?.description}
           </AppText>
-          <View style={styles.actions}>
-            <Button
-              size="md"
-              variant="neutral"
-              style={styles.action}
-              disabled={isSubmitting}
-              onPress={close}>
-              닫기
-            </Button>
-            <Button
-              size="md"
-              variant={config?.danger ? 'dangerSolid' : 'accent'}
-              style={styles.action}
-              disabled={isSubmitting}
-              onPress={confirm}>
-              {config?.confirmLabel}
-            </Button>
-          </View>
+          {config?.onAlternate && config.alternateLabel ? (
+            <View style={styles.choiceActions}>
+              <Button
+                size="md"
+                disabled={isSubmitting}
+                onPress={() => runAction(config.onConfirm)}>
+                {config.confirmLabel}
+              </Button>
+              <Button
+                size="md"
+                variant="neutral"
+                disabled={isSubmitting}
+                onPress={() => runAction(config.onAlternate)}>
+                {config.alternateLabel}
+              </Button>
+              <Button size="md" variant="ghost" disabled={isSubmitting} onPress={close}>
+                닫기
+              </Button>
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              <Button
+                size="md"
+                variant="neutral"
+                style={styles.action}
+                disabled={isSubmitting}
+                onPress={close}>
+                닫기
+              </Button>
+              <Button
+                size="md"
+                variant={config?.danger ? 'dangerSolid' : 'accent'}
+                style={styles.action}
+                disabled={isSubmitting}
+                onPress={() => runAction(config?.onConfirm)}>
+                {config?.confirmLabel}
+              </Button>
+            </View>
+          )}
         </View>
       </View>
     </Modal>
@@ -116,6 +140,10 @@ const styles = StyleSheet.create({
   actions: {
     flexDirection: 'row',
     gap: spacing.sm,
+    marginTop: spacing.sm,
+  },
+  choiceActions: {
+    gap: spacing.xs,
     marginTop: spacing.sm,
   },
   action: {

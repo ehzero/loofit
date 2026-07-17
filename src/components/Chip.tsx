@@ -18,7 +18,7 @@ export function Tag({ label }: { label: string }) {
   );
 }
 
-/** Selectable pill used across free-workout / part pickers. */
+/** Selectable pill used across body-part pickers. */
 export function Chip({
   label,
   selected,

@@ -65,6 +65,8 @@ export default function HomeScreen() {
 
   const [sheet, setSheet] = useState<'start' | 'change' | null>(null);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
+  const [workoutEditIds, setWorkoutEditIds] = useState<number[]>([]);
+  const [queuedWorkoutEditIds, setQueuedWorkoutEditIds] = useState<number[] | null>(null);
   const [now, setNow] = useState(Date.now());
   const [messageSeed, setMessageSeed] = useState(createMessageSeed);
   const [isMessageRefreshing, setIsMessageRefreshing] = useState(false);
@@ -216,7 +218,11 @@ export default function HomeScreen() {
 
   // ---- During: an active session turns Home into the workout screen ----
   if (active) {
+    const availableBodyParts = overview.bodyParts;
     const partStr = joinPartNames(active.parts.map((part) => ({ name: part.bodyPartName })));
+    const activePartIds = active.parts
+      .map((part) => part.bodyPartId)
+      .filter((id): id is number => id !== null);
 
     async function finish() {
       const result = await completeActive();
@@ -227,6 +233,35 @@ export default function HomeScreen() {
             : '운동이 기록되었어요'
         );
       }
+    }
+
+    async function applyWorkoutEdit(bodyPartIds: number[], updateRoutine: boolean) {
+      const result = await changeActive({ bodyPartIds, updateRoutine });
+      if (isActionSuccessful(result)) {
+        showToast(updateRoutine ? '루틴에도 반영했어요' : '이번 운동에만 적용했어요');
+      }
+      return shouldDismissAfterAction(result);
+    }
+
+    function confirmWorkoutEdit(bodyPartIds: number[]) {
+      const selectedPartNames = availableBodyParts
+        .filter((part) => bodyPartIds.includes(part.id))
+        .map((part) => part.name)
+        .join(' · ');
+      setConfirm({
+        title: '운동 수정을 적용할까요?',
+        description: `선택한 운동 부위: ${selectedPartNames}\n루틴에도 반영하면 현재 분할의 기본 운동 부위도 함께 바뀌어요.`,
+        confirmLabel: '루틴에도 반영',
+        alternateLabel: '이번 운동에만 적용',
+        onConfirm: () => applyWorkoutEdit(bodyPartIds, true),
+        onAlternate: () => applyWorkoutEdit(bodyPartIds, false),
+      });
+    }
+
+    function openWorkoutEdit() {
+      setWorkoutEditIds(activePartIds);
+      setQueuedWorkoutEditIds(null);
+      setSheet('change');
     }
 
     return (
@@ -247,13 +282,13 @@ export default function HomeScreen() {
               시작 {formatClock(active.startedAt)}
             </AppText>
             <Pressable
-              onPress={() => setSheet('change')}
+              onPress={openWorkoutEdit}
               style={[
                 styles.changeBtn,
                 { backgroundColor: colors.surface2, borderColor: colors.border2 },
               ]}>
               <AppText variant="footnote" weight="700" tone="secondary">
-                운동 변경
+                운동 수정
               </AppText>
             </Pressable>
           </View>
@@ -289,14 +324,27 @@ export default function HomeScreen() {
 
         <ChangePartSheet
           visible={sheet === 'change'}
-          bodyParts={overview.bodyParts.map((part) => ({ id: part.id, name: part.name }))}
-          activeIds={active.parts.map((part) => part.bodyPartId).filter((id): id is number => !!id)}
+          bodyParts={availableBodyParts.map((part) => ({ id: part.id, name: part.name }))}
+          activeIds={activePartIds}
+          selectedIds={workoutEditIds}
           onClose={() => setSheet(null)}
-          onPick={async (id) => {
-            const result = await changeActive({ kind: 'free', bodyPartIds: [id] });
-            if (shouldDismissAfterAction(result)) {
-              setSheet(null);
+          onClosed={() => {
+            if (queuedWorkoutEditIds) {
+              const bodyPartIds = queuedWorkoutEditIds;
+              setQueuedWorkoutEditIds(null);
+              confirmWorkoutEdit(bodyPartIds);
             }
+          }}
+          onToggle={(bodyPartId) => {
+            setWorkoutEditIds((currentIds) =>
+              currentIds.includes(bodyPartId)
+                ? currentIds.filter((id) => id !== bodyPartId)
+                : [...currentIds, bodyPartId]
+            );
+          }}
+          onSubmit={(bodyPartIds) => {
+            setQueuedWorkoutEditIds(bodyPartIds);
+            setSheet(null);
           }}
         />
         <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
@@ -538,12 +586,6 @@ export default function HomeScreen() {
             setSheet(null);
           }
         }}
-        onStartFree={async (bodyPartId) => {
-          const result = await start({ kind: 'free', bodyPartIds: [bodyPartId] });
-          if (shouldDismissAfterAction(result)) {
-            setSheet(null);
-          }
-        }}
       />
     </>
   );
@@ -607,20 +649,15 @@ function StartSheet({
   overview,
   onClose,
   onStartRoutine,
-  onStartFree,
 }: {
   visible: boolean;
   overview: NonNullable<ReturnType<typeof useAppStore.getState>['overview']>;
   onClose: () => void;
   onStartRoutine: (routineDayId: number) => void | Promise<void>;
-  onStartFree: (bodyPartId: number) => void | Promise<void>;
 }) {
   return (
-    <BottomSheet visible={visible} title="운동 선택" onClose={onClose}>
+    <BottomSheet visible={visible} title="분할 선택" onClose={onClose}>
       <View style={styles.sheetSection}>
-        <AppText variant="label" tone="muted">
-          루틴 운동
-        </AppText>
         {overview.routineDays.map((day) => {
           const startable = day.parts.length > 0;
           const sub = !startable
@@ -645,16 +682,6 @@ function StartSheet({
           );
         })}
       </View>
-      <View style={styles.sheetSection}>
-        <AppText variant="label" tone="muted">
-          루틴 밖 자유 운동
-        </AppText>
-        <View style={styles.chipWrap}>
-          {overview.bodyParts.map((part) => (
-            <Chip key={part.id} label={part.name} onPress={() => onStartFree(part.id)} />
-          ))}
-        </View>
-      </View>
     </BottomSheet>
   );
 }
@@ -663,29 +690,54 @@ function ChangePartSheet({
   visible,
   bodyParts,
   activeIds,
+  selectedIds,
   onClose,
-  onPick,
+  onClosed,
+  onToggle,
+  onSubmit,
 }: {
   visible: boolean;
   bodyParts: Array<{ id: number; name: string }>;
   activeIds: number[];
+  selectedIds: number[];
   onClose: () => void;
-  onPick: (id: number) => void | Promise<void>;
+  onClosed: () => void;
+  onToggle: (bodyPartId: number) => void;
+  onSubmit: (bodyPartIds: number[]) => void;
 }) {
+  const orderedSelectedIds = bodyParts
+    .filter((part) => selectedIds.includes(part.id))
+    .map((part) => part.id);
+  const canSubmit =
+    orderedSelectedIds.length > 0 && !haveSameIds(orderedSelectedIds, activeIds);
+
   return (
-    <BottomSheet visible={visible} title="운동 부위 변경" onClose={onClose}>
+    <BottomSheet
+      visible={visible}
+      title="운동 부위 선택"
+      onClose={onClose}
+      onClosed={onClosed}
+      footer={
+        <Button disabled={!canSubmit} onPress={() => onSubmit(orderedSelectedIds)}>
+          선택 완료 ({orderedSelectedIds.length})
+        </Button>
+      }>
       <View style={styles.chipWrap}>
         {bodyParts.map((part) => (
           <Chip
             key={part.id}
             label={part.name}
-            selected={activeIds.includes(part.id)}
-            onPress={() => onPick(part.id)}
+            selected={selectedIds.includes(part.id)}
+            onPress={() => onToggle(part.id)}
           />
         ))}
       </View>
     </BottomSheet>
   );
+}
+
+function haveSameIds(left: number[], right: number[]): boolean {
+  return left.length === right.length && left.every((id) => right.includes(id));
 }
 
 const styles = StyleSheet.create({

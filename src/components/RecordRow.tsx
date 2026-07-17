@@ -29,7 +29,7 @@ export function RecordRow({
           <AppText variant="item" weight="800" numberOfLines={1} style={styles.title}>
             {title}
           </AppText>
-          <Badge label={session.routineDayId ? '루틴' : '자유'} />
+          <Badge label="루틴" />
         </View>
         <AppText variant="label" weight="600" tone="muted">
           {formatDateK(session.startedAt)}

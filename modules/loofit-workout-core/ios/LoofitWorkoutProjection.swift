@@ -15,7 +15,7 @@ private struct LoofitSessionBuilder {
   var snapshot: LoofitWorkoutSessionSnapshot {
     let partNames = parts.map(\.name).joined(separator: " · ")
     let trimmedAlias = alias.trimmingCharacters(in: .whitespacesAndNewlines)
-    let title = trimmedAlias.isEmpty ? (partNames.isEmpty ? "자유 운동" : partNames) : trimmedAlias
+    let title = trimmedAlias.isEmpty ? (partNames.isEmpty ? "운동 기록" : partNames) : trimmedAlias
     let detail = trimmedAlias.isEmpty || trimmedAlias == partNames ? "" : partNames
     return .init(
       id: id,

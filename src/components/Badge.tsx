@@ -7,7 +7,7 @@ import { AppText } from './AppText';
 
 /**
  * Tiny status/category marker.
- * accent: emphasized ("다음"). outline: quiet category tag ("루틴"/"자유").
+ * accent: emphasized ("다음"). outline: quiet category tag ("루틴").
  */
 export function Badge({
   label,

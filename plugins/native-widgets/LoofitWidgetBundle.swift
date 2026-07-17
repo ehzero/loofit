@@ -157,6 +157,8 @@ struct LoofitWorkoutPresentation {
 }
 
 enum LoofitFormat {
+  static let koreanLocale = Locale(identifier: "ko_KR")
+
   static func duration(_ totalSeconds: Int) -> String {
     let seconds = max(0, totalSeconds)
     let hours = seconds / 3_600
@@ -168,7 +170,7 @@ enum LoofitFormat {
 
   static func clock(_ date: Date) -> String {
     let formatter = DateFormatter()
-    formatter.locale = Locale(identifier: "ko_KR")
+    formatter.locale = koreanLocale
     formatter.dateFormat = "a h:mm"
     return formatter.string(from: date)
   }
@@ -870,6 +872,7 @@ private struct LoofitActivityTimer: View {
         Text("0:00")
       }
     }
+    .environment(\.locale, LoofitFormat.koreanLocale)
     .font(.system(size: size, weight: LoofitWidgetRendererContract.FontWeight.bold, design: .rounded))
     .monospacedDigit()
     .foregroundStyle(LoofitColor(state.accent))

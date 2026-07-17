@@ -2,12 +2,14 @@ const fs = require('fs');
 const path = require('path');
 
 const { IOSConfig, withDangerousMod, withXcodeProject } = require('@expo/config-plugins');
+const plist = require('@expo/plist').default;
 
 const brand = require('../src/config/brand.json');
 const widgetRendererContract = require('../src/widgets/widget-renderer-contract.json');
 
 const TARGET_NAME = 'ExpoWidgetsTarget';
 const RENDERER_CONTRACT_FILE = 'LoofitWidgetRendererContract.generated.swift';
+const KOREAN_LANGUAGE_CODE = 'ko';
 
 function corePodDeclaration() {
   const testSpec = process.env.LOOFIT_CORE_TESTS === '1' ? ", :testspecs => ['Tests']" : '';
@@ -21,6 +23,32 @@ function write(targetPath, contents) {
 
 function readNativeSource(name) {
   return fs.readFileSync(path.join(__dirname, 'native-widgets', name), 'utf8');
+}
+
+function configureKoreanProjectLocalization(project) {
+  const rootProject = project.getFirstProject()?.firstProject;
+  if (!rootProject) {
+    throw new Error('[Loofit] Could not resolve the iOS project localization settings.');
+  }
+
+  rootProject.developmentRegion = KOREAN_LANGUAGE_CODE;
+  rootProject.knownRegions = [
+    KOREAN_LANGUAGE_CODE,
+    ...(rootProject.knownRegions ?? []).filter(
+      (region) => region !== KOREAN_LANGUAGE_CODE && region !== 'en'
+    ),
+  ];
+}
+
+function configureWidgetInfoPlist(infoPlistPath) {
+  if (!fs.existsSync(infoPlistPath)) {
+    throw new Error(`[Loofit] Widget Extension Info.plist is missing at ${infoPlistPath}.`);
+  }
+
+  const infoPlist = plist.parse(fs.readFileSync(infoPlistPath, 'utf8'));
+  infoPlist.CFBundleDevelopmentRegion = KOREAN_LANGUAGE_CODE;
+  infoPlist.CFBundleLocalizations = [KOREAN_LANGUAGE_CODE];
+  fs.writeFileSync(infoPlistPath, plist.build(infoPlist));
 }
 
 function heatmapWidget({ name, kind, variant, displayName, description, family }) {
@@ -166,11 +194,13 @@ function includeGeneratedRendererContract(project) {
 
 function withWidgetBuildSettings(config) {
   return withXcodeProject(config, (nextConfig) => {
+    const project = nextConfig.modResults;
+    configureKoreanProjectLocalization(project);
+
     if (nextConfig.extra?.widgetsEnabled === false || process.env.LOOFIT_APP_ONLY === '1') {
       return nextConfig;
     }
 
-    const project = nextConfig.modResults;
     const target = project.pbxTargetByName(TARGET_NAME);
     if (!target) {
       throw new Error(`[Loofit] ${TARGET_NAME} was not generated before build settings ran.`);
@@ -217,6 +247,7 @@ module.exports = function withLoofitNativeWidgets(config) {
       const projectRoot = nextConfig.modRequest.platformProjectRoot;
       const targetDirectory = path.join(projectRoot, TARGET_NAME);
       const podfilePath = path.join(projectRoot, 'Podfile');
+      const widgetInfoPlistPath = path.join(targetDirectory, 'Info.plist');
 
       if (!fs.existsSync(targetDirectory)) {
         throw new Error(
@@ -289,6 +320,7 @@ module.exports = function withLoofitNativeWidgets(config) {
         })
       );
 
+      configureWidgetInfoPlist(widgetInfoPlistPath);
       isolateWidgetExtensionPodDependencies(podfilePath);
       return nextConfig;
     },

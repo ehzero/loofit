@@ -321,7 +321,7 @@ function drawYear(
   const gridX = 20;
   const gridY = 66;
   const gridWidth = width - 40;
-  const cell = Math.min((gridWidth - gap * (columns - 1)) / columns, 9.3);
+  const cell = (gridWidth - gap * (columns - 1)) / columns;
   YEAR_LEVELS.forEach((level, index) => {
     const column = Math.floor(index / rows);
     const row = index % rows;
@@ -826,7 +826,7 @@ function drawPhoneActive(
   drawText(context, '시작 오전 7:34', width / 2, 337, 11, 600, palette.text3, 'center');
   fillRounded(context, width / 2 - 55, 360, 110, 36, 18, palette.surface);
   strokeRounded(context, width / 2 - 55, 360, 110, 36, 18, palette.borderStrong, 1);
-  drawText(context, '운동 변경', width / 2, 383, 11, 700, palette.text2, 'center');
+  drawText(context, '운동 수정', width / 2, 383, 11, 700, palette.text2, 'center');
 
   drawPhoneButton(context, 20, 538, width - 40, 54, '운동 종료', palette);
   drawText(context, '운동 취소', width / 2, 628, 12, 800, palette.danger, 'center');

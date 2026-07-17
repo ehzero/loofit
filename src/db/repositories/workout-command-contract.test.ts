@@ -46,9 +46,12 @@ type SessionReference = { ref: string; offset?: number };
 type ContractCommand =
   | { type: 'startNext' }
   | { type: 'startRoutine'; routineDayId: number }
-  | { type: 'startFree'; bodyPartIds: number[]; label?: string }
-  | { type: 'changeRoutine'; expectedSessionId: SessionReference; routineDayId: number }
-  | { type: 'changeFree'; expectedSessionId: SessionReference; bodyPartIds: number[] }
+  | {
+      type: 'changeParts';
+      expectedSessionId: SessionReference;
+      bodyPartIds: number[];
+      updateRoutine: boolean;
+    }
   | { type: 'complete'; expectedSessionId: SessionReference }
   | { type: 'cancel'; expectedSessionId: SessionReference };
 
@@ -86,7 +89,7 @@ type CommandScenarioFixture = {
       sessions: Array<{
         ref: string;
         status: SessionStatus;
-        routineDayId: number | null;
+        routineDayId: number;
         parts: string[];
       }>;
     };
@@ -156,42 +159,6 @@ describe('historical session snapshot preservation', () => {
     });
   });
 
-  it('keeps custom and archived free snapshots for unchanged and retained parts', async () => {
-    await withSeededDatabase(async (database) => {
-      const started = await startWorkout({ kind: 'free', bodyPartIds: [3] });
-      const sessionId = expectSessionId(started);
-      database.run(
-        `INSERT INTO workout_session_parts_snapshot
-         (workout_session_id, body_part_id, body_part_name, body_part_color, sort_order)
-         VALUES (?, NULL, '커스텀 운동', '#123456', 1)`,
-        sessionId
-      );
-      database.run(`UPDATE body_parts SET is_archived = 1 WHERE id = 3`);
-
-      expect(await updateSession(sessionId, {
-        note: '시간과 메모 수정',
-        routineDayId: null,
-        bodyPartIds: [3],
-      })).toBe(true);
-      let session = await getSessionById(sessionId);
-      expect(session?.parts.map((part) => [part.bodyPartId, part.bodyPartName])).toEqual([
-        [3, '하체'],
-        [null, '커스텀 운동'],
-      ]);
-
-      expect(await updateSession(sessionId, {
-        routineDayId: null,
-        bodyPartIds: [3, 2],
-      })).toBe(true);
-      session = await getSessionById(sessionId);
-      expect(session?.parts.map((part) => [part.bodyPartId, part.bodyPartName])).toEqual([
-        [3, '하체'],
-        [null, '커스텀 운동'],
-        [2, '등'],
-      ]);
-    });
-  });
-
   it('regenerates snapshots when the workout target actually changes', async () => {
     await withSeededDatabase(async (database) => {
       const started = await startWorkout({ kind: 'routine', routineDayId: 101 });
@@ -204,6 +171,35 @@ describe('historical session snapshot preservation', () => {
       expect(session?.routineDayId).toBe(102);
       expect(session?.routineDayNameSnapshot).toBe('새 Pull');
       expect(session?.parts.map((part) => part.bodyPartName)).toEqual(['등']);
+    });
+  });
+});
+
+describe('active workout part edit transaction', () => {
+  it('rolls back the routine default when the session snapshot cannot be replaced', async () => {
+    await withSeededDatabase(async (database) => {
+      const started = await startWorkout({ kind: 'routine', routineDayId: 101 });
+      const sessionId = expectSessionId(started);
+      database.exec(`
+        CREATE TRIGGER reject_active_part_replacement
+        BEFORE INSERT ON workout_session_parts_snapshot
+        WHEN NEW.workout_session_id = ${sessionId}
+        BEGIN
+          SELECT RAISE(ABORT, 'test part replacement failure');
+        END;
+      `);
+
+      await expect(
+        changeActiveWorkout(sessionId, { bodyPartIds: [3], updateRoutine: true })
+      ).rejects.toThrow('test part replacement failure');
+
+      const routinePart = database.getFirst<{ body_part_id: number }>(
+        `SELECT body_part_id FROM routine_day_parts WHERE routine_day_id = 101`
+      );
+      expect(routinePart?.body_part_id).toBe(1);
+      expect((await getSessionById(sessionId))?.parts.map((part) => part.bodyPartName)).toEqual([
+        '가슴',
+      ]);
     });
   });
 });
@@ -305,21 +301,10 @@ async function executeCommand(
     }
     case 'startRoutine':
       return startWorkout({ kind: 'routine', routineDayId: command.routineDayId });
-    case 'startFree':
-      return startWorkout({
-        kind: 'free',
-        bodyPartIds: command.bodyPartIds,
-        label: command.label,
-      });
-    case 'changeRoutine':
+    case 'changeParts':
       return changeActiveWorkout(resolveReference(command.expectedSessionId, sessions), {
-        kind: 'routine',
-        routineDayId: command.routineDayId,
-      });
-    case 'changeFree':
-      return changeActiveWorkout(resolveReference(command.expectedSessionId, sessions), {
-        kind: 'free',
         bodyPartIds: command.bodyPartIds,
+        updateRoutine: command.updateRoutine,
       });
     case 'complete':
       return completeActiveWorkout(resolveReference(command.expectedSessionId, sessions));

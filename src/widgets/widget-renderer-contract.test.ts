@@ -399,6 +399,39 @@ describe('widget renderer contract', () => {
     expect(plugin).toContain('IOSConfig.XcodeUtils.addBuildSourceFileToGroup');
   });
 
+  it('keeps native iOS surfaces Korean-localized while the launch is Korea-only', () => {
+    const appConfig = JSON.parse(fs.readFileSync('app.json', 'utf8'));
+    const plugin = fs.readFileSync('plugins/with-loofit-heatmap-widgets.js', 'utf8');
+    const lockScreen = fs.readFileSync(
+      'plugins/native-widgets/WorkoutLockScreenWidget.swift',
+      'utf8'
+    );
+    const control = fs.readFileSync(
+      'plugins/native-widgets/WorkoutControlWidget.swift',
+      'utf8'
+    );
+    const bundle = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
+    const appOnlyVerifier = fs.readFileSync(
+      'scripts/verify-app-only-ios-project.sh',
+      'utf8'
+    );
+
+    expect(appConfig.expo.ios.infoPlist).toMatchObject({
+      CFBundleDevelopmentRegion: 'ko',
+      CFBundleLocalizations: ['ko'],
+    });
+    expect(plugin).toContain("const KOREAN_LANGUAGE_CODE = 'ko'");
+    expect(plugin).toContain('configureKoreanProjectLocalization(project)');
+    expect(plugin).toContain('configureWidgetInfoPlist(widgetInfoPlistPath)');
+    expect(bundle).toContain('static let koreanLocale = Locale(identifier: "ko_KR")');
+    expect(lockScreen).toContain('.environment(\\.locale, LoofitFormat.koreanLocale)');
+    expect(control).toContain('.environment(\\.locale, LoofitFormat.koreanLocale)');
+    expect(bundle).toContain('.environment(\\.locale, LoofitFormat.koreanLocale)');
+    expect(appOnlyVerifier).toContain('CFBundleDevelopmentRegion=$NATIVE_LANGUAGE');
+    expect(appOnlyVerifier).toContain('CFBundleLocalizations');
+    expect(appOnlyVerifier).toContain('developmentRegion = $NATIVE_LANGUAGE;');
+  });
+
   it('projects semantic policies to both Swift boundaries and consumes them natively', () => {
     const extensionContract = fs.readFileSync(
       'plugins/native-widgets/LoofitWidgetRendererContract.generated.swift',

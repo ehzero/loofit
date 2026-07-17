@@ -36,7 +36,7 @@ export function getRoutineDayAfterCompletion(
 
 export function joinPartNames(parts: Array<{ name: string }>): string {
   if (parts.length === 0) {
-    return '자유 운동';
+    return '운동 기록';
   }
   return parts.map((part) => part.name).join(' · ');
 }

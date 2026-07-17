@@ -13,6 +13,7 @@ WIDGET_INFO_PLIST="ios/ExpoWidgetsTarget/Info.plist"
 RENDERER_SOURCE="ios/ExpoWidgetsTarget/LoofitWidgetRendererContract.generated.swift"
 FORBIDDEN_PATTERN='ExpoModules|React|[Hh]ermes|use_expo|use_react_native|expo_widgets'
 APP_GROUP_IDENTIFIER='group.com.loofit.app'
+NATIVE_LANGUAGE='ko'
 
 if [[ ! -f "$PROJECT_FILE" || ! -f "$PODFILE" || ! -d "$PODS_PROJECT" || ! -f "$INFO_PLIST" || ! -f "$WIDGET_INFO_PLIST" ]]; then
   echo "Full-widget iOS project or installed Widget Extension pods are missing." >&2
@@ -26,6 +27,19 @@ for PLIST in "$INFO_PLIST" "$WIDGET_INFO_PLIST"; do
   )"
   if [[ "$CONFIGURED_APP_GROUP" != "$APP_GROUP_IDENTIFIER" ]]; then
     echo "$PLIST must declare ExpoWidgetsAppGroupIdentifier=$APP_GROUP_IDENTIFIER." >&2
+    exit 1
+  fi
+
+  CONFIGURED_DEVELOPMENT_REGION="$(
+    /usr/libexec/PlistBuddy -c 'Print :CFBundleDevelopmentRegion' "$PLIST" 2>/dev/null || true
+  )"
+  if [[ "$CONFIGURED_DEVELOPMENT_REGION" != "$NATIVE_LANGUAGE" ]]; then
+    echo "$PLIST must declare CFBundleDevelopmentRegion=$NATIVE_LANGUAGE." >&2
+    exit 1
+  fi
+  if ! /usr/libexec/PlistBuddy -c 'Print :CFBundleLocalizations' "$PLIST" 2>/dev/null \
+    | grep -qx "    $NATIVE_LANGUAGE"; then
+    echo "$PLIST must declare $NATIVE_LANGUAGE in CFBundleLocalizations." >&2
     exit 1
   fi
 done
@@ -111,6 +125,10 @@ if ! grep -Eq '^[[:space:]]*SWIFT_OPTIMIZATION_LEVEL = -O$' "$BUILD_SETTINGS"; t
 fi
 if ! grep -Eq '^[[:space:]]*SWIFT_COMPILATION_MODE = wholemodule$' "$BUILD_SETTINGS"; then
   echo "ExpoWidgetsTarget Release must use whole-module Swift compilation." >&2
+  exit 1
+fi
+if ! grep -Eq "^[[:space:]]*DEVELOPMENT_LANGUAGE = $NATIVE_LANGUAGE$" "$BUILD_SETTINGS"; then
+  echo "ExpoWidgetsTarget must resolve DEVELOPMENT_LANGUAGE=$NATIVE_LANGUAGE." >&2
   exit 1
 fi
 if ! grep -E '^[[:space:]]*(OTHER_LDFLAGS|FRAMEWORK_SEARCH_PATHS|LIBRARY_SEARCH_PATHS|SWIFT_INCLUDE_PATHS) =' "$BUILD_SETTINGS" \

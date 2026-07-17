@@ -75,26 +75,14 @@ final class LoofitWorkoutCommandContractTests: LoofitWorkoutCoreTestCase {
       return .startRoutine(
         routineDayId: try requiredInt64(value["routineDayId"], "command.routineDayId")
       )
-    case "startFree":
-      return .startFree(
+    case "changeParts":
+      return .changeParts(
+        expectedSessionId: try resolveReference(
+          value["expectedSessionId"],
+          capturedSessions: capturedSessions
+        ),
         bodyPartIds: try requiredInt64Array(value["bodyPartIds"], "command.bodyPartIds"),
-        label: value["label"] as? String
-      )
-    case "changeRoutine":
-      return .changeRoutine(
-        expectedSessionId: try resolveReference(
-          value["expectedSessionId"],
-          capturedSessions: capturedSessions
-        ),
-        routineDayId: try requiredInt64(value["routineDayId"], "command.routineDayId")
-      )
-    case "changeFree":
-      return .changeFree(
-        expectedSessionId: try resolveReference(
-          value["expectedSessionId"],
-          capturedSessions: capturedSessions
-        ),
-        bodyPartIds: try requiredInt64Array(value["bodyPartIds"], "command.bodyPartIds")
+        updateRoutine: try requiredBool(value["updateRoutine"], "command.updateRoutine")
       )
     case "complete":
       return .complete(expectedSessionId: try resolveReference(
@@ -169,18 +157,14 @@ final class LoofitWorkoutCommandContractTests: LoofitWorkoutCoreTestCase {
         "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
         [.integer(sessionId)]
       )
-      if expectedSession["routineDayId"] is NSNull {
-        XCTAssertNil(actualRoutineDayId, scenarioId)
-      } else {
-        XCTAssertEqual(
-          actualRoutineDayId,
-          try requiredInt64(
-            expectedSession["routineDayId"],
-            "\(scenarioId).session.routineDayId"
-          ),
-          scenarioId
-        )
-      }
+      XCTAssertEqual(
+        actualRoutineDayId,
+        try requiredInt64(
+          expectedSession["routineDayId"],
+          "\(scenarioId).session.routineDayId"
+        ),
+        scenarioId
+      )
 
       let expectedParts = try requiredArray(
         expectedSession["parts"],
@@ -340,6 +324,13 @@ final class LoofitWorkoutCommandContractTests: LoofitWorkoutCoreTestCase {
       throw ContractFixtureError("Expected integer at \(path)")
     }
     return number.int64Value
+  }
+
+  private func requiredBool(_ value: Any?, _ path: String) throws -> Bool {
+    guard let boolean = value as? Bool else {
+      throw ContractFixtureError("Expected boolean at \(path)")
+    }
+    return boolean
   }
 
   private func requiredInt64Array(_ value: Any?, _ path: String) throws -> [Int64] {

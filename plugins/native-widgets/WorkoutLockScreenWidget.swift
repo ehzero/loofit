@@ -88,6 +88,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
     Group {
       if presentation.state == .active, let startedAt = presentation.startedAt {
         Text(startedAt, style: .timer)
+          .environment(\.locale, LoofitFormat.koreanLocale)
       } else {
         Text(circularText)
       }
@@ -114,6 +115,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
       Group {
         if presentation.state == .active, let startedAt = presentation.startedAt {
           Text(startedAt, style: .timer)
+            .environment(\.locale, LoofitFormat.koreanLocale)
             .monospacedDigit()
         } else {
           Text(rectangularTitle)

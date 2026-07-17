@@ -61,7 +61,7 @@ describe('historical workout session display name', () => {
     ).toBe('Push');
   });
 
-  it('uses frozen body-part names for free workouts', () => {
+  it('uses frozen body-part names when a historical record has no split title', () => {
     expect(
       workoutSessionDisplayName({
         routineDayNameSnapshot: null,

@@ -35,12 +35,6 @@
       "output": "fastlane/screenshots/ko/06_ipad13_routine.png",
       "kicker": "나만의 순서",
       "headline": "분할도 루틴도\n내 방식대로"
-    },
-    {
-      "input": "store-assets/captures/ipad/07_free.png",
-      "output": "fastlane/screenshots/ko/07_ipad13_free.png",
-      "kicker": "루틴 밖에서도",
-      "headline": "자유 운동까지\n놓치지 않게"
     }
   ]
 }

@@ -2,7 +2,7 @@ import XCTest
 @testable import LoofitWorkoutCore
 
 final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
-  func testStartNextStartRoutineAndStartFreeUseRequestedTargets() throws {
+  func testStartNextAndStartRoutineUseRequestedTargets() throws {
     try seedRoutine(nextRoutineDayId: 102)
 
     let next = try LoofitWorkoutCommandEngine.execute(.startNext, database: database)
@@ -29,26 +29,9 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
     XCTAssertEqual(try routineDayNameSnapshot(of: routineId), "Push")
     XCTAssertEqual(try partNames(of: routineId), ["가슴"])
     _ = try LoofitWorkoutCommandEngine.execute(.cancel(expectedSessionId: routineId), database: database)
-
-    let free = try LoofitWorkoutCommandEngine.execute(
-      .startFree(bodyPartIds: [3], label: nil),
-      database: database
-    )
-    XCTAssertEqual(free.status, .applied)
-    let freeId = try XCTUnwrap(free.sessionId)
-    XCTAssertNil(try database.firstInt64(
-      "SELECT routine_id FROM workout_sessions WHERE id = ?",
-      [.integer(freeId)]
-    ))
-    XCTAssertNil(try database.firstInt64(
-      "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
-      [.integer(freeId)]
-    ))
-    XCTAssertNil(try routineDayNameSnapshot(of: freeId))
-    XCTAssertEqual(try partNames(of: freeId), ["하체"])
   }
 
-  func testChangeTargetPreservesSessionIdentityAndStartTime() throws {
+  func testChangePartsPreservesSessionIdentityStartTimeAndRoutineTarget() throws {
     try seedRoutine()
     let started = try LoofitWorkoutCommandEngine.execute(
       .startRoutine(routineDayId: 101),
@@ -57,33 +40,53 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
     let sessionId = try XCTUnwrap(started.sessionId)
     let originalStartedAt = try startedAt(of: sessionId)
 
-    let routineChange = try LoofitWorkoutCommandEngine.execute(
-      .changeRoutine(expectedSessionId: sessionId, routineDayId: 102),
+    let partChange = try LoofitWorkoutCommandEngine.execute(
+      .changeParts(
+        expectedSessionId: sessionId,
+        bodyPartIds: [3],
+        updateRoutine: false
+      ),
       database: database
     )
-    XCTAssertEqual(routineChange.status, .applied)
-    XCTAssertEqual(routineChange.sessionId, sessionId)
+    XCTAssertEqual(partChange.status, .applied)
+    XCTAssertEqual(partChange.sessionId, sessionId)
     XCTAssertEqual(try startedAt(of: sessionId), originalStartedAt)
     XCTAssertEqual(try database.firstInt64(
       "SELECT routine_day_id FROM workout_sessions WHERE id = ?",
       [.integer(sessionId)]
-    ), 102)
-    XCTAssertEqual(try routineDayNameSnapshot(of: sessionId), "Pull")
-    XCTAssertEqual(try partNames(of: sessionId), ["등"])
+    ), 101)
+    XCTAssertEqual(try routineDayNameSnapshot(of: sessionId), "Push")
+    XCTAssertEqual(try partNames(of: sessionId), ["하체"])
+  }
 
-    let freeChange = try LoofitWorkoutCommandEngine.execute(
-      .changeFree(expectedSessionId: sessionId, bodyPartIds: [3]),
+  func testRoutinePartChangeRollsBackWhenSessionSnapshotReplacementFails() throws {
+    try seedRoutine()
+    let started = try LoofitWorkoutCommandEngine.execute(
+      .startRoutine(routineDayId: 101),
       database: database
     )
-    XCTAssertEqual(freeChange.status, .applied)
-    XCTAssertEqual(freeChange.sessionId, sessionId)
-    XCTAssertEqual(try startedAt(of: sessionId), originalStartedAt)
-    XCTAssertNil(try database.firstInt64(
-      "SELECT routine_id FROM workout_sessions WHERE id = ?",
-      [.integer(sessionId)]
+    let sessionId = try XCTUnwrap(started.sessionId)
+    try database.execute("""
+      CREATE TRIGGER reject_active_part_replacement
+      BEFORE INSERT ON workout_session_parts_snapshot
+      WHEN NEW.workout_session_id = \(sessionId)
+      BEGIN
+        SELECT RAISE(ABORT, 'test part replacement failure');
+      END;
+      """)
+
+    XCTAssertThrowsError(try LoofitWorkoutCommandEngine.execute(
+      .changeParts(
+        expectedSessionId: sessionId,
+        bodyPartIds: [3],
+        updateRoutine: true
+      ),
+      database: database
     ))
-    XCTAssertNil(try routineDayNameSnapshot(of: sessionId))
-    XCTAssertEqual(try partNames(of: sessionId), ["하체"])
+    XCTAssertEqual(try database.firstInt64(
+      "SELECT body_part_id FROM routine_day_parts WHERE routine_day_id = 101"
+    ), 1)
+    XCTAssertEqual(try partNames(of: sessionId), ["가슴"])
   }
 
   func testCompleteAdvancesRoutineExactlyOnce() throws {
@@ -164,7 +167,11 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
     let sessionId = try XCTUnwrap(started.sessionId)
 
     let staleChange = try LoofitWorkoutCommandEngine.execute(
-      .changeRoutine(expectedSessionId: sessionId + 999, routineDayId: 102),
+      .changeParts(
+        expectedSessionId: sessionId + 999,
+        bodyPartIds: [3],
+        updateRoutine: false
+      ),
       database: database
     )
     XCTAssertEqual(staleChange.status, .stale)
@@ -194,7 +201,7 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
     let first = try LoofitWorkoutCommandEngine.execute(.startNext, database: database)
     let firstId = try XCTUnwrap(first.sessionId)
     let second = try LoofitWorkoutCommandEngine.execute(
-      .startFree(bodyPartIds: [3], label: nil),
+      .startRoutine(routineDayId: 102),
       database: database
     )
     XCTAssertEqual(second.status, .noop)
@@ -207,9 +214,9 @@ final class LoofitWorkoutCommandEngineTests: LoofitWorkoutCoreTestCase {
     XCTAssertThrowsError(try database.run(
       """
       INSERT INTO workout_sessions
-        (routine_id, routine_day_id, started_at, ended_at, duration_seconds,
+        (routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at, duration_seconds,
          status, note, created_at, updated_at)
-      VALUES (NULL, NULL, ?, NULL, 0, 'active', NULL, ?, ?)
+      VALUES (10, 102, 'Pull', ?, NULL, 0, 'active', NULL, ?, ?)
       """,
       [.text(now), .text(now), .text(now)]
     ))

@@ -64,28 +64,52 @@
           aria-expanded="true"
         >3D 조절</button>
         <button class="app-store-button" id="appStorePreviewButton" type="button">App Store 미리보기</button>
+        <div class="download-menu" id="downloadMenu" aria-busy="false">
+          <button
+            class="download-button"
+            id="downloadButton"
+            type="button"
+            aria-haspopup="menu"
+            aria-controls="downloadPopover"
+            aria-expanded="false"
+          >이미지 받기</button>
+          <div class="download-popover" id="downloadPopover" role="menu" hidden>
+            <button type="button" role="menuitem" data-export-mode="split">
+              <strong>세 장으로 받기</strong>
+              <span>1320×2868 PNG 3장 · ZIP</span>
+            </button>
+            <button type="button" role="menuitem" data-export-mode="combined">
+              <strong>한 장으로 받기</strong>
+              <span>3960×2868 PNG</span>
+            </button>
+          </div>
+          <span class="download-status" id="downloadStatus" role="status" aria-live="polite"></span>
+        </div>
         <button class="capture-button" id="captureButton" type="button">촬영 모드</button>
       </header>
 
       <aside class="scene-inspector" id="sceneInspector" aria-label="Three.js 장면 조절">
         <header class="scene-inspector__header">
-          <div><span>SCENE CONTROLS</span><strong>카메라와 조명</strong></div>
-          <button id="resetSceneControls" type="button">기본값</button>
+          <div class="scene-inspector__heading"><span>SCENE CONTROLS</span><strong>카메라와 조명</strong></div>
+          <div class="scene-inspector__actions">
+            <button id="saveSceneControls" type="button">저장</button>
+            <button id="resetSceneControls" type="button">기본값</button>
+          </div>
         </header>
 
         <section class="inspector-section">
           <h2>메시 형태</h2>
           <label class="range-control">
-            <span>위젯 두께</span><output data-view-output="meshDepthScale">1.00×</output>
-            <input data-view-control="meshDepthScale" type="range" min="0.25" max="3" step="0.05" value="1" />
+            <span>위젯 두께</span><output data-view-output="meshDepthScale">0.80×</output>
+            <input data-view-control="meshDepthScale" type="range" min="0.25" max="3" step="0.05" value="0.8" />
           </label>
           <label class="range-control">
             <span>위젯 라운딩</span><output data-view-output="cornerRadiusScale">1.00×</output>
             <input data-view-control="cornerRadiusScale" type="range" min="0" max="2" step="0.05" value="1" />
           </label>
           <label class="range-control">
-            <span>바닥 높이 Z</span><output data-view-output="meshZ">0</output>
-            <input data-view-control="meshZ" type="range" min="0" max="120" step="1" value="0" />
+            <span>바닥 높이 Z</span><output data-view-output="meshZ">20</output>
+            <input data-view-control="meshZ" type="range" min="0" max="120" step="1" value="20" />
           </label>
           <p class="control-help">Z가 0이면 모든 메시가 바닥에 놓입니다.</p>
         </section>
@@ -93,8 +117,8 @@
         <section class="inspector-section">
           <h2>카메라 시점</h2>
           <label class="range-control">
-            <span>틸트</span><output data-view-output="cameraTilt">50°</output>
-            <input data-view-control="cameraTilt" type="range" min="15" max="75" step="1" value="50" />
+            <span>틸트</span><output data-view-output="cameraTilt">35°</output>
+            <input data-view-control="cameraTilt" type="range" min="15" max="75" step="1" value="35" />
           </label>
           <label class="range-control">
             <span>방위각</span><output data-view-output="cameraAzimuth">-17.25°</output>
@@ -105,8 +129,8 @@
             <input data-view-control="cameraDistance" type="range" min="3000" max="30000" step="500" value="14000" />
           </label>
           <label class="range-control">
-            <span>장면 줌</span><output data-view-output="cameraZoom">1.00×</output>
-            <input data-view-control="cameraZoom" type="range" min="0.6" max="1.6" step="0.05" value="1" />
+            <span>장면 줌</span><output data-view-output="cameraZoom">1.15×</output>
+            <input data-view-control="cameraZoom" type="range" min="0.6" max="1.6" step="0.05" value="1.15" />
           </label>
           <p class="control-help">원근 거리는 왜곡 강도, 장면 줌은 전체 Mesh의 확대·축소를 조절합니다.</p>
         </section>
@@ -114,20 +138,20 @@
         <section class="inspector-section">
           <h2>조명과 그림자</h2>
           <label class="range-control">
-            <span>그림자 방향</span><output data-view-output="shadowDirection">90°</output>
-            <input data-view-control="shadowDirection" type="range" min="0" max="359" step="1" value="90" />
+            <span>그림자 방향</span><output data-view-output="shadowDirection">104°</output>
+            <input data-view-control="shadowDirection" type="range" min="0" max="359" step="1" value="104" />
           </label>
           <label class="range-control">
-            <span>그림자 벌어짐</span><output data-view-output="shadowSpread">24</output>
-            <input data-view-control="shadowSpread" type="range" min="0" max="80" step="1" value="24" />
+            <span>그림자 벌어짐</span><output data-view-output="shadowSpread">9</output>
+            <input data-view-control="shadowSpread" type="range" min="0" max="80" step="1" value="9" />
           </label>
           <label class="range-control">
-            <span>세기</span><output data-view-output="lightIntensity">1.00</output>
-            <input data-view-control="lightIntensity" type="range" min="0" max="6" step="0.01" value="1" />
+            <span>세기</span><output data-view-output="lightIntensity">0.97</output>
+            <input data-view-control="lightIntensity" type="range" min="0" max="6" step="0.01" value="0.97" />
           </label>
           <label class="range-control">
-            <span>그림자 부드러움</span><output data-view-output="shadowRadius">5.0</output>
-            <input data-view-control="shadowRadius" type="range" min="0" max="15" step="0.5" value="5" />
+            <span>그림자 부드러움</span><output data-view-output="shadowRadius">15.0</output>
+            <input data-view-control="shadowRadius" type="range" min="0" max="15" step="0.5" value="15" />
           </label>
           <p class="control-help">벌어짐이 작을수록 그림자가 메시 가까이에 붙습니다. 바닥 높이 Z도 실제 이격 거리에 영향을 줍니다.</p>
         </section>
@@ -174,8 +198,6 @@
               <h2>기록은 간단하게,<br />흐름은 한눈에.</h2>
               <p>위젯과 히트맵으로 쌓이는 운동을 확인하세요.</p>
             </section>
-            <div class="panel-guide panel-guide--one" aria-hidden="true"></div>
-            <div class="panel-guide panel-guide--two" aria-hidden="true"></div>
             <span class="render-status" id="renderStatus" data-state="loading">3D 장면 준비 중</span>
           </div>
         </div>

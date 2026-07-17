@@ -1,8 +1,14 @@
-import { useCallback, useLayoutEffect, useRef, useState, type PropsWithChildren } from 'react';
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type PropsWithChildren,
+  type ReactNode,
+} from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import Animated, {
   Easing,
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -18,30 +24,52 @@ type BottomSheetProps = PropsWithChildren<{
   visible: boolean;
   title: string;
   onClose: () => void;
+  onClosed?: () => void;
+  footer?: ReactNode;
 }>;
 
 const OPEN_DURATION_MS = 260;
 const CLOSE_DURATION_MS = 220;
 const DIMMED_OPACITY = 0.5;
 
-export function BottomSheet({ visible, title, onClose, children }: BottomSheetProps) {
+export function BottomSheet({
+  visible,
+  title,
+  onClose,
+  onClosed,
+  footer,
+  children,
+}: BottomSheetProps) {
   const { colors } = useTheme();
   const { bottom } = useSafeAreaInsets();
   const { height } = useWindowDimensions();
   const [mounted, setMounted] = useState(visible);
+  const mountedRef = useRef(visible);
   const latestVisibleRef = useRef(visible);
+  const onClosedRef = useRef(onClosed);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progress = useSharedValue(visible ? 1 : 0);
   latestVisibleRef.current = visible;
+  onClosedRef.current = onClosed;
 
-  const finishClose = useCallback(() => {
-    if (!latestVisibleRef.current) {
-      setMounted(false);
-    }
-  }, []);
+  useEffect(
+    () => () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    },
+    []
+  );
 
   useLayoutEffect(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+
     if (visible) {
       progress.value = 0;
+      mountedRef.current = true;
       setMounted(true);
       progress.value = withTiming(1, {
         duration: OPEN_DURATION_MS,
@@ -50,19 +78,23 @@ export function BottomSheet({ visible, title, onClose, children }: BottomSheetPr
       return;
     }
 
-    progress.value = withTiming(
-      0,
-      {
-        duration: CLOSE_DURATION_MS,
-        easing: Easing.in(Easing.cubic),
-      },
-      (finished) => {
-        if (finished) {
-          runOnJS(finishClose)();
-        }
+    if (!mountedRef.current) {
+      return;
+    }
+
+    progress.value = withTiming(0, {
+      duration: CLOSE_DURATION_MS,
+      easing: Easing.in(Easing.cubic),
+    });
+    closeTimerRef.current = setTimeout(() => {
+      closeTimerRef.current = null;
+      if (!latestVisibleRef.current) {
+        mountedRef.current = false;
+        setMounted(false);
+        onClosedRef.current?.();
       }
-    );
-  }, [finishClose, progress, visible]);
+    }, CLOSE_DURATION_MS);
+  }, [progress, visible]);
 
   const dimStyle = useAnimatedStyle(() => ({
     opacity: progress.value * DIMMED_OPACITY,
@@ -105,6 +137,7 @@ export function BottomSheet({ visible, title, onClose, children }: BottomSheetPr
               contentContainerStyle={styles.body}>
               {children}
             </ScrollView>
+            {footer ? <View style={styles.footer}>{footer}</View> : null}
           </View>
         </Animated.View>
       </View>
@@ -153,6 +186,9 @@ const styles = StyleSheet.create({
   },
   body: {
     gap: spacing.md,
+    paddingBottom: spacing.xs,
+  },
+  footer: {
     paddingBottom: spacing.xs,
   },
 });

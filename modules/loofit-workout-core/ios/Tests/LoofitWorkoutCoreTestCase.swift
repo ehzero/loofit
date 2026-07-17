@@ -75,9 +75,9 @@ class LoofitWorkoutCoreTestCase: XCTestCase {
     try database.run(
       """
       INSERT INTO workout_sessions
-        (routine_id, routine_day_id, started_at, ended_at, duration_seconds,
+        (routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at, duration_seconds,
          status, note, created_at, updated_at)
-      VALUES (NULL, NULL, ?, ?, ?, 'completed', NULL, ?, ?)
+      VALUES (10, 101, 'Push', ?, ?, ?, 'completed', NULL, ?, ?)
       """,
       [.text(start), .text(end), .integer(Int64(duration)), .text(start), .text(end)]
     )
@@ -86,7 +86,7 @@ class LoofitWorkoutCoreTestCase: XCTestCase {
       """
       INSERT INTO workout_session_parts_snapshot
         (workout_session_id, body_part_id, body_part_name, body_part_color, sort_order)
-      VALUES (?, NULL, ?, '#E84A5F', 0)
+      VALUES (?, 1, ?, '#E84A5F', 0)
       """,
       [.integer(id), .text(bodyPartName)]
     )

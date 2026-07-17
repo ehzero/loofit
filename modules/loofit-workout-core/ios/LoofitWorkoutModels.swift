@@ -4,9 +4,11 @@ import Foundation
 public enum LoofitWorkoutCommand: Sendable {
   case startNext
   case startRoutine(routineDayId: Int64)
-  case startFree(bodyPartIds: [Int64], label: String?)
-  case changeRoutine(expectedSessionId: Int64, routineDayId: Int64)
-  case changeFree(expectedSessionId: Int64, bodyPartIds: [Int64])
+  case changeParts(
+    expectedSessionId: Int64,
+    bodyPartIds: [Int64],
+    updateRoutine: Bool
+  )
   case complete(expectedSessionId: Int64)
   case cancel(expectedSessionId: Int64)
 }

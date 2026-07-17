@@ -149,7 +149,7 @@ struct LoofitWorkoutCommandRecord: Record {
   @Field var routineDayId: Int64?
   @Field var expectedSessionId: Int64?
   @Field var bodyPartIds: [Int64] = []
-  @Field var label: String?
+  @Field var updateRoutine: Bool = false
 
   func command() throws -> LoofitWorkoutCommand {
     switch type {
@@ -160,25 +160,14 @@ struct LoofitWorkoutCommandRecord: Record {
         throw LoofitWorkoutExpoAdapterError.invalidCommand("startRoutine requires routineDayId")
       }
       return .startRoutine(routineDayId: routineDayId)
-    case "startFree":
-      return .startFree(bodyPartIds: bodyPartIds, label: label)
-    case "changeRoutine":
-      guard let expectedSessionId, let routineDayId else {
-        throw LoofitWorkoutExpoAdapterError.invalidCommand(
-          "changeRoutine requires expectedSessionId and routineDayId"
-        )
-      }
-      return .changeRoutine(
-        expectedSessionId: expectedSessionId,
-        routineDayId: routineDayId
-      )
-    case "changeFree":
+    case "changeParts":
       guard let expectedSessionId else {
-        throw LoofitWorkoutExpoAdapterError.invalidCommand("changeFree requires expectedSessionId")
+        throw LoofitWorkoutExpoAdapterError.invalidCommand("changeParts requires expectedSessionId")
       }
-      return .changeFree(
+      return .changeParts(
         expectedSessionId: expectedSessionId,
-        bodyPartIds: bodyPartIds
+        bodyPartIds: bodyPartIds,
+        updateRoutine: updateRoutine
       )
     case "complete":
       guard let expectedSessionId else {

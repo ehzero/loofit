@@ -5,7 +5,6 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { AppText } from '@/src/components/AppText';
 import { Button } from '@/src/components/Button';
 import { Callout } from '@/src/components/Callout';
-import { Chip } from '@/src/components/Chip';
 import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
 import { IconButton } from '@/src/components/IconButton';
 import { Input } from '@/src/components/Input';
@@ -49,9 +48,7 @@ export default function RecordDetailScreen() {
   const [startAt, setStartAt] = useState<Date>(new Date());
   const [endAt, setEndAt] = useState<Date>(new Date());
   const [note, setNote] = useState('');
-  const [isFree, setIsFree] = useState(false);
   const [routineDayId, setRoutineDayId] = useState<number | null>(null);
-  const [freePartIds, setFreePartIds] = useState<number[]>([]);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
 
   useEffect(() => {
@@ -63,13 +60,7 @@ export default function RecordDetailScreen() {
       setStartAt(new Date(record.startedAt));
       setEndAt(record.endedAt ? new Date(record.endedAt) : new Date());
       setNote(record.note ?? '');
-      setIsFree(record.routineDayId === null);
       setRoutineDayId(record.routineDayId);
-      setFreePartIds(
-        record.parts
-          .map((part) => part.bodyPartId)
-          .filter((partId): partId is number => !!partId)
-      );
       setLoaded(true);
     });
   }, [id]);
@@ -114,8 +105,7 @@ export default function RecordDetailScreen() {
       startedAt: startAt.toISOString(),
       endedAt: status === 'active' ? null : effectiveEndAt.toISOString(),
       note,
-      routineDayId: isFree ? null : routineDayId,
-      bodyPartIds: isFree ? freePartIds : undefined,
+      routineDayId: routineDayId ?? undefined,
     });
     if (isActionSuccessful(result)) {
       showToast('기록이 수정되었어요');
@@ -183,14 +173,11 @@ export default function RecordDetailScreen() {
         <Field label="운동 대상">
           <View style={styles.targetList}>
             {overview.routineDays.map((day) => {
-              const selected = !isFree && routineDayId === day.id;
+              const selected = routineDayId === day.id;
               return (
                 <Pressable
                   key={day.id}
-                  onPress={() => {
-                    setIsFree(false);
-                    setRoutineDayId(day.id);
-                  }}
+                  onPress={() => setRoutineDayId(day.id)}
                   style={[
                     styles.target,
                     {
@@ -204,38 +191,7 @@ export default function RecordDetailScreen() {
                 </Pressable>
               );
             })}
-            <Pressable
-              onPress={() => setIsFree(true)}
-              style={[
-                styles.target,
-                {
-                  backgroundColor: isFree ? colors.chip : colors.card,
-                  borderColor: isFree ? colors.accent : colors.border2,
-                },
-              ]}>
-              <AppText variant="body" weight="700" tone={isFree ? 'default' : 'secondary'}>
-                자유 운동
-              </AppText>
-            </Pressable>
           </View>
-          {isFree ? (
-            <View style={styles.freeChips}>
-              {overview.bodyParts.map((part) => (
-                <Chip
-                  key={part.id}
-                  label={part.name}
-                  selected={freePartIds.includes(part.id)}
-                  onPress={() =>
-                    setFreePartIds((current) =>
-                      current.includes(part.id)
-                        ? current.filter((partId) => partId !== part.id)
-                        : [...current, part.id]
-                    )
-                  }
-                />
-              ))}
-            </View>
-          ) : null}
         </Field>
 
         {/* Memo */}
@@ -427,12 +383,6 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.sm,
-  },
-  freeChips: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.xs,
-    marginTop: spacing.xxs,
   },
   actions: {
     gap: spacing.xs,

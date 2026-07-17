@@ -22,4 +22,6 @@ export const DEFAULT_BODY_PARTS = [
   { name: '풀', color: '#00A6FB' },
   { name: '코어', color: '#FFB703' },
   { name: '기타', color: '#6C757D' },
+  { name: '전신', color: '#7209B7' },
+  { name: '스트레칭', color: '#90BE6D' },
 ] as const;

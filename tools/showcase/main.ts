@@ -7,6 +7,11 @@ import {
   type ShowcaseTheme,
   type ShowcaseViewControls,
 } from './config';
+import {
+  composeShowcaseImage,
+  downloadShowcaseImage,
+  type ShowcaseExportMode,
+} from './export';
 import { ShowcaseThreeScene } from './three/scene';
 
 function requireElement<T extends Element>(selector: string): T {
@@ -20,8 +25,16 @@ const viewer = requireElement<HTMLElement>('#viewer');
 const artboard = requireElement<HTMLElement>('#artboard');
 const artboardFrame = requireElement<HTMLElement>('#artboardFrame');
 const captureButton = requireElement<HTMLButtonElement>('#captureButton');
+const downloadMenu = requireElement<HTMLElement>('#downloadMenu');
+const downloadButton = requireElement<HTMLButtonElement>('#downloadButton');
+const downloadPopover = requireElement<HTMLElement>('#downloadPopover');
+const downloadStatus = requireElement<HTMLElement>('#downloadStatus');
+const downloadOptions = Array.from(
+  document.querySelectorAll<HTMLButtonElement>('[data-export-mode]')
+);
 const inspectorToggle = requireElement<HTMLButtonElement>('#inspectorToggle');
 const sceneInspector = requireElement<HTMLElement>('#sceneInspector');
+const saveSceneControls = requireElement<HTMLButtonElement>('#saveSceneControls');
 const resetSceneControls = requireElement<HTMLButtonElement>('#resetSceneControls');
 const canvas = requireElement<HTMLCanvasElement>('#showcaseCanvas');
 const renderStatus = requireElement<HTMLElement>('#renderStatus');
@@ -120,6 +133,8 @@ document.querySelectorAll<HTMLElement>('[data-control]').forEach((control) => {
 });
 
 type ViewControlKey = keyof ShowcaseViewControls;
+const VIEW_CONTROLS_STORAGE_KEY = 'loofit-showcase:view-controls';
+const VIEW_CONTROL_KEYS = Object.keys(DEFAULT_VIEW_CONTROLS) as ViewControlKey[];
 
 function formatViewControl(key: ViewControlKey, value: number): string {
   if (key === 'cameraTilt' || key === 'shadowDirection') return `${Math.round(value)}°`;
@@ -139,6 +154,55 @@ function updateViewOutput(key: ViewControlKey, value: number): void {
   if (output) output.value = formatViewControl(key, value);
 }
 
+function viewControlInput(key: ViewControlKey): HTMLInputElement | null {
+  return document.querySelector<HTMLInputElement>(`[data-view-control="${key}"]`);
+}
+
+function boundedViewControlValue(key: ViewControlKey, value: number): number {
+  const input = viewControlInput(key);
+  if (!input) return value;
+  const minimum = Number(input.min);
+  const maximum = Number(input.max);
+  return Math.min(maximum, Math.max(minimum, value));
+}
+
+function readViewControls(): ShowcaseViewControls {
+  const values = { ...DEFAULT_VIEW_CONTROLS };
+  VIEW_CONTROL_KEYS.forEach((key) => {
+    const input = viewControlInput(key);
+    if (input) values[key] = Number(input.value);
+  });
+  return values;
+}
+
+function syncViewControlInputs(values: ShowcaseViewControls): void {
+  VIEW_CONTROL_KEYS.forEach((key) => {
+    const input = viewControlInput(key);
+    if (!input) return;
+    input.value = String(values[key]);
+    updateViewOutput(key, values[key]);
+  });
+}
+
+function loadStoredViewControls(): ShowcaseViewControls | null {
+  try {
+    const stored = localStorage.getItem(VIEW_CONTROLS_STORAGE_KEY);
+    if (!stored) return null;
+    const parsed = JSON.parse(stored) as Record<string, unknown>;
+    if (!parsed || typeof parsed !== 'object') return null;
+    const values = { ...DEFAULT_VIEW_CONTROLS };
+    VIEW_CONTROL_KEYS.forEach((key) => {
+      const value = parsed[key];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        values[key] = boundedViewControlValue(key, value);
+      }
+    });
+    return values;
+  } catch {
+    return null;
+  }
+}
+
 let pendingViewControls: Partial<ShowcaseViewControls> = {};
 let viewControlFrame = 0;
 
@@ -152,6 +216,15 @@ function queueViewControl(key: ViewControlKey, value: number): void {
     viewControlFrame = 0;
     scheduleEditorPanelRefresh();
   });
+}
+
+function applyViewControls(values: ShowcaseViewControls): void {
+  if (viewControlFrame) cancelAnimationFrame(viewControlFrame);
+  viewControlFrame = 0;
+  pendingViewControls = {};
+  syncViewControlInputs(values);
+  showcase.setViewControls({ ...values });
+  scheduleEditorPanelRefresh();
 }
 
 document.querySelectorAll<HTMLInputElement>('[data-view-control]').forEach((input) => {
@@ -168,17 +241,31 @@ inspectorToggle.addEventListener('click', () => {
   sceneInspector.hidden = !open;
 });
 
+let saveFeedbackTimer = 0;
+
+saveSceneControls.addEventListener('click', () => {
+  try {
+    localStorage.setItem(VIEW_CONTROLS_STORAGE_KEY, JSON.stringify(readViewControls()));
+    saveSceneControls.textContent = '저장됨';
+    saveSceneControls.dataset.state = 'saved';
+    if (saveFeedbackTimer) window.clearTimeout(saveFeedbackTimer);
+    saveFeedbackTimer = window.setTimeout(() => {
+      saveSceneControls.textContent = '저장';
+      delete saveSceneControls.dataset.state;
+      saveFeedbackTimer = 0;
+    }, 1400);
+  } catch {
+    saveSceneControls.textContent = '저장 실패';
+  }
+});
+
 resetSceneControls.addEventListener('click', () => {
-  document.querySelectorAll<HTMLInputElement>('[data-view-control]').forEach((input) => {
-    const key = input.dataset.viewControl as ViewControlKey | undefined;
-    if (!key) return;
-    const value = DEFAULT_VIEW_CONTROLS[key];
-    input.value = String(value);
-    updateViewOutput(key, value);
-  });
-  pendingViewControls = {};
-  showcase.setViewControls({ ...DEFAULT_VIEW_CONTROLS });
-  scheduleEditorPanelRefresh();
+  try {
+    localStorage.removeItem(VIEW_CONTROLS_STORAGE_KEY);
+  } catch {
+    // The code defaults can still be applied when storage is unavailable.
+  }
+  applyViewControls({ ...DEFAULT_VIEW_CONTROLS });
 });
 
 function editorArtboardWidth(capturing: boolean): number {
@@ -205,6 +292,41 @@ function setCaptureMode(active: boolean): void {
     fitCanvas();
     if (!active) scheduleEditorPanelRefresh();
   });
+}
+
+function setDownloadMenu(open: boolean): void {
+  downloadButton.setAttribute('aria-expanded', String(open));
+  downloadPopover.hidden = !open;
+}
+
+function setDownloadBusy(busy: boolean, message: string): void {
+  downloadMenu.setAttribute('aria-busy', String(busy));
+  downloadOptions.forEach((button) => {
+    button.disabled = busy;
+  });
+  downloadStatus.textContent = message;
+}
+
+async function exportImage(mode: ShowcaseExportMode): Promise<void> {
+  setDownloadBusy(true, '고해상도 이미지 만드는 중');
+  try {
+    await Promise.all([showcase.ready, document.fonts.ready]);
+    showcase.render();
+    const styles = getComputedStyle(body);
+    const output = composeShowcaseImage({
+      source: canvas,
+      artboard,
+      panelCroppingEnabled,
+      backgroundStart: styles.getPropertyValue('--canvas-a').trim(),
+      backgroundEnd: styles.getPropertyValue('--canvas-b').trim(),
+    });
+    await downloadShowcaseImage(mode, output);
+    setDownloadBusy(false, mode === 'combined' ? '한 장 PNG 저장됨' : '3장 PNG 묶음 저장됨');
+    setDownloadMenu(false);
+  } catch (error) {
+    console.error(error);
+    setDownloadBusy(false, '이미지를 저장하지 못했습니다');
+  }
 }
 
 function panelIndexForCanvas(target: HTMLCanvasElement): number {
@@ -307,6 +429,20 @@ function setAppStorePreviewMode(active: boolean): void {
 }
 
 captureButton.addEventListener('click', () => setCaptureMode(true));
+downloadButton.addEventListener('click', () => {
+  setDownloadMenu(Boolean(downloadPopover.hidden));
+});
+downloadOptions.forEach((button) => {
+  button.addEventListener('click', () => {
+    const mode = button.dataset.exportMode;
+    if (mode === 'combined' || mode === 'split') void exportImage(mode);
+  });
+});
+document.addEventListener('click', (event) => {
+  if (event.target instanceof Node && !downloadMenu.contains(event.target)) {
+    setDownloadMenu(false);
+  }
+});
 appStorePreviewButton.addEventListener('click', () => setAppStorePreviewMode(true));
 appStorePreviewModeButtons.forEach((button) => {
   button.addEventListener('click', () => {
@@ -323,6 +459,11 @@ viewer.addEventListener('click', () => {
 });
 window.addEventListener('keydown', (event) => {
   if (event.key !== 'Escape') return;
+  if (!downloadPopover.hidden) {
+    setDownloadMenu(false);
+    downloadButton.focus();
+    return;
+  }
   if (!appStorePreview.hidden) {
     setAppStorePreviewMode(false);
     return;
@@ -330,6 +471,17 @@ window.addEventListener('keydown', (event) => {
   setCaptureMode(false);
 });
 window.addEventListener('beforeunload', () => showcase.dispose(), { once: true });
+
+const initialViewControls = loadStoredViewControls() ?? { ...DEFAULT_VIEW_CONTROLS };
+applyViewControls(initialViewControls);
+window.addEventListener(
+  'pageshow',
+  () => {
+    const restoredViewControls = loadStoredViewControls() ?? { ...DEFAULT_VIEW_CONTROLS };
+    applyViewControls(restoredViewControls);
+  },
+  { once: true }
+);
 
 new ResizeObserver(fitCanvas).observe(viewer);
 fitCanvas();

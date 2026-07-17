@@ -47,7 +47,7 @@ async function getCompletedRangeStats(
     workoutCount: row?.count ?? 0,
     durationSeconds: Math.round(row?.total ?? 0),
     bySplit: splitRows.map((split) => ({
-      name: splitDisplayName(split.routine_day_id, split.routine_day_name),
+      name: splitDisplayName(split.routine_day_name),
       workoutCount: split.count,
       durationSeconds: Math.round(split.total),
     })),
@@ -82,14 +82,7 @@ async function getDashboardStats(
   };
 }
 
-function splitDisplayName(
-  routineDayId: number | null,
-  routineDayName: string | null
-): string {
-  if (!routineDayId) {
-    return '자유 운동';
-  }
-
+function splitDisplayName(routineDayName: string | null): string {
   const frozenName = routineDayName?.trim();
   if (frozenName) {
     return frozenName;
