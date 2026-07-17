@@ -1,0 +1,117 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="lime-glass-fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E3FFA0"/>
+      <stop offset="0.5" stop-color="#CFF56A"/>
+      <stop offset="1" stop-color="#BEEA5A"/>
+    </linearGradient>
+    <linearGradient id="lime-glass-stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2FFD0"/>
+      <stop offset="0.45" stop-color="#D8F77E"/>
+      <stop offset="1" stop-color="#AAD348"/>
+    </linearGradient>
+    <linearGradient id="lime-glass-highlight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.52"/>
+      <stop offset="0.46" stop-color="#FFFFFF" stop-opacity="0.1"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="glass-fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="0.55" stop-color="#F6F8F5" stop-opacity="0.65"/>
+      <stop offset="1" stop-color="#E9EDE9" stop-opacity="0.78"/>
+    </linearGradient>
+    <linearGradient id="glass-stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.42" stop-color="#E2E5E2"/>
+      <stop offset="1" stop-color="#C9CDCA"/>
+    </linearGradient>
+    <linearGradient id="glass-highlight" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.72"/>
+      <stop offset="0.48" stop-color="#FFFFFF" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="#FFFFFF"/>
+  <g aria-label="루핏 루틴 히트맵 심볼">
+    <rect
+      x="170"
+      y="170"
+      width="324"
+      height="324"
+      rx="68"
+      fill="url(#lime-glass-fill)"
+      stroke="url(#lime-glass-stroke)"
+      stroke-width="12"
+    />
+    <rect
+      x="178"
+      y="178"
+      width="308"
+      height="308"
+      rx="60"
+      fill="none"
+      stroke="url(#lime-glass-highlight)"
+      stroke-width="6"
+    />
+    <rect
+      x="533"
+      y="173"
+      width="318"
+      height="318"
+      rx="65"
+      fill="url(#glass-fill)"
+      stroke="url(#glass-stroke)"
+      stroke-width="18"
+    />
+    <rect
+      x="545"
+      y="185"
+      width="294"
+      height="294"
+      rx="53"
+      fill="none"
+      stroke="url(#glass-highlight)"
+      stroke-width="6"
+    />
+    <rect
+      x="170"
+      y="530"
+      width="324"
+      height="324"
+      rx="68"
+      fill="url(#lime-glass-fill)"
+      stroke="url(#lime-glass-stroke)"
+      stroke-width="12"
+    />
+    <rect
+      x="178"
+      y="538"
+      width="308"
+      height="308"
+      rx="60"
+      fill="none"
+      stroke="url(#lime-glass-highlight)"
+      stroke-width="6"
+    />
+    <rect
+      x="530"
+      y="530"
+      width="324"
+      height="324"
+      rx="68"
+      fill="url(#lime-glass-fill)"
+      stroke="url(#lime-glass-stroke)"
+      stroke-width="12"
+    />
+    <rect
+      x="538"
+      y="538"
+      width="308"
+      height="308"
+      rx="60"
+      fill="none"
+      stroke="url(#lime-glass-highlight)"
+      stroke-width="6"
+    />
+  </g>
+</svg>
