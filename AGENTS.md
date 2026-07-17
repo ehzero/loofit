@@ -43,7 +43,7 @@
 
 - 홈은 앱의 중심 화면이며 운동 전, 운동 중, 운동 후 상태를 한 화면 흐름 안에서 처리한다.
 - 활성 루틴이 있는 일반 홈 피드에는 핵심 운동 카드 아래에 위젯 안내 카드를 표시한다. 닫기 버튼을 제외한 카드 전체는 `위젯 둘러보기` 화면으로 연결하며 사용자가 닫으면 앱 재실행 후에도 다시 표시하지 않는다. 설정의 `위젯 둘러보기` 진입점은 항상 유지한다.
-- 설정은 한국 App Store의 공개 버전을 조회해 설치 버전보다 새 버전이 있을 때만 업데이트 카드를 표시한다. 카드 자체는 누를 수 없고 카드 안의 버튼만 App Store 제품 페이지로 연결한다. 조회 실패는 설정 사용을 방해하지 않으며 강제 업데이트는 하지 않는다.
+- 설정은 iOS에서 한국 App Store의 공개 버전, Android에서 Google Play 인앱 업데이트 가용성을 조회해 새 버전이 있을 때만 업데이트 카드를 표시한다. 카드 자체는 누를 수 없고 카드 안의 버튼만 해당 스토어 제품 페이지로 연결한다. 조회 실패는 설정 사용을 방해하지 않으며 강제 업데이트는 하지 않는다.
 - 운동 전에는 다음 운동과 시작 액션, 운동 중에는 현재 운동과 경과 시간 및 종료 액션, 운동 후에는 완료 기록과 다음 운동을 우선한다.
 - 홈 최상단의 오늘 운동 완료 카드를 누르면 당일 가장 최근에 완료한 운동의 기록 편집 화면으로 이동한다.
 - 사용자는 첫 실행에서 루틴이 없음을 이해하고, 루틴을 만든 뒤 첫 운동 시작까지 막힘없이 도달할 수 있어야 한다.
@@ -54,7 +54,7 @@
 - 대시보드의 30일 히트맵은 오늘을 포함한 정확히 30일만 표시한다. 요일 열은 일요일 시작 순서로 고정하고, 범위 시작일 이전 날짜 셀은 만들지 않는다.
 - 위젯은 빠른 확인과 시작/종료에 집중하고, 루틴 선택·설정·기록 수정 같은 복잡한 조작은 앱에서 수행한다.
 - 네이티브 스플래시 화면은 앱 설정을 읽기 전 표시되므로 기기 시스템의 라이트·다크 모드에 맞는 앱 팔레트를 사용한다. 저장된 앱 테마와 액센트 컬러는 앱 초기화 이후 적용한다.
-- 한국어 단일 출시 기간에는 iOS 앱과 Widget Extension의 기본·지원 언어를 한국어로 선언하고, 위젯과 Live Activity의 시스템 동적 타이머도 한국어 로케일을 사용한다. 다국어 출시로 전환할 때 번들 지원 언어와 타이머 로케일 정책을 함께 확장한다.
+- 한국어 단일 출시 기간에는 iOS 앱·Widget Extension과 Android 앱·위젯의 기본·지원 언어를 한국어로 선언하고, 위젯과 Live Activity·Android 고정 알림의 시스템 동적 타이머도 한국어 로케일을 사용한다. 다국어 출시로 전환할 때 번들 지원 언어와 타이머 로케일 정책을 함께 확장한다.
 
 ## MVP 범위
 
@@ -69,7 +69,8 @@
 - 기록 목록, 기록 상세, 수정, 삭제
 - 7일/30일/6개월 히트맵
 - 운동 기록 대시보드
-- iOS 위젯과 Live Activity 우선 검증
+- iOS 홈·잠금화면 위젯과 Live Activity
+- Android 홈·잠금화면 위젯과 운동 중 고정 알림
 
 제외:
 
@@ -90,9 +91,12 @@
 - 로그인과 백엔드 동기화 없이 Local-first로 동작한다.
 - 앱 버전의 단일 원천은 루트 `package.json`의 `version`이다. `app.config.js`가 Expo 버전에 반영하고 앱 UI는 `expo-constants`로 주입된 버전을 표시한다.
 - 날짜 계산과 히트맵 귀속은 기기 로컬 시간 기준으로 처리한다.
-- 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build 기준으로 검증한다.
+- 위젯, Live Activity, Android 고정 알림은 Expo Go가 아니라 각 플랫폼 Development Build 기준으로 검증한다.
 - iOS 앱은 iPhone 전용으로 배포하며 `ios.supportsTablet`을 활성화하지 않는다.
-- Android 위젯과 고정 알림은 iOS MVP 반응 확인 후 확장한다.
+- Android 앱 ID는 `com.loofit.app`이며 target/compile SDK 36 기준으로 빌드한다.
+- Android 운동 중 상태는 경과 시간과 종료 액션이 있는 ongoing notification으로 제공한다. Android 13 이상에서는 운동 시작 시 알림 권한을 요청하며, 거부해도 운동 기록 자체는 계속 동작한다.
+- Android 잠금화면 위젯은 `keyguard` 카테고리를 함께 선언하되 실제 배치 가능 여부는 기기 제조사와 런처 지원 범위를 따른다.
+- Android 런처의 위젯 선택 화면에서는 12개 위젯마다 기능을 구분할 수 있는 전용 미리보기와 설명을 제공한다. 미리보기는 예시 데이터만 표시하며 실제 위젯 데이터와 동기화하지 않는다.
 
 ## 위젯 아키텍처
 
@@ -110,7 +114,7 @@
 - 지난 5주 히트맵 하단 요약은 별도 `횟수`, `총 시간` 라벨 없이 `{횟수}회 · 총 {시간}`으로 표시하며, 지난 6개월 히트맵 상단 요약과 같은 텍스트 크기와 색상을 사용한다.
 - 히트맵 계열 위젯의 추가 화면 제목은 홈 위젯에 `루핏 히트맵 · {기간}`, 잠금화면 위젯에 `루핏 잠금화면 히트맵 · {기간}` 형식을 사용한다. 설명은 `{기간·범위}의 {운동 기록·부가 정보}를 히트맵으로 확인합니다.` 형식을 사용한다. 캘린더 정렬을 사용하더라도 제목과 설명에서는 `달력`이 아니라 `히트맵`으로 표현한다. 같은 기능의 홈·잠금화면 변형은 가능한 한 같은 설명 문장을 사용한다.
 - 잠금 화면 위젯: 다음 운동, 운동 중, 당일 완료 상태와 `지난 3주`·`다음 3주` 히트맵을 제공한다. 별도의 지난 7일 요약 위젯은 제공하지 않는다.
-- Live Activity: 운동 중 상태, 경과 시간, 종료 액션을 제공한다.
+- iOS Live Activity와 Android 운동 중 고정 알림: 운동 중 상태, 경과 시간, 종료 액션을 제공한다.
 - Live Activity의 다이나믹 아일랜드는 별도의 운동 아이콘 없이 운동 이름과 경과 시간을 표시한다.
 - 잠금화면 운동 위젯의 운동 중 경과 시간은 Rectangular 영역 중앙에 정렬한다.
 - 운동 완료 상태는 당일 자정까지 유지하고 다음 날 다음 운동 상태로 돌아간다.
@@ -118,11 +122,11 @@
 ### 구현 원칙
 
 - `/ios`와 `/android`는 생성 산출물로 ignore되어 있다. 유지해야 하는 네이티브 변경은 config plugin, `plugins/native-widgets`, 로컬 Expo 모듈, patch-package 중 해당 원천에 남긴다.
-- `modules/loofit-workout-core`가 iOS 앱, 홈·잠금 화면 위젯, Live Activity가 공유하는 운동 명령과 surface 동기화의 단일 원천이다. 시작, 운동 대상 변경, 종료, 취소 정책은 이 모듈에서 SQLite 트랜잭션으로 처리한다.
+- `modules/loofit-workout-core`가 iOS·Android 앱, 홈·잠금 화면 위젯, Live Activity·Android 고정 알림이 공유하는 운동 명령과 surface 동기화의 단일 원천이다. 시작, 운동 대상 변경, 종료, 취소 정책은 Swift·Kotlin Core에서 같은 계약에 따라 SQLite 트랜잭션으로 처리한다.
 - `LoofitWorkoutCore` Pod는 Expo 의존성이 없는 순수 Swift Core이고 앱의 Expo bridge는 `LoofitWorkoutExpoAdapter` Pod로 분리한다. Widget Extension은 `LoofitWorkoutCore`만 링크하며 ExpoModulesCore, React Native, Hermes를 포함하지 않는다.
 - `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
 - 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
-- 앱 내 미리보기와 SwiftUI 위젯의 레이아웃·variant·표시 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 변경 후 `npm run generate:widget-contract`로 TS, Core layout, Widget Extension Swift 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
+- 앱 내 미리보기와 SwiftUI·Android 위젯의 레이아웃·variant·표시 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 변경 후 `npm run generate:widget-contract`로 TS, Swift Core layout, Widget Extension Swift, Kotlin Core layout 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
 - 위젯 디자인 값은 계약의 `designSystem` 기초 토큰과 의미 색상 역할을 사용한다. 공통 여백·모서리·타이포·투명도·최소 축소율은 토큰에서, surface별 배치와 제품 동작은 컴포넌트·variant 레시피에서 관리한다. 앱 미리보기와 Swift 렌더러에 디자인 숫자나 앱 팔레트 키를 직접 추가하지 않으며 상세 규칙은 `docs/widget-design-system.md`를 따른다.
 - 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 지난 5주는 4주 전 일요일부터 오늘까지 29~35일을 집계하고 현재 주의 남은 칸은 투명 placeholder로 채워 항상 5행을 유지한다. 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
 - 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고 세 통계 값은 같은 텍스트 크기를 유지한다. 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
@@ -136,10 +140,11 @@
 - 홈 화면 운동 위젯 Small의 상단 상태·중앙 운동 정보·하단 액션 또는 결과는 고정 영역 높이나 고정된 영역 간 gap을 두지 않고 사용 가능한 세로 공간을 `space-between`으로 분배한다. 의미상 한 묶음인 텍스트 내부에만 토큰 간격을 사용한다.
 - 지난 7일 히트맵의 `횟수`, `총 시간`, `평균` 통계 라벨은 `sm`, 통계 값은 `lg` 크기를 사용한다.
 - iOS에서 앱과 위젯은 App Group의 `LoofitWidgets` 디렉터리에 있는 SQLite DB를 공유한다. 이전 기본 DB나 다른 공유 디렉터리의 개발 데이터는 자동으로 복사하지 않으며, build mode나 저장소 baseline을 바꿀 때는 개발 데이터를 초기화한다.
-- DB version, table·column, index, 위젯 sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. 현재 미출시 완성 스키마 전체를 version 1 baseline으로 사용하고, 출시 후 첫 스키마 변경부터 version 2 migration을 추가한다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → 후처리` 순서를 TS와 Swift가 동일하게 실행한다. 현재 version이면 schema 작업 없이 반환하고, 낮은 version에만 미적용 migration을 실행하며, 지원 version보다 높은 DB는 즉시 오류로 처리한다. 적용 완료 migration의 backfill이나 repair를 반복 실행하지 않는다. 변경 후 `npm run schema:generate`로 양쪽 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.
+- DB version, table·column, index, 위젯 sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. 현재 미출시 완성 스키마 전체를 version 1 baseline으로 사용하고, 출시 후 첫 스키마 변경부터 version 2 migration을 추가한다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → 후처리` 순서를 TS·Swift·Kotlin이 동일하게 실행한다. 현재 version이면 schema 작업 없이 반환하고, 낮은 version에만 미적용 migration을 실행하며, 지원 version보다 높은 DB는 즉시 오류로 처리한다. 적용 완료 migration의 backfill이나 repair를 반복 실행하지 않는다. 변경 후 `npm run schema:generate`로 세 플랫폼 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.
 - 앱 DB 접근 구현은 `src/db/repositories/*`와 `src/db/queries/*`에 책임별로 둔다. 앱 계층은 안정적인 facade인 `src/db/repository.ts`를 통해 접근하며 repository 사이 의존성은 body part → routine → session → overview query 방향을 유지한다.
-- 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 App Group 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity를 조정한다.
-- 앱, 홈 위젯, Live Activity의 시작·종료 진입점은 모두 같은 Core pipeline을 호출한다. 앱 초기화·foreground와 루틴·기록·테마 변경 후 reconcile이 미완료 revision을 복구한다.
+- 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 iOS App Group 또는 Android 앱 전용 snapshot 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity·고정 알림을 조정한다.
+- 앱, 홈 위젯, Live Activity·고정 알림의 시작·종료 진입점은 모두 같은 Core pipeline을 호출한다. 앱 초기화·foreground와 루틴·기록·테마 변경 후 reconcile이 미완료 revision을 복구한다.
+- Android 위젯·진행 중 알림에서 실행한 운동 명령은 네이티브 Core 결과를 앱 JS에 이벤트로 알린다. 앱이 이미 전면에 있어 AppState foreground 전환이 발생하지 않아도 Store는 overview를 다시 읽어 활성·완료 화면을 즉시 맞춘다.
 - Core 명령 결과의 `status`는 DB 변경 결과(`applied`, `noop`, `stale`, `rejected`)이고 `publicationStatus`는 surface 발행 결과(`published`, `pending`, `skipped`)다. DB commit 뒤 발행이 실패해도 명령 성공을 실패로 바꾸지 않고 `pending`과 dirty revision을 반환해 다음 reconcile에서 복구한다.
 - Core의 semantic snapshot은 기본 운동 상태와 함께 날짜별 운동 부위, 최근 30일 부위별 누적 시간, 활성 루틴의 현재 순서와 분할별 최근 완료 기록을 포함한다. 각 네이티브 위젯은 동일 snapshot을 읽고 자신의 surface hash가 바뀐 경우에만 reload한다.
 - 앱 Store의 모든 mutation은 결과와 관계없이 SQLite에서 `getOverview()`를 다시 읽는다. `getOverview()`는 하나의 read transaction에서 완성해 서로 다른 revision의 값을 섞지 않으며, mutation coordinator는 쓰기를 직렬화하고 이전 foreground 조회가 최신 mutation 결과를 덮지 못하게 한다.
@@ -148,13 +153,14 @@
 - `src/widgets/widget-spec.ts`, `src/widgets/heatmap-widget-model.ts`, `src/widgets/lock-screen-widget-model.ts`는 앱 내 미리보기용으로 유지하며 실제 native runtime 동기화 코드로 사용하지 않는다.
 - `LOOFIT_APP_ONLY=1`은 `expo-widgets` plugin과 공유 DB 사용을 끄되 iOS 앱의 운동 명령은 같은 Core를 사용하고 surface 발행만 생략한다.
 - 설치된 iOS 바이너리는 `LoofitWidgetsEnabled` 값을 build mode의 기준으로 사용한다. 위젯 활성 빌드에서 App Group DB 디렉터리에 접근할 수 없거나 JS가 다른 build mode를 요청하면 기본 DB로 대체하지 않고 즉시 오류로 처리한다. 앱 전용 빌드만 기본 앱 DB를 정상 사용한다.
-- 운동 명령 정책을 변경하면 `contracts/workout-command-scenarios.json`을 갱신한다. Node 22 `node:sqlite` 기반 TS repository fallback 테스트와 Swift Core 테스트가 같은 시나리오를 실행해 `applied`·`noop`·`stale`·`rejected`, 중복 종료, 운동 부위 수정 범위, 취소 정책의 parity를 검증한다.
+- 운동 명령 정책을 변경하면 `contracts/workout-command-scenarios.json`을 갱신한다. Node 22 `node:sqlite` 기반 TS repository fallback 테스트와 Swift·Kotlin Core 테스트가 같은 시나리오를 실행해 `applied`·`noop`·`stale`·`rejected`, 중복 종료, 운동 부위 수정 범위, 취소 정책의 parity를 검증한다.
 
 ### 위젯 검증
 
-- 위젯과 Live Activity는 Expo Go가 아니라 iOS Development Build에서 검증한다.
+- 위젯, Live Activity, Android 고정 알림은 Expo Go가 아니라 각 플랫폼 Development Build에서 검증한다.
 - JS/TS 표시 모델은 앱 미리보기로 빠르게 확인할 수 있지만, 실제 크기·폰트·타이머·AppIntent·자정 전환은 설치된 iOS 위젯에서 확인한다.
 - config plugin, `plugins/native-widgets`, `modules/loofit-workout-core`, `app.config.js`, `app.json` 변경 후에는 `npm run ios:prebuild:widgets`로 네이티브 프로젝트를 동기화한 뒤 `npm run ios`로 빌드한다.
+- Android Core·위젯·Manifest·리소스 변경 후에는 `npm run android:prebuild`, `npm run test:android-core`, `npm run android` 순서로 생성 프로젝트와 실기기 동작을 검증한다.
 
 ## 자주 쓰는 명령
 
@@ -165,6 +171,13 @@
 - `npm run contracts:check`
 - `npm run test:command-contract`
 - `npm run test:ios-core`
+- `npm run test:android-core`
+- `npm run android:prebuild`
+- `npm run android:build`
+- `npm run android`
+- `npm run play:metadata`
+- `npm run play:screenshots`
+- `npm run play:listing`
 - `npm run ios:prebuild:widgets`
 - `npm run ios:prebuild:app-only`
 - `npm run ios:build`
@@ -190,11 +203,26 @@
 - `skip_docs`를 유지해 Fastlane 실행이 저장소의 `fastlane/README.md`를 자동 생성 문서로 덮어쓰지 않게 한다.
 - 스크린샷은 `fastlane/screenshots/ko`에 파일명 숫자 접두사 순서로 둔다. 업로드 시 기존 스크린샷을 교체하며, 완료 전에는 `store:screenshots` 또는 `store:listing`을 실행하지 않는다.
 
-GitHub Actions CI는 Node 22에서 생성 계약 drift, TypeScript, Vitest, 스타일 토큰을 검사한다. macOS 26 job은 full-widget prebuild와 Pods 설치 후 Widget Extension 의존성 격리 및 Release 최적화를 확인하고 앱 빌드와 native Core 테스트를 실행한 다음, app-only clean prebuild에 위젯·App Group 잔여물이 없는지와 앱 빌드를 검증한다.
+## Google Play listing과 배포
+
+- Android 바이너리 AAB 빌드와 Google Play 제출은 EAS가 담당하고, Fastlane은 한국어 제품 페이지 메타데이터와 스크린샷만 관리한다.
+- Google Play listing 원천은 `fastlane/metadata/android/ko-KR`이다. `title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/default.txt`를 유지하며 512×512 스토어 아이콘은 `images/icon.png`, 1024×500 피처 그래픽은 `images/featureGraphic.png`, 휴대전화 스크린샷은 `images/phoneScreenshots`에 둔다. 피처 그래픽의 편집 가능한 원천은 `fastlane/google-play/feature-graphic.svg`다.
+- `npm run play:metadata`는 메타데이터만, `npm run play:screenshots`는 휴대전화 스크린샷만, `npm run play:listing`은 메타데이터·스토어 그래픽·스크린샷을 함께 업로드한다. 세 lane 모두 APK·AAB와 변경 로그 업로드를 생략한다.
+- Google Play 서비스 계정 키 경로는 Git에서 제외된 `fastlane/.env`의 `PLAY_STORE_JSON_KEY`에만 둔다. JSON 키는 저장소 밖에서 보관하고 출력·로그·커밋에 포함하지 않는다.
+- Android 첫 배포는 EAS production AAB를 Google Play 내부 테스트에 먼저 제출한다. 앱의 전체 흐름, 12개 위젯, 알림 권한 허용·거부, 진행 중 알림의 경과 시간·종료, 재부팅·자정·시간대 변경 후 복구를 실기기에서 확인한 뒤 같은 release 계열을 production으로 승격한다.
+- Android 잠금화면 위젯은 기기 제조사와 런처 지원 여부가 다르므로 지원 기기에서는 keyguard 배치를 검증하고, 미지원 기기에서는 홈 화면 위젯과 진행 중 알림을 기준으로 검증한다.
+- 현재 제품은 로그인·백엔드·광고·분석 SDK 없이 기록을 기기 SQLite에만 저장한다. Play Console 데이터 보안 답변은 출시 빌드 의존성과 동작을 다시 확인한 뒤 `수집 없음`, `공유 없음`을 기준으로 작성한다.
+- Android가 사용자에게 요청하는 제품 권한은 운동 중 진행 알림을 위한 `POST_NOTIFICATIONS`이다. 사용자가 거부해도 운동 기록과 앱 기능은 계속 동작한다고 권한·심사 설명에 명시한다. Dev Client 의존성이 병합하는 `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`는 제품 빌드 Manifest에서 명시적으로 차단한다.
+- Google Play 데이터 보안은 운동 루틴·기록·시간을 기기 안에서만 처리하고 외부로 전송하지 않는 현재 구현을 기준으로 `수집하지 않음`, `공유하지 않음`으로 선언한다. SDK나 네트워크 동작이 추가되면 제출 전에 앱 동작, 개인정보 처리방침, 데이터 보안 선언을 함께 갱신한다.
+- Google Play 건강 앱 선언은 운동 루틴과 운동을 기록하는 기능에 맞춰 `Activity and Fitness`를 선택한다. 의료기기, 진단, 치료, 재활, Health Connect·신체 센서 접근은 제공하지 않는다고 현재 구현과 약관 기준으로 유지한다.
+- Google Play 앱 콘텐츠는 현재 제품 기준으로 광고 없음, 로그인·회원가입·제한 콘텐츠 없음, 앱 전체에 별도 심사 계정 없이 접근 가능으로 선언한다. 개인정보 처리방침은 `https://ehzero.github.io/loofit-legal/privacy/`, 고객지원은 `https://ehzero.github.io/loofit-legal/support/`를 사용한다.
+- 실제 listing 업로드와 production 제출은 명시적인 배포 요청 범위에서만 수행한다. 준비만 요청받았을 때는 메타데이터·스크린샷·AAB를 검토 가능한 상태로 만들고 원격 상태를 변경하지 않는다.
+
+GitHub Actions CI는 Node 22에서 생성 계약 drift, TypeScript, Vitest, 스타일 토큰을 검사한다. macOS 26 job은 full-widget prebuild와 Pods 설치 후 Widget Extension 의존성 격리 및 Release 최적화를 확인하고 앱 빌드와 native Core 테스트를 실행한 다음, app-only clean prebuild에 위젯·App Group 잔여물이 없는지와 앱 빌드를 검증한다. Ubuntu Android job은 Android prebuild 후 Kotlin 공유 명령 계약 테스트와 Release App Bundle 빌드를 검증한다.
 
 ## 빌드와 실행
 
-이 앱은 위젯과 Live Activity를 검증해야 하므로 Expo Go 기준으로 판단하지 않는다. 기본 검증 기준은 iOS Development Build다.
+이 앱은 네이티브 위젯, Live Activity, Android 고정 알림을 검증해야 하므로 Expo Go 기준으로 판단하지 않는다. 기본 검증 기준은 iOS·Android Development Build다.
 
 ### 1. 일반 검증
 
@@ -226,6 +254,17 @@ GitHub Actions CI는 Node 22에서 생성 계약 drift, TypeScript, Vitest, 스�
 
 두 명령은 같은 동작을 하며 추가 인자를 그대로 `expo run:ios`에 전달한다. 예: `npm run ios -- --device '탱폰' --no-bundler`. `ios/`가 없거나 build mode 표식이 없는 오래된 산출물이면 임의로 prebuild하지 않고 어떤 prebuild 명령을 실행해야 하는지 안내하며 종료한다.
 
+### 3A. Android 네이티브 프로젝트 생성·빌드
+
+Android 생성 프로젝트는 다음 명령으로 동기화하고 빌드한다. `android:prebuild`는 이전 리소스 ID와 Manifest 증분 산출물이 남지 않도록 생성 프로젝트를 clean prebuild하며, 유지할 네이티브 변경은 로컬 Expo 모듈과 config plugin 원천에 둔다.
+
+- `npm run android:prebuild`
+- `npm run test:android-core`
+- `npm run android`
+- `npm run android:build`
+
+`android`와 `android:build`는 같은 동작이며 추가 인자를 `expo run:android`에 전달한다. `android/`가 없으면 자동으로 임의 생성하지 않고 `android:prebuild` 실행을 안내한다. 로컬 Gradle은 JDK 17과 compile/target SDK 36을 사용한다.
+
 ### 4. Metro 실행
 
 Development Build로 설치된 앱에 JS 번들을 공급할 때 사용한다.
@@ -254,7 +293,8 @@ JS/TS 화면 코드, 컴포넌트, 스타일 변경은 대체로 재빌드가 �
 다음 변경은 재빌드가 필요하다.
 
 - `ios/` 네이티브 코드 변경
-- 위젯 또는 Live Activity 네이티브 설정 변경
+- Android 로컬 Expo 모듈·Manifest·리소스 변경
+- 위젯, Live Activity 또는 고정 알림 네이티브 설정 변경
 - `app.json`, `app.config.js`의 네이티브 설정 변경
 - 새 네이티브 모듈 설치
 - Pod 또는 Xcode 프로젝트 설정 변경
@@ -270,14 +310,14 @@ Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세
 
 ### 7. 실기기와 EAS
 
-원격 EAS 빌드는 `eas.json` 기준으로 실행한다. iOS 우선 검증 앱이므로 TestFlight 제출은 `production` 프로필을 사용한다.
+원격 EAS 빌드는 `eas.json` 기준으로 실행한다. TestFlight와 Google Play 제출은 `production` 프로필을 사용하고, Google Play 내부 테스트는 `internal` submit 프로필을 사용한다.
 
 프로필 기준:
 
-- `development`: 실기기 Development Build
+- `development`: iOS·Android 실기기 Development Build(Android는 APK)
 - `development-simulator`: iOS 시뮬레이터 Development Build
-- `preview`: 내부 배포용 빌드
-- `production`: TestFlight/App Store 제출용 빌드
+- `preview`: 내부 배포용 빌드(Android는 APK)
+- `production`: TestFlight/App Store 및 Google Play 제출용 빌드(Android는 AAB)
 
 처음 EAS를 사용할 때는 아래를 확인한다.
 
@@ -288,6 +328,8 @@ Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세
 - App Group 설정: `group.com.loofit.app`
 - Widget Extension 및 Live Activity 권한
 - App Store Connect 앱 레코드 생성
+- Google Play Console 앱 레코드와 패키지 `com.loofit.app` 등록
+- EAS Submit용 Google Play 서비스 계정 JSON 키를 저장소 밖에 보관하고 제출 credential로 등록
 
 TestFlight 제출:
 
@@ -299,6 +341,13 @@ TestFlight 제출:
 - `npx eas-cli@latest submit --platform ios --profile production --latest`
 
 `production`은 `cli.appVersionSource: remote`와 `autoIncrement: true`를 사용하므로, TestFlight 중복 빌드 번호를 피하기 위해 EAS 원격 빌드 번호를 기준으로 관리한다.
+
+Google Play 내부 테스트 빌드와 제출:
+
+- `npx eas-cli@latest build --platform android --profile production`
+- `npx eas-cli@latest submit --platform android --profile internal --latest`
+
+프로덕션 출시는 내부 테스트에서 앱·위젯·고정 알림을 확인한 같은 release 계열 빌드를 `production` submit 프로필로 제출한다. 실제 프로덕션 제출은 명시적인 출시 요청이 있을 때만 수행한다.
 
 현재 EAS/TestFlight 상태:
 

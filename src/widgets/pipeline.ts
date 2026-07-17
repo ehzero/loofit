@@ -1,6 +1,7 @@
-import { Platform } from 'react-native';
+import { PermissionsAndroid, Platform } from 'react-native';
 
 import {
+  addExternalWorkoutCommandListener,
   executeWorkoutCommand,
   reconcileWorkoutSurfaces,
   updateWidgetThemeSnapshot,
@@ -21,13 +22,27 @@ type NativePipelineOptions = {
   widgetsEnabled: boolean;
 };
 
+type WorkoutCommandSubscription = { remove(): void };
+
 export function usesNativeWorkoutPipeline(): boolean {
-  return Platform.OS === 'ios';
+  return Platform.OS === 'ios' || Platform.OS === 'android';
+}
+
+export function subscribeToExternalWorkoutCommands(
+  listener: (result: CommandResult) => void
+): WorkoutCommandSubscription | null {
+  if (Platform.OS !== 'android') {
+    return null;
+  }
+  return addExternalWorkoutCommandListener(listener);
 }
 
 export async function executeAppWorkoutCommand(
   command: WorkoutCommand
 ): Promise<CommandResult> {
+  if (Platform.OS === 'android' && (command.type === 'startNext' || command.type === 'startRoutine')) {
+    await requestAndroidWorkoutNotificationPermission();
+  }
   const options = nativePipelineOptions();
   return executeWorkoutCommand(command, options.databaseDirectory, options.widgetsEnabled);
 }
@@ -86,11 +101,34 @@ function nativePipelineOptions(): NativePipelineOptions {
   // Read build mode from the installed native binary. Metro can serve a full
   // manifest to an APP_ONLY development build, so its manifest is not an
   // authoritative source for entitlements or App Group availability.
-  return resolveIosNativeBuildMode(
-    workoutCoreNativeModuleAvailable,
-    workoutCoreWidgetsConfigured,
-    workoutCoreWidgetsDirectory
-  );
+  if (Platform.OS === 'ios') {
+    return resolveIosNativeBuildMode(
+      workoutCoreNativeModuleAvailable,
+      workoutCoreWidgetsConfigured,
+      workoutCoreWidgetsDirectory
+    );
+  }
+  if (Platform.OS === 'android') {
+    if (!workoutCoreNativeModuleAvailable) {
+      throw new Error('This Android build does not contain the required LoofitWorkoutCore module.');
+    }
+    if (!workoutCoreWidgetsConfigured) {
+      throw new Error('This Android build does not contain the required Loofit widgets.');
+    }
+    return { widgetsEnabled: true, databaseDirectory: null };
+  }
+  return { widgetsEnabled: false, databaseDirectory: null };
+}
+
+async function requestAndroidWorkoutNotificationPermission(): Promise<void> {
+  if (typeof Platform.Version !== 'number' || Platform.Version < 33) {
+    return;
+  }
+  const permission = PermissionsAndroid.PERMISSIONS.POST_NOTIFICATIONS;
+  if (await PermissionsAndroid.check(permission)) {
+    return;
+  }
+  await PermissionsAndroid.request(permission);
 }
 
 function requireSupportedResult(result: CommandResult, action: string): CommandResult {

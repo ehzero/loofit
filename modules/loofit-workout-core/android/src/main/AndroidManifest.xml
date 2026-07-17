@@ -1,0 +1,70 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+  <application android:localeConfig="@xml/loofit_locales_config">
+    <receiver
+      android:name=".LoofitWorkoutActionReceiver"
+      android:exported="false" />
+    <receiver
+      android:name=".LoofitWorkoutBootReceiver"
+      android:enabled="true"
+      android:exported="true">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+        <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+        <action android:name="android.intent.action.TIME_SET" />
+      </intent-filter>
+    </receiver>
+
+    <receiver android:name=".WorkoutControlWidgetProvider" android:exported="false" android:label="@string/loofit_widget_control">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_control_info" />
+    </receiver>
+    <receiver android:name=".HeatmapWeekWidgetProvider" android:exported="false" android:label="@string/loofit_widget_week">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_week_info" />
+    </receiver>
+    <receiver android:name=".HeatmapMonthWidgetProvider" android:exported="false" android:label="@string/loofit_widget_month">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_month_info" />
+    </receiver>
+    <receiver android:name=".HeatmapYearWidgetProvider" android:exported="false" android:label="@string/loofit_widget_six_months">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_six_months_info" />
+    </receiver>
+    <receiver android:name=".CurrentMonthCalendarWidgetProvider" android:exported="false" android:label="@string/loofit_widget_current_month">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_current_month_info" />
+    </receiver>
+    <receiver android:name=".HeatmapFourWeekExpandedWidgetProvider" android:exported="false" android:label="@string/loofit_widget_four_week">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_four_week_info" />
+    </receiver>
+    <receiver android:name=".RoutineProgressWidgetProvider" android:exported="false" android:label="@string/loofit_widget_routine_progress">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_routine_progress_info" />
+    </receiver>
+    <receiver android:name=".BodyPartDurationWidgetProvider" android:exported="false" android:label="@string/loofit_widget_body_part_duration">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_body_part_duration_info" />
+    </receiver>
+    <receiver android:name=".WorkoutLockScreenWidgetProvider" android:exported="false" android:label="@string/loofit_widget_lock_workout">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_lock_workout_info" />
+    </receiver>
+    <receiver android:name=".ThreeWeekCalendarLockScreenWidgetProvider" android:exported="false" android:label="@string/loofit_widget_lock_three_week">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_lock_three_week_info" />
+    </receiver>
+    <receiver android:name=".NextThreeWeekCalendarLockScreenWidgetProvider" android:exported="false" android:label="@string/loofit_widget_lock_next_three_week">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_lock_next_three_week_info" />
+    </receiver>
+    <receiver android:name=".RoutineProgressLockScreenWidgetProvider" android:exported="false" android:label="@string/loofit_widget_lock_routine_progress">
+      <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
+      <meta-data android:name="android.appwidget.provider" android:resource="@xml/loofit_widget_lock_routine_progress_info" />
+    </receiver>
+  </application>
+</manifest>

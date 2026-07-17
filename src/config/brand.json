@@ -6,6 +6,9 @@
     "id": "6789599963",
     "country": "kr"
   },
+  "playStore": {
+    "packageName": "com.loofit.app"
+  },
   "urls": {
     "website": "https://ehzero.github.io/loofit-legal/",
     "support": "https://ehzero.github.io/loofit-legal/support/",

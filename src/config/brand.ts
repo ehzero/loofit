@@ -5,5 +5,6 @@ export const BRAND = {
   tagline: brandConfig.tagline,
   contactEmail: brandConfig.contactEmail,
   appStore: brandConfig.appStore,
+  playStore: brandConfig.playStore,
   urls: brandConfig.urls,
 } as const;

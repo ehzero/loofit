@@ -1,10 +1,13 @@
 {
-  "platforms": ["apple"],
+  "platforms": ["apple", "android"],
   "apple": {
     "podspecPath": [
       "./ios/LoofitWorkoutCore.podspec",
       "./ios/LoofitWorkoutExpoAdapter.podspec"
     ],
     "modules": ["LoofitWorkoutCoreModule"]
+  },
+  "android": {
+    "modules": ["com.loofit.workoutcore.LoofitWorkoutCoreModule"]
   }
 }

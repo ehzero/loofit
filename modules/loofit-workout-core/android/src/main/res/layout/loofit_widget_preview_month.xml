@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/loofit_widget_background"
+  android:orientation="vertical"
+  android:padding="12dp">
+  <TextView style="@style/LoofitWidgetPreviewBrand" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="루핏 히트맵" />
+  <TextView style="@style/LoofitWidgetPreviewLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="지난 5주" />
+  <TextView
+    style="@style/LoofitWidgetPreviewGrid"
+    android:layout_width="match_parent"
+    android:layout_height="0dp"
+    android:layout_marginTop="4dp"
+    android:layout_weight="1"
+    android:text="· · ● · ● · ·&#10;● · · ● · ● ·&#10;· ● · · ● · ●&#10;● · ● · · ● ·&#10;· ● · ● · · ●" />
+  <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="12회 · 총 9시간" />
+</LinearLayout>

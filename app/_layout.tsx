@@ -17,6 +17,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAppStore } from '@/src/store/app-store';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { ToastProvider, useToast } from '@/src/theme/ToastProvider';
+import { subscribeToExternalWorkoutCommands } from '@/src/widgets/pipeline';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -73,6 +74,18 @@ export default function RootLayout() {
       }
     });
     return () => subscription.remove();
+  }, [loaded, refresh]);
+
+  useEffect(() => {
+    if (!loaded) {
+      return;
+    }
+    const subscription = subscribeToExternalWorkoutCommands(() => {
+      if (didInitialize.current) {
+        refresh();
+      }
+    });
+    return () => subscription?.remove();
   }, [loaded, refresh]);
 
   if (!loaded) {

@@ -2,6 +2,7 @@ import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import {
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -178,6 +179,9 @@ export default function WidgetsScreen() {
     yearWidget,
   } = useMemo(() => buildPreviewHeatmapWidgets(colors), [colors]);
   const lockScreenPreview = useMemo(() => buildPreviewLockScreenWidgets(colors), [colors]);
+  const isAndroid = Platform.OS === 'android';
+  const compactSizeLabel = isAndroid ? '소형' : 'Small';
+  const expandedSizeLabel = isAndroid ? '중형' : 'Medium';
 
   return (
     <Screen title="위젯" onBack={() => router.back()}>
@@ -201,7 +205,7 @@ export default function WidgetsScreen() {
 
         <View style={styles.previewGroup}>
           <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-            운동 위젯 · Small
+            운동 위젯 · {compactSizeLabel}
           </Text>
           <ScrollView
             horizontal
@@ -249,7 +253,7 @@ export default function WidgetsScreen() {
           </Text>
           <View style={styles.smallRow}>
             <WidgetTypePreview
-              label="Small · 지난 7일"
+              label={`${compactSizeLabel} · 지난 7일`}
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquare}
             >
@@ -261,7 +265,7 @@ export default function WidgetsScreen() {
               />
             </WidgetTypePreview>
             <WidgetTypePreview
-              label="Small · 지난 5주"
+              label={`${compactSizeLabel} · 지난 5주`}
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquare}
             >
@@ -276,7 +280,7 @@ export default function WidgetsScreen() {
 
           <View style={styles.smallRow}>
             <WidgetTypePreview
-              label="Small · 이번 달"
+              label={`${compactSizeLabel} · 이번 달`}
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquareSingle}
             >
@@ -293,7 +297,7 @@ export default function WidgetsScreen() {
           </View>
 
           <WidgetTypePreview
-            label="Medium · 지난 4주 상세"
+            label={`${expandedSizeLabel} · 지난 4주 상세`}
             labelColor={previewTheme.typeLabelColor}
           >
             <ExpandedHeatmapWidgetPreview
@@ -302,7 +306,9 @@ export default function WidgetsScreen() {
             />
           </WidgetTypePreview>
 
-          <WidgetTypePreview label="Medium · 지난 6개월" labelColor={previewTheme.typeLabelColor}>
+          <WidgetTypePreview
+            label={`${expandedSizeLabel} · 지난 6개월`}
+            labelColor={previewTheme.typeLabelColor}>
             <HeatmapWidgetPreview
               title={yearWidget.title}
               variant="year"
@@ -316,7 +322,7 @@ export default function WidgetsScreen() {
           <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>루틴 진행 위젯</Text>
           <View style={styles.smallRow}>
             <WidgetTypePreview
-              label="Small · 텍스트 목록"
+              label={`${compactSizeLabel} · 텍스트 목록`}
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquareSingle}
             >
@@ -333,7 +339,7 @@ export default function WidgetsScreen() {
           <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>운동 분석 위젯</Text>
           <View style={styles.smallRow}>
             <WidgetTypePreview
-              label="Small · 최근 30일 부위별 시간"
+              label={`${compactSizeLabel} · 최근 30일 부위별 시간`}
               labelColor={previewTheme.typeLabelColor}
               style={styles.smallSquareSingle}
             >
@@ -368,7 +374,7 @@ export default function WidgetsScreen() {
 
       <View style={styles.section}>
         <SectionLabelWithRule
-          label="운동 중 표시"
+          label={isAndroid ? '운동 중 고정 알림' : '운동 중 표시'}
           labelColor={colors.tx3}
           lineColor={colors.tx3}
         />
@@ -381,13 +387,15 @@ export default function WidgetsScreen() {
           title="하체 · 어깨"
         />
 
-        <DynamicIslandPreview
-          accent={accent}
-          accentText={colors.accentText}
-          elapsed="2:08:33"
-          previewTheme={previewTheme}
-          title="하체 · 어깨"
-        />
+        {!isAndroid ? (
+          <DynamicIslandPreview
+            accent={accent}
+            accentText={colors.accentText}
+            elapsed="2:08:33"
+            previewTheme={previewTheme}
+            title="하체 · 어깨"
+          />
+        ) : null}
       </View>
 
       <WidgetGuideSheet visible={guideVisible} onClose={() => setGuideVisible(false)} />
@@ -395,25 +403,35 @@ export default function WidgetsScreen() {
   );
 }
 
-const WIDGET_GUIDE_STEPS = [
+const IOS_WIDGET_GUIDE_STEPS = [
   '홈 화면 또는 잠금화면의 빈 공간을 길게 누르기',
   '홈 화면은 + 버튼, 잠금화면은 사용자화 선택',
   `${BRAND.displayName} 검색`,
   '원하는 위젯을 선택하고 추가',
 ] as const;
 
+const ANDROID_WIDGET_GUIDE_STEPS = [
+  '홈 화면의 빈 공간을 길게 누르기',
+  '위젯 메뉴 선택',
+  `${BRAND.displayName} 검색`,
+  '원하는 위젯을 길게 눌러 홈 화면에 배치',
+] as const;
+
 function WidgetGuideSheet({ visible, onClose }: { visible: boolean; onClose: () => void }) {
   const { colors } = useTheme();
+  const isAndroid = Platform.OS === 'android';
+  const steps = isAndroid ? ANDROID_WIDGET_GUIDE_STEPS : IOS_WIDGET_GUIDE_STEPS;
 
   return (
     <BottomSheet visible={visible} title="위젯 추가 방법" onClose={onClose}>
       <AppText variant="body" tone="tertiary">
-        앱에서 바로 설치되지는 않고, iPhone 홈 화면 또는 잠금화면 편집 모드에서 직접
-        추가할 수 있어요.
+        {isAndroid
+          ? '앱에서 바로 설치되지는 않고, Android 홈 화면의 위젯 메뉴에서 직접 추가할 수 있어요. 잠금화면 위젯은 지원하는 기기에서 같은 위젯을 추가할 수 있어요.'
+          : '앱에서 바로 설치되지는 않고, iPhone 홈 화면 또는 잠금화면 편집 모드에서 직접 추가할 수 있어요.'}
       </AppText>
 
       <View style={styles.stepList}>
-        {WIDGET_GUIDE_STEPS.map((step, index) => (
+        {steps.map((step, index) => (
           <View key={step} style={styles.stepRow}>
             <View style={[styles.stepNumber, { backgroundColor: colors.surface2 }]}>
               <AppText variant="caption" weight="800" tone="secondary">

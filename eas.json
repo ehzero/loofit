@@ -8,6 +8,9 @@
     "development": {
       "developmentClient": true,
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": false
       }
@@ -20,19 +23,35 @@
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "ios": {
         "simulator": false
       }
     },
     "production": {
       "autoIncrement": true,
+      "android": {
+        "buildType": "app-bundle"
+      },
       "ios": {
         "simulator": false
       }
     }
   },
   "submit": {
+    "internal": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "completed"
+      }
+    },
     "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "completed"
+      },
       "ios": {
         "ascAppId": "6789599963"
       }

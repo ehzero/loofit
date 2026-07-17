@@ -1,7 +1,12 @@
 const fs = require('fs');
 const path = require('path');
 
-const { IOSConfig, withDangerousMod, withXcodeProject } = require('@expo/config-plugins');
+const {
+  IOSConfig,
+  withAndroidManifest,
+  withDangerousMod,
+  withXcodeProject,
+} = require('@expo/config-plugins');
 const plist = require('@expo/plist').default;
 
 const brand = require('../src/config/brand.json');
@@ -10,6 +15,19 @@ const widgetRendererContract = require('../src/widgets/widget-renderer-contract.
 const TARGET_NAME = 'ExpoWidgetsTarget';
 const RENDERER_CONTRACT_FILE = 'LoofitWidgetRendererContract.generated.swift';
 const KOREAN_LANGUAGE_CODE = 'ko';
+
+function withAndroidKoreanLocale(config) {
+  return withAndroidManifest(config, (nextConfig) => {
+    const application = nextConfig.modResults.manifest.application?.[0];
+    if (!application) {
+      throw new Error('[Loofit] Android application manifest entry is missing.');
+    }
+
+    application.$ = application.$ ?? {};
+    application.$['android:localeConfig'] = '@xml/loofit_locales_config';
+    return nextConfig;
+  });
+}
 
 function corePodDeclaration() {
   const testSpec = process.env.LOOFIT_CORE_TESTS === '1' ? ", :testspecs => ['Tests']" : '';
@@ -281,7 +299,7 @@ function withWidgetBuildSettings(config) {
 }
 
 module.exports = function withLoofitNativeWidgets(config) {
-  const nextConfig = withWidgetBuildSettings(config);
+  const nextConfig = withWidgetBuildSettings(withAndroidKoreanLocale(config));
   return withDangerousMod(nextConfig, [
     'ios',
     async (nextConfig) => {

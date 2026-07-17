@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="lime-fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E3FFA0"/>
+      <stop offset="0.5" stop-color="#CFF56A"/>
+      <stop offset="1" stop-color="#BEEA5A"/>
+    </linearGradient>
+    <linearGradient id="lime-stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F2FFD0"/>
+      <stop offset="0.45" stop-color="#D8F77E"/>
+      <stop offset="1" stop-color="#AAD348"/>
+    </linearGradient>
+    <linearGradient id="glass-fill" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.96"/>
+      <stop offset="0.55" stop-color="#F6F8F5" stop-opacity="0.82"/>
+      <stop offset="1" stop-color="#E9EDE9" stop-opacity="0.9"/>
+    </linearGradient>
+    <linearGradient id="glass-stroke" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.42" stop-color="#E2E5E2"/>
+      <stop offset="1" stop-color="#C9CDCA"/>
+    </linearGradient>
+  </defs>
+  <g aria-label="루핏 루틴 히트맵 심볼">
+    <rect x="185" y="185" width="306" height="306" rx="64" fill="url(#lime-fill)" stroke="url(#lime-stroke)" stroke-width="12"/>
+    <rect x="533" y="185" width="306" height="306" rx="64" fill="url(#glass-fill)" stroke="url(#glass-stroke)" stroke-width="18"/>
+    <rect x="185" y="533" width="306" height="306" rx="64" fill="url(#lime-fill)" stroke="url(#lime-stroke)" stroke-width="12"/>
+    <rect x="533" y="533" width="306" height="306" rx="64" fill="url(#lime-fill)" stroke="url(#lime-stroke)" stroke-width="12"/>
+  </g>
+</svg>

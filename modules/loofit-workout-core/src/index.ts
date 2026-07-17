@@ -48,6 +48,11 @@ export type WidgetThemeSnapshot = {
   todayIndicatorColor: string;
 };
 
+export type AndroidUpdateInfo = {
+  updateAvailable: boolean;
+  availableVersionCode: number;
+};
+
 type NativeLoofitWorkoutCore = {
   widgetsConfigured?: boolean;
   widgetsDirectory?: string | null;
@@ -65,6 +70,11 @@ type NativeLoofitWorkoutCore = {
     databaseDirectory: string | null,
     widgetsEnabled: boolean
   ): Promise<CommandResult>;
+  getAndroidUpdateInfo?(): Promise<AndroidUpdateInfo>;
+  addListener?(
+    eventName: 'onExternalWorkoutCommand',
+    listener: (result: CommandResult) => void
+  ): { remove(): void };
 };
 
 const nativeModule = requireOptionalNativeModule<NativeLoofitWorkoutCore>('LoofitWorkoutCore');
@@ -107,4 +117,16 @@ export function updateWidgetThemeSnapshot(
   return nativeModule
     ? nativeModule.updateWidgetThemeSnapshot(theme, databaseDirectory, widgetsEnabled)
     : Promise.resolve(unsupportedResult);
+}
+
+export function getAndroidUpdateInfo(): Promise<AndroidUpdateInfo> {
+  return nativeModule?.getAndroidUpdateInfo
+    ? nativeModule.getAndroidUpdateInfo()
+    : Promise.resolve({ updateAvailable: false, availableVersionCode: 0 });
+}
+
+export function addExternalWorkoutCommandListener(
+  listener: (result: CommandResult) => void
+): { remove(): void } | null {
+  return nativeModule?.addListener?.('onExternalWorkoutCommand', listener) ?? null;
 }

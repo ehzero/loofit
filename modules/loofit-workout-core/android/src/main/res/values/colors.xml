@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <color name="loofit_widget_preview_background">#141418</color>
+  <color name="loofit_widget_preview_surface">#24242A</color>
+  <color name="loofit_widget_preview_text">#F4F4F2</color>
+  <color name="loofit_widget_preview_text_low">#9A9A9F</color>
+  <color name="loofit_widget_preview_accent">#C7FF4A</color>
+  <color name="loofit_widget_preview_accent_text">#111111</color>
+</resources>

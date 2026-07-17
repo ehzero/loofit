@@ -12,6 +12,7 @@ import { Screen } from '@/src/components/Screen';
 import { Segmented } from '@/src/components/Segmented';
 import { APP_VERSION, APP_VERSION_LABEL } from '@/src/config/app-version';
 import { BRAND } from '@/src/config/brand';
+import { getAndroidUpdateInfo } from '@/modules/loofit-workout-core';
 import {
   fetchAvailableAppUpdate,
   type AppUpdateInfo,
@@ -78,12 +79,12 @@ export default function SettingsScreen() {
     try {
       await Linking.openURL(availableUpdate.storeUrl);
     } catch {
-      Alert.alert('App Store를 열 수 없어요', '잠시 후 다시 시도해 주세요.');
+      Alert.alert(`${Platform.OS === 'android' ? 'Google Play' : 'App Store'}를 열 수 없어요`, '잠시 후 다시 시도해 주세요.');
     }
   }, [availableUpdate]);
 
   useEffect(() => {
-    if (Platform.OS !== 'ios' || !APP_VERSION) {
+    if ((Platform.OS !== 'ios' && Platform.OS !== 'android') || !APP_VERSION) {
       return;
     }
 
@@ -91,7 +92,18 @@ export default function SettingsScreen() {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), APP_UPDATE_LOOKUP_TIMEOUT_MS);
 
-    void fetchAvailableAppUpdate(APP_VERSION, { signal: controller.signal })
+    const lookup = Platform.OS === 'android'
+      ? getAndroidUpdateInfo().then((info) =>
+          info.updateAvailable
+            ? {
+                version: '사용 가능',
+                storeUrl: `https://play.google.com/store/apps/details?id=${encodeURIComponent(BRAND.playStore.packageName)}`,
+              }
+            : null
+        )
+      : fetchAvailableAppUpdate(APP_VERSION, { signal: controller.signal });
+
+    void lookup
       .then((update) => {
         if (active) {
           setAvailableUpdate(update);
@@ -177,7 +189,7 @@ export default function SettingsScreen() {
                 pressed ? styles.updatePressed : null,
               ]}>
               <AppText variant="body" weight="800" tone="accentContrast">
-                App Store에서 업데이트
+                {Platform.OS === 'android' ? 'Google Play에서 업데이트' : 'App Store에서 업데이트'}
               </AppText>
             </Pressable>
           </Card>

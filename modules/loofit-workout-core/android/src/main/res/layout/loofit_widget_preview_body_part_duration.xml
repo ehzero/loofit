@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/loofit_widget_background"
+  android:orientation="vertical"
+  android:padding="12dp">
+  <TextView style="@style/LoofitWidgetPreviewBrand" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="루핏 · 최근 30일" />
+  <TextView style="@style/LoofitWidgetPreviewLabel" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="부위별 운동 시간" />
+  <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="가슴  5시간 20분" android:textColor="@color/loofit_widget_preview_text" />
+  <TextView android:layout_width="match_parent" android:layout_height="7dp" android:layout_marginTop="2dp" android:background="@drawable/loofit_widget_preview_bar" />
+  <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="등  3시간 45분" android:textColor="@color/loofit_widget_preview_text" />
+  <TextView android:layout_width="96dp" android:layout_height="7dp" android:layout_marginTop="2dp" android:background="@drawable/loofit_widget_preview_bar" />
+  <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="하체  2시간 10분" android:textColor="@color/loofit_widget_preview_text" />
+  <TextView android:layout_width="58dp" android:layout_height="7dp" android:layout_marginTop="2dp" android:background="@drawable/loofit_widget_preview_bar" />
+</LinearLayout>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:background="@drawable/loofit_widget_background"
+  android:gravity="center_vertical"
+  android:orientation="horizontal"
+  android:padding="8dp">
+  <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+    <TextView style="@style/LoofitWidgetPreviewTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="Push" android:textColor="@color/loofit_widget_preview_accent" android:textSize="13sp" />
+    <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="오늘" android:textSize="9sp" />
+  </LinearLayout>
+  <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+    <TextView style="@style/LoofitWidgetPreviewTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="Pull" android:textColor="@color/loofit_widget_preview_text_low" android:textSize="13sp" />
+    <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="2일 전" android:textSize="9sp" />
+  </LinearLayout>
+  <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
+    <TextView style="@style/LoofitWidgetPreviewTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="Legs" android:textColor="@color/loofit_widget_preview_text_low" android:textSize="13sp" />
+    <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:gravity="center" android:text="4일 전" android:textSize="9sp" />
+  </LinearLayout>
+</LinearLayout>
