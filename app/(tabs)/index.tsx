@@ -307,6 +307,7 @@ export default function HomeScreen() {
   // ---- Feed: pre / post ----
   const todaySessions = overview.todaySessions;
   const isPost = todaySessions.length > 0;
+  const latestCompletedToday = overview.latestCompletedToday ?? todaySessions[0] ?? null;
   const todayParts = [
     ...new Set(todaySessions.flatMap((session) => session.parts.map((part) => part.bodyPartName))),
   ];
@@ -382,43 +383,59 @@ export default function HomeScreen() {
         </View>
 
         {isPost ? (
-          <Card variant="hero">
-            <View style={styles.postHead}>
-              <View style={[styles.postCheck, { backgroundColor: colors.accent }]}>
-                <Icon name="check" size={18} color={colors.accentText} />
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="가장 최근 완료 운동 기록 수정"
+            accessibilityHint="기록 편집 화면을 엽니다"
+            disabled={!latestCompletedToday}
+            onPress={() => {
+              if (latestCompletedToday) {
+                router.push(`/record/${latestCompletedToday.id}`);
+              }
+            }}
+            style={({ pressed }) => (pressed ? styles.postCardPressed : undefined)}>
+            <Card variant="hero">
+              <View style={styles.postHead}>
+                <View style={[styles.postCheck, { backgroundColor: colors.accent }]}>
+                  <Icon name="check" size={18} color={colors.accentText} />
+                </View>
+                <AppText variant="title">오늘 운동 완료</AppText>
               </View>
-              <AppText variant="title">오늘 운동 완료</AppText>
-            </View>
-            <AppText variant="heading">{todayParts.join(' · ')}</AppText>
-            <View style={styles.postStats}>
-              <View style={styles.postStat}>
-                <AppText variant="label" tone="muted">
-                  운동 시간
-                </AppText>
-                <AppText variant="heading" tone="accent">
-                  {formatDuration(todayDuration)}
-                </AppText>
+              <AppText variant="heading">{todayParts.join(' · ')}</AppText>
+              <View style={styles.postStats}>
+                <View style={styles.postStat}>
+                  <AppText variant="label" tone="muted">
+                    운동 시간
+                  </AppText>
+                  <AppText variant="heading" tone="accent">
+                    {formatDuration(todayDuration)}
+                  </AppText>
+                </View>
+                <View style={styles.postStat}>
+                  <AppText variant="label" tone="muted">
+                    시간대
+                  </AppText>
+                  <AppText
+                    variant="body"
+                    weight="700"
+                    tone="secondary"
+                    style={styles.postRange}>
+                    {todayRange}
+                  </AppText>
+                </View>
               </View>
-              <View style={styles.postStat}>
-                <AppText variant="label" tone="muted">
-                  시간대
-                </AppText>
-                <AppText variant="body" weight="700" tone="secondary" style={styles.postRange}>
-                  {todayRange}
-                </AppText>
-              </View>
-            </View>
-            {nextDay ? (
-              <View style={[styles.postNext, { borderTopColor: colors.border }]}>
-                <AppText variant="footnote" weight="700" tone="muted">
-                  다음 운동
-                </AppText>
-                <AppText variant="item" weight="800">
-                  {routineDayDisplayName(nextDay)}
-                </AppText>
-              </View>
-            ) : null}
-          </Card>
+              {nextDay ? (
+                <View style={[styles.postNext, { borderTopColor: colors.border }]}>
+                  <AppText variant="footnote" weight="700" tone="muted">
+                    다음 운동
+                  </AppText>
+                  <AppText variant="item" weight="800">
+                    {routineDayDisplayName(nextDay)}
+                  </AppText>
+                </View>
+              ) : null}
+            </Card>
+          </Pressable>
         ) : (
           <Card variant="hero">
             <View style={styles.nextHead}>
@@ -750,6 +767,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
+  },
+  postCardPressed: {
+    opacity: 0.85,
   },
   postCheck: {
     width: 34,
