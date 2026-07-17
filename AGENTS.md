@@ -279,6 +279,7 @@ Metro가 켜져 있는데 앱이 이전 오류 화면에 머물면 앱 프로세
 
 - Expo/EAS 프로젝트 연결: `@ehzero/loofit`
 - EAS projectId: `803560ac-f833-44f7-8e5f-b47144d1df1c`
+- App Store Connect app ID: `6789599963` (`eas.json`의 production submit `ascAppId`)
 - Apple Developer Team 및 bundle identifier 권한
 - App Group 설정: `group.com.loofit.app`
 - Widget Extension 및 Live Activity 권한
