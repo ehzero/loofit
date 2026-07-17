@@ -51,6 +51,22 @@ def store_delivery_options
   }
 end
 
+def store_review_options
+  build_number = ENV["APP_STORE_BUILD_NUMBER"]
+  UI.user_error!("APP_STORE_BUILD_NUMBER is required") if build_number.to_s.empty?
+
+  store_delivery_options.merge(
+    build_number: build_number,
+    skip_screenshots: true,
+    reject_if_possible: true,
+    submit_for_review: true,
+    force: true,
+    submission_information: {
+      export_compliance_uses_encryption: false
+    }
+  )
+end
+
 platform :ios do
   desc "Upload localized App Store metadata without screenshots or a binary"
   lane :store_metadata do
@@ -67,5 +83,10 @@ platform :ios do
   lane :store_listing do
     ensure_screenshots!
     deliver(**store_delivery_options)
+  end
+
+  desc "Replace the submitted build, upload metadata, and submit the EAS build for review"
+  lane :store_review do
+    deliver(**store_review_options)
   end
 end

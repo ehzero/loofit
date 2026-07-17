@@ -55,6 +55,7 @@
     "store:metadata": "bundle exec fastlane ios store_metadata",
     "store:screenshots": "bundle exec fastlane ios store_screenshots",
     "store:listing": "bundle exec fastlane ios store_listing",
+    "store:review": "bundle exec fastlane ios store_review",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
     "test": "vitest run && npm run contracts:check && npm run lint:tokens",
