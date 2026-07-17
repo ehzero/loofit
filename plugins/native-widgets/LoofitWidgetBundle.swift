@@ -783,7 +783,7 @@ struct LoofitWorkoutLiveActivity: Widget {
           )
         }
       } compactLeading: {
-        Text("🏋️ " + context.state.title.replacingOccurrences(of: " · ", with: "·"))
+        Text(context.state.title.replacingOccurrences(of: " · ", with: "·"))
           .font(.system(
             size: LoofitWidgetRendererContract.LiveActivity.Compact.fontSize,
             weight: LoofitWidgetRendererContract.FontWeight.bold

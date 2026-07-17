@@ -124,6 +124,8 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
       .widgetAccentable()
       .lineLimit(1)
       .minimumScaleFactor(0.62)
+      .multilineTextAlignment(.center)
+      .frame(maxWidth: .infinity, alignment: .center)
 
       Text(rectangularDetail)
         .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularDetailFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))

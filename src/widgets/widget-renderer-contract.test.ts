@@ -281,8 +281,15 @@ describe('widget renderer contract', () => {
     const renderer = fs.readFileSync('plugins/native-widgets/LoofitWidgetBundle.swift', 'utf8');
     expect(renderer).toContain('LiveActivity.Compact.leadingWidth');
     expect(renderer).toContain('LiveActivity.Compact.trailingWidth');
-    expect(renderer).toContain('Text("🏋️ " + context.state.title');
+    expect(renderer).toContain('Text(context.state.title.replacingOccurrences');
+    expect(renderer).not.toContain('🏋️');
     expect(renderer).toContain('.multilineTextAlignment(.trailing)');
+  });
+
+  it('centers the active timer in the rectangular lock screen workout widget', () => {
+    const renderer = fs.readFileSync('plugins/native-widgets/WorkoutLockScreenWidget.swift', 'utf8');
+    expect(renderer).toContain('.multilineTextAlignment(.center)');
+    expect(renderer).toContain('.frame(maxWidth: .infinity, alignment: .center)');
   });
 
   it('places expanded Live Activity content around the TrueDepth camera', () => {
