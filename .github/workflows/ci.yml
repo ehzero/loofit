@@ -69,6 +69,9 @@ jobs:
         working-directory: tools/showcase
         run: npm run build
 
+      - name: Install root config dependencies
+        run: npm ci
+
       - name: Install website dependencies
         working-directory: website
         run: npm ci
