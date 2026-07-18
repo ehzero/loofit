@@ -122,3 +122,10 @@ export type AppOverview = {
 };
 
 export type RoutineTemplate = 'ppl' | 'threeSplit' | 'fourSplit' | 'upperLower';
+
+export type RoutineTemplateCustomization = {
+  days: Array<{
+    alias: string;
+    bodyPartIds: number[];
+  }>;
+};

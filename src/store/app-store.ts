@@ -32,6 +32,7 @@ import type {
   AppOverview,
   ChangeWorkoutInput,
   RoutineTemplate,
+  RoutineTemplateCustomization,
   SessionStatus,
   StartWorkoutInput,
 } from '@/src/types';
@@ -71,7 +72,10 @@ type AppState = {
   overview: AppOverview | null;
   initialize: () => Promise<void>;
   refresh: () => Promise<void>;
-  createTemplate: (template: RoutineTemplate) => Promise<AppActionResult>;
+  createTemplate: (
+    template: RoutineTemplate,
+    customization?: RoutineTemplateCustomization
+  ) => Promise<AppActionResult>;
   start: (input: StartWorkoutInput) => Promise<AppActionResult>;
   completeActive: () => Promise<AppActionResult>;
   cancelActive: () => Promise<AppActionResult>;
@@ -143,8 +147,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     await runRefreshAction(set, ticket, '새로고침에 실패했어요.');
   },
 
-  createTemplate: async (template) =>
-    runMutationAction(set, async () => createRoutineFromTemplate(template)),
+  createTemplate: async (template, customization) =>
+    runMutationAction(set, async () =>
+      customization
+        ? createRoutineFromTemplate(template, customization)
+        : createRoutineFromTemplate(template)
+    ),
   createCustom: async () => runMutationAction(set, createEmptyRoutine),
   start: async (input) =>
     runWorkoutAction(set, startCommand(input), async () => startWorkout(input)),

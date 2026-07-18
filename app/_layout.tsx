@@ -142,6 +142,7 @@ function RootLayoutNav() {
         }}>
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="routine" />
+        <Stack.Screen name="routine-template" />
         <Stack.Screen name="widgets" />
         <Stack.Screen name="record/[id]" />
       </Stack>

@@ -6,10 +6,10 @@ import { AppText } from '@/src/components/AppText';
 import { Button } from '@/src/components/Button';
 import { Callout } from '@/src/components/Callout';
 import { Chip } from '@/src/components/Chip';
-import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
 import { IconButton } from '@/src/components/IconButton';
 import { Input } from '@/src/components/Input';
 import { ListRow } from '@/src/components/ListRow';
+import { RoutineAliasEditor } from '@/src/components/RoutineAliasEditor';
 import { Screen } from '@/src/components/Screen';
 import { ROUTINE_TEMPLATE_OPTIONS } from '@/src/config/routine-templates';
 import { hasRoutineDayAlias, routineDayDisplayName } from '@/src/domain/routine';
@@ -30,7 +30,6 @@ export default function RoutineScreen() {
 
   const overview = useAppStore((state) => state.overview);
   const addEmptyDay = useAppStore((state) => state.addEmptyDay);
-  const createTemplate = useAppStore((state) => state.createTemplate);
   const moveDay = useAppStore((state) => state.moveDay);
   const deleteDay = useAppStore((state) => state.deleteDay);
   const chooseNextDay = useAppStore((state) => state.chooseNextDay);
@@ -40,7 +39,6 @@ export default function RoutineScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [newPart, setNewPart] = useState('');
   const [showTemplates, setShowTemplates] = useState(false);
-  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
 
   if (!overview) {
     return <Screen title="루틴 설정" onBack={() => router.back()} isLoading />;
@@ -82,35 +80,28 @@ export default function RoutineScreen() {
             {showTemplates ? '템플릿 닫기' : '분할 템플릿 다시 선택'}
           </Button>
           {showTemplates ? (
-            <View style={styles.templateList}>
-              {ROUTINE_TEMPLATE_OPTIONS.map((template) => (
-                <ListRow
-                  key={template.key}
-                  variant="card"
-                  surface="card"
-                  chevron
-                  title={template.name}
-                  subtitle={template.description}
-                  onPress={() =>
-                    setConfirm({
-                      title: `${template.name}로 다시 설정할까요?`,
-                      description:
-                        '현재 분할 설정은 선택한 템플릿으로 교체되고 다음 운동은 첫 분할로 바뀌어요. 과거 운동 기록은 그대로 유지돼요.',
-                      confirmLabel: '템플릿 적용',
-                      danger: true,
-                      onConfirm: async () => {
-                        const result = await createTemplate(template.key);
-                        if (isActionSuccessful(result)) {
-                          setEditingId(null);
-                          setShowTemplates(false);
-                          showToast(`${template.name} 템플릿을 적용했어요`);
-                        }
-                        return shouldDismissAfterAction(result);
-                      },
-                    })
-                  }
-                />
-              ))}
+            <View style={styles.templatePicker}>
+              <Callout icon="edit" tone="accent">
+                템플릿을 고른 다음, 적용하기 전에 분할별 운동 부위를 바꿀 수 있어요.
+              </Callout>
+              <View style={styles.templateList}>
+                {ROUTINE_TEMPLATE_OPTIONS.map((template) => (
+                  <ListRow
+                    key={template.key}
+                    variant="card"
+                    surface="card"
+                    chevron
+                    title={template.name}
+                    subtitle={template.description}
+                    onPress={() =>
+                      router.push({
+                        pathname: '/routine-template',
+                        params: { template: template.key, source: 'settings' },
+                      })
+                    }
+                  />
+                ))}
+              </View>
             </View>
           ) : null}
         </View>
@@ -179,7 +170,6 @@ export default function RoutineScreen() {
           </View>
         </View>
       </Screen>
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
     </>
   );
 }
@@ -215,23 +205,22 @@ function SplitCard({
   const renameDay = useAppStore((state) => state.renameDay);
   const setDayParts = useAppStore((state) => state.setDayParts);
   const [name, setName] = useState(day.name);
+  const [isEditingAlias, setIsEditingAlias] = useState(false);
 
-  // Re-sync the draft when the stored name changes (e.g. an empty submit was
-  // rejected by the repository and the overview refreshed with the old name).
+  // Re-sync the draft when a stored alias changes or a failed mutation refreshes
+  // the overview with the previous value.
   useEffect(() => {
     setName(day.name);
   }, [day.name]);
 
   const partIds = day.parts.map((part) => part.id);
+  const displayDay = isEditingAlias ? { ...day, name } : day;
 
-  async function commitNameAndToggle() {
-    if (isEditing) {
-      const result = await renameDay(day.id, name);
-      if (!shouldDismissAfterAction(result)) {
-        return;
-      }
+  async function finishAliasEditing() {
+    const result = await renameDay(day.id, name);
+    if (shouldDismissAfterAction(result)) {
+      setIsEditingAlias(false);
     }
-    onToggleEdit();
   }
 
   function toggle(partId: number) {
@@ -250,13 +239,13 @@ function SplitCard({
           </AppText>
         </View>
         <AppText variant="title" style={styles.splitName} numberOfLines={1}>
-          {routineDayDisplayName(day)}
+          {routineDayDisplayName(displayDay)}
         </AppText>
         <IconButton icon="chevronUp" disabled={isFirst} onPress={onUp} />
         <IconButton icon="chevronDown" disabled={isLast} onPress={onDown} />
       </View>
 
-      {hasRoutineDayAlias(day) && day.parts.length > 0 ? (
+      {hasRoutineDayAlias(displayDay) && day.parts.length > 0 ? (
         <AppText variant="footnote" tone="muted">
           {day.parts.map((part) => part.name).join(' · ')}
         </AppText>
@@ -280,7 +269,7 @@ function SplitCard({
           </AppText>
         </Pressable>
         <Pressable
-          onPress={commitNameAndToggle}
+          onPress={onToggleEdit}
           style={[
             styles.splitBtn,
             isEditing
@@ -300,15 +289,6 @@ function SplitCard({
 
       {isEditing ? (
         <View style={[styles.editor, { borderTopColor: colors.line }]}>
-          <Input
-            surface="surface2"
-            value={name}
-            onChangeText={setName}
-            onEndEditing={() => renameDay(day.id, name)}
-            onSubmitEditing={() => renameDay(day.id, name)}
-            returnKeyType="done"
-            placeholder="별칭 (선택) — 예: Push"
-          />
           <View style={styles.chipWrap}>
             {bodyParts.map((part) => (
               <Chip
@@ -321,6 +301,14 @@ function SplitCard({
           </View>
         </View>
       ) : null}
+
+      <RoutineAliasEditor
+        value={name}
+        isEditing={isEditingAlias}
+        onChangeText={setName}
+        onStartEditing={() => setIsEditingAlias(true)}
+        onComplete={finishAliasEditing}
+      />
     </View>
   );
 }
@@ -331,6 +319,9 @@ const styles = StyleSheet.create({
   },
   templateList: {
     gap: spacing.xs,
+  },
+  templatePicker: {
+    gap: spacing.sm,
   },
   splitList: {
     gap: spacing.sm,

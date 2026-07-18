@@ -5,10 +5,11 @@ import type {
   RoutineDay,
   RoutineProgress,
   RoutineTemplate,
+  RoutineTemplateCustomization,
 } from '@/src/types';
 
+import { ROUTINE_TEMPLATES } from '@/src/config/routine-templates';
 import { getDatabase } from '../database';
-import { ROUTINE_TEMPLATES } from '../templates';
 import {
   getBodyPartsFromDatabase,
   mapBodyPart,
@@ -193,10 +194,37 @@ export async function createEmptyRoutine(): Promise<boolean> {
   return true;
 }
 
-export async function createRoutineFromTemplate(template: RoutineTemplate): Promise<boolean> {
+export async function createRoutineFromTemplate(
+  template: RoutineTemplate,
+  customization?: RoutineTemplateCustomization
+): Promise<boolean> {
   const db = await getDatabase();
   const now = new Date().toISOString();
   const config = ROUTINE_TEMPLATES[template];
+  const availableBodyParts = await getBodyPartsFromDatabase(db, false);
+  const bodyPartIdByName = new Map(availableBodyParts.map((part) => [part.name, part.id]));
+  const availableBodyPartIds = new Set(availableBodyParts.map((part) => part.id));
+  const days = config.days.map((day, dayIndex) => ({
+    name: (customization?.days[dayIndex]?.alias ?? day.name).trim(),
+    bodyPartIds:
+      customization?.days[dayIndex]?.bodyPartIds ??
+      day.parts
+        .map((partName) => bodyPartIdByName.get(partName))
+        .filter((id): id is number => id !== undefined),
+  }));
+
+  const hasValidCustomization =
+    !customization ||
+    (customization.days.length === config.days.length &&
+      days.every(
+        (day) =>
+          day.bodyPartIds.length > 0 &&
+          new Set(day.bodyPartIds).size === day.bodyPartIds.length &&
+          day.bodyPartIds.every((id) => availableBodyPartIds.has(id))
+      ));
+  if (!hasValidCustomization || days.some((day) => day.bodyPartIds.length === 0)) {
+    return false;
+  }
 
   await db.withExclusiveTransactionAsync(async (tx) => {
     await tx.runAsync(`UPDATE routines SET is_active = 0, updated_at = ?`, now);
@@ -209,7 +237,7 @@ export async function createRoutineFromTemplate(template: RoutineTemplate): Prom
     const routineId = routineResult.lastInsertRowId;
     let firstRoutineDayId: number | null = null;
 
-    for (const [dayIndex, day] of config.days.entries()) {
+    for (const [dayIndex, day] of days.entries()) {
       const dayResult = await tx.runAsync(
         `INSERT INTO routine_days (routine_id, name, sort_order, created_at, updated_at)
          VALUES (?, ?, ?, ?, ?)`,
@@ -222,19 +250,12 @@ export async function createRoutineFromTemplate(template: RoutineTemplate): Prom
       const routineDayId = dayResult.lastInsertRowId;
       firstRoutineDayId ??= routineDayId;
 
-      for (const [partIndex, partName] of day.parts.entries()) {
-        const part = await tx.getFirstAsync<BodyPartRow>(
-          `SELECT * FROM body_parts WHERE name = ? LIMIT 1`,
-          partName
-        );
-        if (!part) {
-          continue;
-        }
+      for (const [partIndex, bodyPartId] of day.bodyPartIds.entries()) {
         await tx.runAsync(
           `INSERT INTO routine_day_parts (routine_day_id, body_part_id, sort_order)
            VALUES (?, ?, ?)`,
           routineDayId,
-          part.id,
+          bodyPartId,
           partIndex
         );
       }

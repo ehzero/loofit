@@ -6,6 +6,7 @@ import { AppText } from '@/src/components/AppText';
 import { Badge } from '@/src/components/Badge';
 import { BottomSheet } from '@/src/components/BottomSheet';
 import { Button } from '@/src/components/Button';
+import { Callout } from '@/src/components/Callout';
 import { Card } from '@/src/components/Card';
 import { Chip } from '@/src/components/Chip';
 import { ConfirmDialog, type ConfirmConfig } from '@/src/components/ConfirmDialog';
@@ -56,7 +57,6 @@ export default function HomeScreen() {
   const isBusy = useAppStore((state) => state.isBusy);
   const error = useAppStore((state) => state.error);
   const refresh = useAppStore((state) => state.refresh);
-  const createTemplate = useAppStore((state) => state.createTemplate);
   const createCustom = useAppStore((state) => state.createCustom);
   const start = useAppStore((state) => state.start);
   const completeActive = useAppStore((state) => state.completeActive);
@@ -163,6 +163,9 @@ export default function HomeScreen() {
               루틴을 만들면 다음에 할 운동을{'\n'}{BRAND.displayName}이 자동으로 알려드려요.
             </AppText>
           </View>
+          <Callout icon="edit" tone="accent">
+            템플릿을 고른 다음, 분할별 운동 부위를 내 방식대로 바꿀 수 있어요.
+          </Callout>
           <View style={styles.onboardList}>
             {ROUTINE_TEMPLATE_OPTIONS.map((template) => (
               <ListRow
@@ -173,17 +176,9 @@ export default function HomeScreen() {
                 title={template.name}
                 subtitle={template.description}
                 onPress={() =>
-                  setConfirm({
-                    title: `${template.name}로 시작할까요?`,
-                    description: `${template.description} 순서로 분할을 만들어요. 만든 뒤에도 루틴 설정에서 자유롭게 편집할 수 있어요.`,
-                    confirmLabel: '루틴 만들기',
-                    onConfirm: async () => {
-                      const result = await createTemplate(template.key);
-                      if (isActionSuccessful(result)) {
-                        showToast(`${template.name} 루틴을 만들었어요`);
-                      }
-                      return shouldDismissAfterAction(result);
-                    },
+                  router.push({
+                    pathname: '/routine-template',
+                    params: { template: template.key, source: 'onboarding' },
                   })
                 }
               />
@@ -203,7 +198,6 @@ export default function HomeScreen() {
             />
           </View>
         </Screen>
-        <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       </>
     );
   }

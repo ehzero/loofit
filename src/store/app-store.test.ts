@@ -191,6 +191,23 @@ describe('app workout pipeline', () => {
     });
   });
 
+  it('passes edited template body parts to the routine repository', async () => {
+    const customization = {
+      days: [
+        { alias: '밀기', bodyPartIds: [1, 3] },
+        { alias: '당기기', bodyPartIds: [2] },
+        { alias: '하체', bodyPartIds: [5, 6] },
+      ],
+    };
+
+    await useAppStore.getState().createTemplate('ppl', customization);
+
+    expect(repositoryMocks.createRoutineFromTemplate).toHaveBeenCalledWith(
+      'ppl',
+      customization
+    );
+  });
+
   it('keeps a committed mutation applied when surface publication is deferred', async () => {
     pipelineMocks.reconcileAppWorkoutSurfaces.mockRejectedValue(new Error('surface unavailable'));
     const refreshed = overviewWithSession(42);
