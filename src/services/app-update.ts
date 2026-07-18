@@ -1,5 +1,7 @@
 import { BRAND } from '@/src/config/brand';
 
+const APP_STORE_LOOKUP_CACHE_BUCKET_MS = 60 * 60 * 1_000;
+
 export type AppUpdateInfo = {
   version: string;
   storeUrl: string;
@@ -62,7 +64,10 @@ export function isNewerVersion(candidate: string, current: string): boolean {
 
 function appStoreLookupUrl(): string {
   const { id, country } = BRAND.appStore;
-  return `https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&country=${encodeURIComponent(country)}`;
+  const cacheBucket = Math.floor(Date.now() / APP_STORE_LOOKUP_CACHE_BUCKET_MS);
+  const lookupUrl = `https://itunes.apple.com/lookup?id=${encodeURIComponent(id)}&country=${encodeURIComponent(country)}`;
+
+  return `${lookupUrl}&cacheBucket=${cacheBucket}`;
 }
 
 function parseLookupResult(payload: unknown): AppUpdateInfo | null {

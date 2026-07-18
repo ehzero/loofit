@@ -1,6 +1,8 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchAvailableAppUpdate, isNewerVersion } from './app-update';
+
+afterEach(() => vi.restoreAllMocks());
 
 describe('app update version comparison', () => {
   it('compares every numeric version segment', () => {
@@ -36,9 +38,36 @@ describe('App Store update lookup', () => {
       storeUrl: 'https://apps.apple.com/kr/app/id6789599963',
     });
     expect(fetcher).toHaveBeenCalledWith(
-      'https://itunes.apple.com/lookup?id=6789599963&country=kr',
+      expect.stringMatching(
+        /^https:\/\/itunes\.apple\.com\/lookup\?id=6789599963&country=kr&cacheBucket=\d+$/
+      ),
       { signal: undefined }
     );
+  });
+
+  it('reuses the lookup cache key for an hour and rotates it on the next hour', async () => {
+    const requestedUrls: string[] = [];
+    const fetcher = vi.fn(async (url: string) => {
+      requestedUrls.push(url);
+      return {
+        ok: true,
+        json: async () => ({ results: [] }),
+      };
+    });
+    const now = vi.spyOn(Date, 'now');
+
+    now.mockReturnValue(3_599_998);
+    await fetchAvailableAppUpdate('1.0.2', { fetcher });
+    now.mockReturnValue(3_599_999);
+    await fetchAvailableAppUpdate('1.0.2', { fetcher });
+    now.mockReturnValue(3_600_000);
+    await fetchAvailableAppUpdate('1.0.2', { fetcher });
+
+    expect(requestedUrls).toEqual([
+      'https://itunes.apple.com/lookup?id=6789599963&country=kr&cacheBucket=0',
+      'https://itunes.apple.com/lookup?id=6789599963&country=kr&cacheBucket=0',
+      'https://itunes.apple.com/lookup?id=6789599963&country=kr&cacheBucket=1',
+    ]);
   });
 
   it('returns nothing when the public version is not newer', async () => {
