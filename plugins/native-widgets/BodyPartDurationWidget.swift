@@ -16,7 +16,7 @@ struct BodyPartDurationWidget: Widget {
   }
 }
 
-private struct BodyPartDurationWidgetView: View {
+struct BodyPartDurationWidgetView: View {
   let entry: LoofitWidgetEntry
 
   private var items: [LoofitBodyPartDurationSnapshot] {

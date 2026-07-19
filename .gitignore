@@ -51,3 +51,4 @@ yarn-error.*
 /ios
 /android
 /modules/*/android/build/
+/build/

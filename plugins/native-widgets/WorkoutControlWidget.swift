@@ -17,7 +17,7 @@ struct WorkoutControlWidget: Widget {
   }
 }
 
-private struct LoofitWorkoutControlWidgetView: View {
+struct LoofitWorkoutControlWidgetView: View {
   let entry: LoofitWidgetEntry
 
   private var presentation: LoofitWorkoutPresentation {
@@ -65,7 +65,7 @@ private struct LoofitWorkoutControlWidgetView: View {
 
   private func activeView(palette: LoofitWidgetPalette) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      header("운동 중", palette: palette, active: true)
+      header(LoofitWidgetRendererContract.Control.Copy.active, palette: palette, active: true)
       Spacer(minLength: 0)
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         if let startedAt = presentation.startedAt {
@@ -75,14 +75,14 @@ private struct LoofitWorkoutControlWidgetView: View {
             .monospacedDigit()
             .foregroundStyle(LoofitColor(palette.tx))
             .lineLimit(1)
-            .minimumScaleFactor(0.72)
+            .minimumScaleFactor(LoofitWidgetRendererContract.Control.timerMinimumScaleFactor)
         } else {
           Text("0:00")
             .font(.system(size: LoofitWidgetRendererContract.Control.timerSize, weight: LoofitWidgetRendererContract.FontWeight.bold, design: .rounded))
             .monospacedDigit()
             .foregroundStyle(LoofitColor(palette.tx))
         }
-        Text(presentation.title)
+        Text(presentation.detail.isEmpty ? presentation.title : presentation.detail)
           .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: LoofitWidgetRendererContract.FontWeight.light))
           .foregroundStyle(LoofitColor(palette.tx3))
           .lineLimit(1)
@@ -91,7 +91,7 @@ private struct LoofitWorkoutControlWidgetView: View {
       if #available(iOS 17.0, *), let sessionId = presentation.sessionId {
         Button(intent: LoofitEndWorkoutIntent(sessionId: sessionId)) {
           LoofitControlButtonLabel(
-            title: "운동 종료",
+            title: LoofitWidgetRendererContract.Control.Copy.end,
             background: palette.surface2,
             foreground: palette.tx
           )
@@ -100,7 +100,7 @@ private struct LoofitWorkoutControlWidgetView: View {
       } else {
         Link(destination: URL(string: "loofit://")!) {
           LoofitControlButtonLabel(
-            title: "운동 종료",
+            title: LoofitWidgetRendererContract.Control.Copy.end,
             background: palette.surface2,
             foreground: palette.tx
           )
@@ -111,14 +111,14 @@ private struct LoofitWorkoutControlWidgetView: View {
 
   private func completedView(palette: LoofitWidgetPalette) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      header("오늘 운동 완료", palette: palette)
+      header(LoofitWidgetRendererContract.Control.Copy.completed, palette: palette)
       Spacer(minLength: 0)
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         Text(presentation.title)
           .font(.system(size: LoofitWidgetRendererContract.Control.titleSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(palette.tx))
           .lineLimit(1)
-          .minimumScaleFactor(0.75)
+          .minimumScaleFactor(LoofitWidgetRendererContract.Control.titleMinimumScaleFactor)
         if !presentation.detail.isEmpty, presentation.detail != presentation.title {
           Text(presentation.detail)
             .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: LoofitWidgetRendererContract.FontWeight.light))
@@ -144,14 +144,14 @@ private struct LoofitWorkoutControlWidgetView: View {
 
   private func idleView(palette: LoofitWidgetPalette) -> some View {
     VStack(alignment: .leading, spacing: 0) {
-      header("다음 운동", palette: palette)
+      header(LoofitWidgetRendererContract.Control.Copy.idle, palette: palette)
       Spacer(minLength: 0)
       VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Control.bodyGap) {
         Text(presentation.title)
           .font(.system(size: LoofitWidgetRendererContract.Control.titleSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(palette.tx))
           .lineLimit(1)
-          .minimumScaleFactor(0.75)
+          .minimumScaleFactor(LoofitWidgetRendererContract.Control.titleMinimumScaleFactor)
         if !presentation.detail.isEmpty, presentation.detail != presentation.title {
           Text(presentation.detail)
             .font(.system(size: LoofitWidgetRendererContract.Control.detailSize, weight: LoofitWidgetRendererContract.FontWeight.light))
@@ -163,7 +163,7 @@ private struct LoofitWorkoutControlWidgetView: View {
       if #available(iOS 17.0, *), presentation.canStart {
         Button(intent: LoofitStartNextWorkoutIntent()) {
           LoofitControlButtonLabel(
-            title: "운동 시작",
+            title: LoofitWidgetRendererContract.Control.Copy.start,
             background: palette.accent,
             foreground: palette.accentText
           )
@@ -172,7 +172,9 @@ private struct LoofitWorkoutControlWidgetView: View {
       } else {
         Link(destination: URL(string: "loofit://")!) {
           LoofitControlButtonLabel(
-            title: presentation.canStart ? "운동 시작" : "루틴 설정",
+            title: presentation.canStart
+              ? LoofitWidgetRendererContract.Control.Copy.start
+              : LoofitWidgetRendererContract.Control.Copy.routineRequired,
             background: palette.accent,
             foreground: palette.accentText
           )

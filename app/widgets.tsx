@@ -43,7 +43,12 @@ import {
   type RoutineProgressTextListItem,
 } from '@/src/widgets/preview/RoutineProgressTextListWidgetPreview';
 import { widgetColor } from '@/src/widgets/widget-design-system';
-import { WIDGET_PREVIEW_SPEC, WIDGET_RENDERER_CONTRACT } from '@/src/widgets/widget-spec';
+import {
+  WIDGET_PREVIEW_SPEC,
+  WIDGET_RENDERER_CONTRACT,
+  widgetAccessoryPreviewBackdrop,
+  widgetPreviewViewports,
+} from '@/src/widgets/widget-spec';
 import type {
   HeatmapWidgetProps,
   WorkoutLockScreenCalendarWidgetProps,
@@ -56,6 +61,8 @@ const WIDGET_TYPE = WIDGET_DESIGN.typography;
 const WIDGET_WEIGHT = WIDGET_DESIGN.fontWeight;
 const WIDGET_SPACE = WIDGET_DESIGN.spacing;
 const WIDGET_RADIUS = WIDGET_DESIGN.radius;
+const IOS_WIDGET_VIEWPORTS = WIDGET_RENDERER_CONTRACT.previewViewports;
+const PREVIEW_FIXTURE = WIDGET_RENDERER_CONTRACT.previewFixture;
 const SINGLE_LINE_ELLIPSIS = {
   ellipsizeMode: 'tail' as const,
   numberOfLines: 1,
@@ -106,10 +113,7 @@ const LOCK_SCREEN_WIDGET_PREVIEW = {
   circular: {
     size: 62,
   },
-  rectangular: {
-    width: 160,
-    height: 72,
-  },
+  rectangular: IOS_WIDGET_VIEWPORTS.accessoryRectangular,
 } as const;
 
 const LOCK_SCREEN_SYSTEM_PREVIEW = {
@@ -122,22 +126,13 @@ const LOCK_SCREEN_SYSTEM_PREVIEW = {
   inactive: 'transparent',
 } as const;
 
-const ROUTINE_PROGRESS_PREVIEW_ITEMS: RoutineProgressTextListItem[] = [
-  {
-    split: 'Push',
-    bodyParts: '가슴·어깨·삼두',
-    duration: '1시간 8분',
-    relativeDay: '어제',
-  },
-  {
-    split: 'Pull',
-    bodyParts: '등·이두',
-    duration: '48분',
-    relativeDay: '오늘',
-  },
-  { split: '', bodyParts: '하체', duration: '56분', relativeDay: '4일 전' },
-];
-const ROUTINE_PROGRESS_CURRENT_INDEX = 1;
+const ROUTINE_PROGRESS_PREVIEW_ITEMS: RoutineProgressTextListItem[] =
+  PREVIEW_FIXTURE.routineProgress.items.map((item) => ({ ...item }));
+const ROUTINE_PROGRESS_CURRENT_INDEX = PREVIEW_FIXTURE.routineProgress.currentIndex;
+const BODY_PART_DURATION_PREVIEW_ITEMS = PREVIEW_FIXTURE.bodyPartDuration.map((item) => ({
+  ...item,
+}));
+const PREVIEW_HEATMAP_ANCHOR = dateFromKey(PREVIEW_FIXTURE.heatmap.anchorDate);
 
 type WidgetPreviewTheme = {
   cardBackground: string;
@@ -180,6 +175,20 @@ export default function WidgetsScreen() {
   } = useMemo(() => buildPreviewHeatmapWidgets(colors), [colors]);
   const lockScreenPreview = useMemo(() => buildPreviewLockScreenWidgets(colors), [colors]);
   const isAndroid = Platform.OS === 'android';
+  const previewViewports = widgetPreviewViewports(isAndroid ? 'android' : 'ios');
+  const accessoryPreviewBackdrop = widgetAccessoryPreviewBackdrop(
+    isAndroid ? 'android' : 'ios'
+  );
+  const smallWidgetStyle = {
+    aspectRatio: previewViewports.homeSmall.width / previewViewports.homeSmall.height,
+  } as const;
+  const controlWidgetStyle = {
+    ...smallWidgetStyle,
+    width: previewViewports.homeSmall.width,
+  } as const;
+  const mediumWidgetStyle = {
+    aspectRatio: previewViewports.homeMedium.width / previewViewports.homeMedium.height,
+  } as const;
   const compactSizeLabel = isAndroid ? '소형' : 'Small';
   const expandedSizeLabel = isAndroid ? '중형' : 'Medium';
 
@@ -216,33 +225,36 @@ export default function WidgetsScreen() {
             <ControlActionPreview
               accent={accent}
               actionFg={colors.accentText}
-              actionLabel="운동 시작"
-              eyebrow="다음 운동"
+              actionLabel={PREVIEW_FIXTURE.control.idle.action}
+              eyebrow={PREVIEW_FIXTURE.control.idle.eyebrow}
               previewTheme={previewTheme}
-              subtitle="등 · 이두"
-              title="Pull"
+              style={controlWidgetStyle}
+              subtitle={PREVIEW_FIXTURE.control.idle.detail}
+              title={PREVIEW_FIXTURE.control.idle.title}
             />
 
             <ControlActionPreview
               accent={accent}
               actionBg={previewTheme.neutralButtonBackground}
               actionFg={previewTheme.neutralButtonText}
-              actionLabel="운동 종료"
-              eyebrow="운동 중"
+              actionLabel={PREVIEW_FIXTURE.control.active.action}
+              eyebrow={PREVIEW_FIXTURE.control.active.eyebrow}
               eyebrowAccent={accent}
               isTimer
               previewTheme={previewTheme}
-              subtitle="등 · 이두"
-              title="42:10"
+              style={controlWidgetStyle}
+              subtitle={PREVIEW_FIXTURE.control.active.detail}
+              title={PREVIEW_FIXTURE.control.active.elapsed}
             />
 
             <ControlCompletedPreview
               accent={accent}
-              detail="가슴 · 어깨 · 삼두"
-              duration="1시간 8분"
+              detail={PREVIEW_FIXTURE.control.completed.detail}
+              duration={PREVIEW_FIXTURE.control.completed.duration}
               previewTheme={previewTheme}
-              range="오후 7:24 – 오후 8:32"
-              title="Push"
+              range={PREVIEW_FIXTURE.control.completed.range}
+              style={controlWidgetStyle}
+              title={PREVIEW_FIXTURE.control.completed.title}
             />
           </ScrollView>
         </View>
@@ -261,7 +273,7 @@ export default function WidgetsScreen() {
                 title={weekWidget.title}
                 variant="week"
                 widget={weekWidget}
-                style={styles.typeSquareWidget}
+                style={[styles.typeSquareWidget, smallWidgetStyle]}
               />
             </WidgetTypePreview>
             <WidgetTypePreview
@@ -273,7 +285,7 @@ export default function WidgetsScreen() {
                 title={monthWidget.title}
                 variant="month"
                 widget={monthWidget}
-                style={styles.typeSquareWidget}
+                style={[styles.typeSquareWidget, smallWidgetStyle]}
               />
             </WidgetTypePreview>
           </View>
@@ -291,7 +303,7 @@ export default function WidgetsScreen() {
                 showHeader={
                   WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth.headerVisible
                 }
-                style={styles.typeSquareWidget}
+                style={[styles.typeSquareWidget, smallWidgetStyle]}
               />
             </WidgetTypePreview>
           </View>
@@ -302,6 +314,7 @@ export default function WidgetsScreen() {
           >
             <ExpandedHeatmapWidgetPreview
               bodyPartLabels={expandedFourWeekBodyPartLabels}
+              style={mediumWidgetStyle}
               widget={expandedFourWeekWidget}
             />
           </WidgetTypePreview>
@@ -313,7 +326,7 @@ export default function WidgetsScreen() {
               title={yearWidget.title}
               variant="year"
               widget={yearWidget}
-              style={styles.mediumRect}
+              style={[styles.mediumRect, mediumWidgetStyle]}
             />
           </WidgetTypePreview>
         </View>
@@ -330,6 +343,7 @@ export default function WidgetsScreen() {
                 currentIndex={ROUTINE_PROGRESS_CURRENT_INDEX}
                 items={ROUTINE_PROGRESS_PREVIEW_ITEMS}
                 palette={routineProgressPalette}
+                style={smallWidgetStyle}
               />
             </WidgetTypePreview>
           </View>
@@ -344,13 +358,9 @@ export default function WidgetsScreen() {
               style={styles.smallSquareSingle}
             >
               <BodyPartDurationWidgetPreview
-                items={[
-                  { bodyPart: '가슴', durationSeconds: 6 * 3600 + 25 * 60 },
-                  { bodyPart: '등', durationSeconds: 5 * 3600 + 40 * 60 },
-                  { bodyPart: '하체', durationSeconds: 4 * 3600 + 15 * 60 },
-                  { bodyPart: '어깨', durationSeconds: 2 * 3600 + 30 * 60 },
-                ]}
+                items={BODY_PART_DURATION_PREVIEW_ITEMS}
                 palette={bodyPartDurationPalette}
+                style={smallWidgetStyle}
               />
             </WidgetTypePreview>
           </View>
@@ -365,9 +375,12 @@ export default function WidgetsScreen() {
         />
 
         <LockScreenWidgetsPreview
+          accessoryPreviewBackdrop={accessoryPreviewBackdrop}
+          isAndroid={isAndroid}
           previewTheme={previewTheme}
           calendar={lockScreenPreview.calendar}
           nextCalendar={lockScreenPreview.nextCalendar}
+          previewViewport={previewViewports.accessoryRectangular}
           states={lockScreenPreview.states}
         />
       </View>
@@ -379,21 +392,25 @@ export default function WidgetsScreen() {
           lineColor={colors.tx3}
         />
 
-        <LiveActivityBannerPreview
-          accent={accent}
-          accentText={colors.accentText}
-          elapsed="42:10"
-          previewTheme={previewTheme}
-          title="하체 · 어깨"
-        />
+        {isAndroid ? (
+          <AndroidOngoingNotificationPreview accent={accent} previewTheme={previewTheme} />
+        ) : (
+          <LiveActivityBannerPreview
+            accent={accent}
+            accentText={colors.accentText}
+            elapsed={PREVIEW_FIXTURE.notification.elapsed}
+            previewTheme={previewTheme}
+            title={PREVIEW_FIXTURE.notification.title}
+          />
+        )}
 
         {!isAndroid ? (
           <DynamicIslandPreview
             accent={accent}
             accentText={colors.accentText}
-            elapsed="2:08:33"
+            elapsed={PREVIEW_FIXTURE.notification.elapsed}
             previewTheme={previewTheme}
-            title="하체 · 어깨"
+            title={PREVIEW_FIXTURE.notification.title}
           />
         ) : null}
       </View>
@@ -476,6 +493,7 @@ function ControlCompletedPreview({
   duration,
   previewTheme,
   range,
+  style,
   title,
 }: {
   accent: string;
@@ -483,6 +501,7 @@ function ControlCompletedPreview({
   duration: string;
   previewTheme: WidgetPreviewTheme;
   range: string;
+  style?: StyleProp<ViewStyle>;
   title: string;
 }) {
   return (
@@ -492,6 +511,7 @@ function ControlCompletedPreview({
         styles.controlCard,
         styles.controlActionCard,
         { backgroundColor: previewTheme.cardBackground, borderColor: previewTheme.cardBorder },
+        style,
       ]}>
       <View style={styles.rowBetween}>
         <Text style={[styles.tinyLabel, { color: previewTheme.labelColor }]}>오늘 운동 완료</Text>
@@ -501,7 +521,7 @@ function ControlCompletedPreview({
         <Text
           {...SINGLE_LINE_ELLIPSIS}
           adjustsFontSizeToFit
-          minimumFontScale={WIDGET_DESIGN.minimumScale.default}
+          minimumFontScale={CONTROL.text.title.minimumScaleFactor}
           style={[styles.smallName, { color: previewTheme.titleColor }]}
         >
           {title}
@@ -540,6 +560,7 @@ function ControlActionPreview({
   eyebrowAccent,
   isTimer = false,
   previewTheme,
+  style,
   subtitle,
   title,
 }: {
@@ -551,6 +572,7 @@ function ControlActionPreview({
   eyebrowAccent?: string;
   isTimer?: boolean;
   previewTheme: WidgetPreviewTheme;
+  style?: StyleProp<ViewStyle>;
   subtitle?: string;
   title: string;
 }) {
@@ -561,6 +583,7 @@ function ControlActionPreview({
         styles.controlCard,
         styles.controlActionCard,
         { backgroundColor: previewTheme.cardBackground, borderColor: previewTheme.cardBorder },
+        style,
       ]}>
       <View style={styles.rowBetween}>
         {eyebrowAccent ? (
@@ -577,7 +600,11 @@ function ControlActionPreview({
         <Text
           {...SINGLE_LINE_ELLIPSIS}
           adjustsFontSizeToFit={!isTimer}
-          minimumFontScale={WIDGET_DESIGN.minimumScale.default}
+          minimumFontScale={
+            isTimer
+              ? CONTROL.text.timer.minimumScaleFactor
+              : CONTROL.text.title.minimumScaleFactor
+          }
           style={[
             isTimer ? styles.smallTimer : styles.smallName,
             { color: previewTheme.titleColor },
@@ -601,64 +628,95 @@ function ControlActionPreview({
 }
 
 function LockScreenWidgetsPreview({
+  accessoryPreviewBackdrop,
   calendar,
+  isAndroid,
   nextCalendar,
   previewTheme,
+  previewViewport,
   states,
 }: {
+  accessoryPreviewBackdrop: ReturnType<typeof widgetAccessoryPreviewBackdrop>;
   calendar: WorkoutLockScreenCalendarWidgetProps;
+  isAndroid: boolean;
   nextCalendar: WorkoutLockScreenCalendarWidgetProps;
   previewTheme: WidgetPreviewTheme;
+  previewViewport: { height: number; width: number };
   states: {
     idle: WorkoutLockScreenWidgetProps;
     active: WorkoutLockScreenWidgetProps;
     completed: WorkoutLockScreenWidgetProps;
   };
 }) {
+  const rectangularStatusStyle = isAndroid
+    ? { height: previewViewport.height, width: previewViewport.width }
+    : undefined;
+  const rectangularFullWidthStyle = isAndroid
+    ? {
+        aspectRatio: previewViewport.width / previewViewport.height,
+        height: undefined,
+        width: '100%' as const,
+      }
+    : undefined;
+  const accessoryPreviewBackdropStyle = accessoryPreviewBackdrop
+    ? {
+        backgroundColor: accessoryPreviewBackdrop.backgroundColor,
+        borderRadius: accessoryPreviewBackdrop.borderRadius,
+        overflow: 'hidden' as const,
+      }
+    : undefined;
+  const lockScreenInverse = isAndroid
+    ? WIDGET_RENDERER_CONTRACT.previewPalette.dark.onAccent
+    : previewTheme.cardBackground;
+
   return (
     <View style={styles.lockScreenPreviewList}>
-      <View style={styles.previewGroup}>
-        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Inline · 한 줄
-        </Text>
-        <View style={styles.lockInlineWidget}>
-          <Text
-            style={[styles.lockInlineText, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
-            numberOfLines={1}>
-            {states.idle.inlineText}
-          </Text>
-        </View>
-      </View>
+      {!isAndroid ? (
+        <>
+          <View style={styles.previewGroup}>
+            <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+              Inline · 한 줄
+            </Text>
+            <View style={styles.lockInlineWidget}>
+              <Text
+                style={[styles.lockInlineText, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
+                numberOfLines={1}>
+                {states.idle.inlineText}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.previewGroup}>
+            <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+              Circular · 원형
+            </Text>
+            <View style={styles.lockCircularStateRow}>
+              <CircularStatePreview
+                accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
+                backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
+                borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
+                value={states.idle.circularValue}
+              />
+              <CircularStatePreview
+                accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
+                backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
+                borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
+                value={states.active.circularValue}
+              />
+              <CircularStatePreview
+                accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
+                backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
+                borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
+                value={states.completed.circularValue}
+              />
+            </View>
+          </View>
+        </>
+      ) : null}
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Circular · 원형
-        </Text>
-        <View style={styles.lockCircularStateRow}>
-          <CircularStatePreview
-            accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
-            backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
-            borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
-            value={states.idle.circularValue}
-          />
-          <CircularStatePreview
-            accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
-            backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
-            borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
-            value={states.active.circularValue}
-          />
-          <CircularStatePreview
-            accent={LOCK_SCREEN_SYSTEM_PREVIEW.primary}
-            backgroundColor={LOCK_SCREEN_SYSTEM_PREVIEW.surface}
-            borderColor={LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder}
-            value={states.completed.circularValue}
-          />
-        </View>
-      </View>
-
-      <View style={styles.previewGroup}>
-        <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type A · 상태
+          {isAndroid ? '잠금화면 운동 · 상태' : 'Rectangular Type A · 상태'}
         </Text>
         <ScrollView
           horizontal
@@ -668,51 +726,62 @@ function LockScreenWidgetsPreview({
           <RectangularStatusPreview
             title={states.idle.rectangularTitle}
             detail={states.idle.rectangularDetail}
+            style={[rectangularStatusStyle, accessoryPreviewBackdropStyle]}
           />
           <RectangularStatusPreview
             title={states.active.rectangularTitle}
             detail={states.active.rectangularDetail}
+            style={[rectangularStatusStyle, accessoryPreviewBackdropStyle]}
           />
           <RectangularStatusPreview
             title={states.completed.rectangularTitle}
             detail={states.completed.rectangularDetail}
+            style={[rectangularStatusStyle, accessoryPreviewBackdropStyle]}
           />
         </ScrollView>
       </View>
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type B · 지난 3주
+          {isAndroid ? '잠금화면 히트맵 · 지난 3주' : 'Rectangular Type B · 지난 3주'}
         </Text>
         <LockScreenCalendarWidgetPreview
           calendar={calendar}
           palette={{
-            inverse: previewTheme.cardBackground,
+            inverse: lockScreenInverse,
             primary: LOCK_SCREEN_SYSTEM_PREVIEW.primary,
             secondary: LOCK_SCREEN_SYSTEM_PREVIEW.secondary,
           }}
-          style={styles.lockRectangularCalendarWidget}
+          style={[
+            styles.lockRectangularCalendarWidget,
+            rectangularFullWidthStyle,
+            accessoryPreviewBackdropStyle,
+          ]}
         />
       </View>
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type C · 다음 3주
+          {isAndroid ? '잠금화면 히트맵 · 다음 3주' : 'Rectangular Type C · 다음 3주'}
         </Text>
         <LockScreenCalendarWidgetPreview
           calendar={nextCalendar}
           palette={{
-            inverse: previewTheme.cardBackground,
+            inverse: lockScreenInverse,
             primary: LOCK_SCREEN_SYSTEM_PREVIEW.primary,
             secondary: LOCK_SCREEN_SYSTEM_PREVIEW.secondary,
           }}
-          style={styles.lockRectangularCalendarWidget}
+          style={[
+            styles.lockRectangularCalendarWidget,
+            rectangularFullWidthStyle,
+            accessoryPreviewBackdropStyle,
+          ]}
         />
       </View>
 
       <View style={styles.previewGroup}>
         <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
-          Rectangular Type D · 루틴 진행
+          {isAndroid ? '잠금화면 루틴 진행' : 'Rectangular Type D · 루틴 진행'}
         </Text>
         <RoutineProgressLockScreenWidgetPreview
           currentIndex={ROUTINE_PROGRESS_CURRENT_INDEX}
@@ -723,7 +792,11 @@ function LockScreenWidgetsPreview({
             textHigh: LOCK_SCREEN_SYSTEM_PREVIEW.primary,
             textLow: LOCK_SCREEN_SYSTEM_PREVIEW.tertiary,
           }}
-          style={styles.lockRectangularRoutineWidget}
+          style={[
+            styles.lockRectangularRoutineWidget,
+            rectangularFullWidthStyle,
+            accessoryPreviewBackdropStyle,
+          ]}
         />
       </View>
     </View>
@@ -732,9 +805,11 @@ function LockScreenWidgetsPreview({
 
 function RectangularStatusPreview({
   detail,
+  style,
   title,
 }: {
   detail: string;
+  style?: StyleProp<ViewStyle>;
   title: string;
 }) {
   return (
@@ -746,15 +821,20 @@ function RectangularStatusPreview({
           backgroundColor: LOCK_SCREEN_SYSTEM_PREVIEW.surface,
           borderColor: LOCK_SCREEN_SYSTEM_PREVIEW.surfaceBorder,
         },
+        style,
       ]}>
       <Text
         style={[styles.lockRectStatusTitle, { color: LOCK_SCREEN_SYSTEM_PREVIEW.primary }]}
-        numberOfLines={1}>
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={WIDGET_RENDERER_CONTRACT.lockScreen.text.rectangularTitle.minimumScaleFactor}>
         {title}
       </Text>
       <Text
         style={[styles.lockRectStatusDetail, { color: LOCK_SCREEN_SYSTEM_PREVIEW.secondary }]}
-        numberOfLines={1}>
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={WIDGET_RENDERER_CONTRACT.lockScreen.text.rectangularDetail.minimumScaleFactor}>
         {detail}
       </Text>
     </View>
@@ -779,8 +859,60 @@ function CircularStatePreview({
           style={[styles.lockCircularValue, { color: accent }]}
           numberOfLines={1}
           adjustsFontSizeToFit
-          minimumFontScale={0.65}>
+          minimumFontScale={WIDGET_RENDERER_CONTRACT.lockScreen.text.circular.minimumScaleFactor}>
           {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
+function AndroidOngoingNotificationPreview({
+  accent,
+  previewTheme,
+}: {
+  accent: string;
+  previewTheme: WidgetPreviewTheme;
+}) {
+  const notification = PREVIEW_FIXTURE.notification;
+
+  return (
+    <View style={styles.livePreviewItem}>
+      <Text style={[styles.typeLabel, { color: previewTheme.typeLabelColor }]}>
+        Android 시스템 알림 · 실제 모양은 기기별로 달라질 수 있음
+      </Text>
+      <View
+        style={[
+          styles.androidNotification,
+          {
+            backgroundColor: previewTheme.neutralButtonBackground,
+            borderColor: previewTheme.cardBorder,
+          },
+        ]}>
+        <View style={styles.androidNotificationAppRow}>
+          <View style={[styles.androidNotificationIcon, { backgroundColor: accent }]}>
+            <Text
+              style={[
+                styles.androidNotificationIconText,
+                { color: previewTheme.cardBackground },
+              ]}>L</Text>
+          </View>
+          <Text style={[styles.androidNotificationAppName, { color: previewTheme.detailColor }]}>
+            {BRAND.displayName} · 지금
+          </Text>
+        </View>
+        <Text
+          {...SINGLE_LINE_ELLIPSIS}
+          style={[styles.androidNotificationTitle, { color: previewTheme.titleColor }]}>
+          {notification.title}
+        </Text>
+        <Text
+          {...SINGLE_LINE_ELLIPSIS}
+          style={[styles.androidNotificationDetail, { color: previewTheme.detailColor }]}>
+          {notification.detail} · {notification.elapsed}
+        </Text>
+        <Text style={[styles.androidNotificationAction, { color: accent }]}>
+          {notification.action}
         </Text>
       </View>
     </View>
@@ -817,11 +949,13 @@ function LiveActivityBannerPreview({
             {...SINGLE_LINE_ELLIPSIS}
             style={[styles.liveBannerTitle, { color: previewTheme.titleColor }]}
             adjustsFontSizeToFit
-            minimumFontScale={WIDGET_DESIGN.minimumScale.default}
+            minimumFontScale={WIDGET_RENDERER_CONTRACT.liveActivity.banner.titleMinimumScaleFactor}
           >
             {title || compactTitle}
           </Text>
-          <Text style={[styles.liveStatusText, { color: accent }]}>운동 중</Text>
+          <Text style={[styles.liveStatusText, { color: accent }]}>
+            {CONTROL.copy.active}
+          </Text>
         </View>
         <View style={styles.liveBannerFooter}>
           <Text {...SINGLE_LINE_ELLIPSIS} style={[styles.liveBannerTimer, { color: accent }]}>
@@ -873,7 +1007,7 @@ function DynamicIslandPreview({
             style={[styles.liveCompactLeadingText, { color: accent }]}
             numberOfLines={1}
           >
-            {`🏋️ ${compactTitle}`}
+            {compactTitle}
           </Text>
           <Text
             style={[styles.liveCompactTrailingText, { color: accent }]}
@@ -895,7 +1029,7 @@ function DynamicIslandPreview({
             style={[styles.liveMinimalText, { color: accent }]}
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={0.72}
+            minimumFontScale={WIDGET_RENDERER_CONTRACT.liveActivity.minimal.minimumScaleFactor}
           >
             {minimalTitle}
           </Text>
@@ -961,7 +1095,7 @@ function StopPill({
           compact ? styles.liveStopLabelCompact : null,
           { color: accentText },
         ]}>
-        운동 종료
+        {CONTROL.copy.end}
       </Text>
     </View>
   );
@@ -1008,7 +1142,7 @@ function buildPreviewHeatmapWidgets(colors: ThemeColors): {
     source,
     WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.fourWeekExpanded.rangeWeeks
   );
-  const currentMonth = buildCurrentMonthHeatmapModel(source);
+  const currentMonth = buildCurrentMonthHeatmapModel(source, PREVIEW_HEATMAP_ANCHOR);
   const yearCells = buildPreviewHeatmapGrid(source, 365);
   const weekStats = rangeStatsFromCells(weekCells);
   const monthStats = rangeStatsFromCells(monthCells);
@@ -1093,7 +1227,13 @@ function buildPreviewLockScreenWidgets(colors: ThemeColors): {
   };
 } {
   const now = new Date();
-  const startedAt = new Date(now.getTime() - 42 * 60 * 1000).toISOString();
+  const previewDate = PREVIEW_HEATMAP_ANCHOR;
+  const activeFixture = PREVIEW_FIXTURE.control.active;
+  const completedFixture = PREVIEW_FIXTURE.control.completed;
+  const idleFixture = PREVIEW_FIXTURE.control.idle;
+  const startedAt = new Date(
+    now.getTime() - elapsedLabelSeconds(activeFixture.elapsed) * 1000
+  ).toISOString();
   const theme = lockScreenThemeFromColors(colors);
   const calendarSpec = WIDGET_RENDERER_CONTRACT.lockScreen.threeWeekCalendar;
   const source = buildPreviewHeatmapSource(calendarSpec.rangeWeeks * calendarSpec.columns);
@@ -1106,30 +1246,30 @@ function buildPreviewLockScreenWidgets(colors: ThemeColors): {
   return {
     calendar: buildWorkoutLockScreenCalendarFromCells({
       cells: calendarCells,
-      todayDateKey: toLocalDateKey(now),
+      todayDateKey: toLocalDateKey(previewDate),
     }),
     nextCalendar: buildWorkoutLockScreenCalendarFromCells({
       cells: nextCalendarCells,
-      todayDateKey: toLocalDateKey(now),
+      todayDateKey: toLocalDateKey(previewDate),
     }),
     states: {
       idle: buildWorkoutLockScreenProps({
         state: 'idle',
-        title: 'Pull',
-        detail: '등 · 이두',
+        title: idleFixture.title,
+        detail: idleFixture.detail,
         ...theme,
       }),
       active: buildWorkoutLockScreenProps({
         state: 'active',
-        title: '등 · 이두',
+        title: activeFixture.detail,
         startedAt,
         now,
         ...theme,
       }),
       completed: buildWorkoutLockScreenProps({
         state: 'completed',
-        title: 'Push',
-        durationLabel: '1시간 8분',
+        title: completedFixture.title,
+        durationLabel: completedFixture.duration,
         ...theme,
       }),
     },
@@ -1140,7 +1280,7 @@ function buildPreviewCompleteCalendarWeeks(
   source: Map<string, HeatmapDay>,
   weeks: number
 ): HeatmapDay[] {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   const currentWeekStart = addLocalDays(today, -today.getDay());
   const rangeStart = addLocalDays(currentWeekStart, -(Math.max(weeks, 1) - 1) * 7);
   const cellCount = Math.max(weeks, 1) * 7;
@@ -1154,7 +1294,7 @@ function buildPreviewUpcomingCompleteCalendarWeeks(
   source: Map<string, HeatmapDay>,
   weeks: number
 ): HeatmapDay[] {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   const currentWeekStart = addLocalDays(today, -today.getDay());
   const cellCount = Math.max(weeks, 1) * 7;
 
@@ -1166,6 +1306,8 @@ function buildPreviewUpcomingCompleteCalendarWeeks(
 function buildPreviewWeekFooter(stats: RangeStats): HeatmapWidgetFooterProps {
   const hasRecentWorkout = stats.workoutCount > 0;
   const footer = WIDGET_RENDERER_CONTRACT.heatmap.weekFooter;
+  const currentRoutine =
+    PREVIEW_FIXTURE.routineProgress.items[PREVIEW_FIXTURE.routineProgress.currentIndex];
 
   return {
     footerStatLabels: footer.statLabels.join(','),
@@ -1173,8 +1315,12 @@ function buildPreviewWeekFooter(stats: RangeStats): HeatmapWidgetFooterProps {
       averageDurationSeconds(stats)
     )}`,
     recentWorkoutLabel: footer.recentLabel,
-    recentWorkoutTitles: hasRecentWorkout ? 'Push · 1시간 8분,Pull · 48분' : '',
-    recentWorkoutMetas: hasRecentWorkout ? '오늘,어제' : '',
+    recentWorkoutTitles: hasRecentWorkout
+      ? `${PREVIEW_FIXTURE.control.completed.title} · ${PREVIEW_FIXTURE.control.completed.duration},${currentRoutine?.split || currentRoutine?.bodyParts} · ${currentRoutine?.duration}`
+      : '',
+    recentWorkoutMetas: hasRecentWorkout
+      ? `오늘,${PREVIEW_FIXTURE.routineProgress.items[0]?.relativeDay ?? '어제'}`
+      : '',
   };
 }
 
@@ -1189,7 +1335,7 @@ function buildPreviewMonthFooter(stats: RangeStats): HeatmapWidgetFooterProps {
 }
 
 function buildPreviewHeatmapSource(days: number): Map<string, HeatmapDay> {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   return new Map(
     Array.from({ length: days }, (_, index) => {
       const date = addLocalDays(today, index - days + 1);
@@ -1200,7 +1346,7 @@ function buildPreviewHeatmapSource(days: number): Map<string, HeatmapDay> {
 }
 
 function buildPreviewHeatmapDays(source: Map<string, HeatmapDay>, days: number): HeatmapDay[] {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   return Array.from({ length: days }, (_, index) => {
     const date = addLocalDays(today, index - days + 1);
     return previewCellFromSource(source, date);
@@ -1211,7 +1357,7 @@ function buildPreviewCalendarWeeks(
   source: Map<string, HeatmapDay>,
   weeks: number
 ): HeatmapGridCell[] {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   const currentWeekStart = addLocalDays(today, -today.getDay());
   const rangeStart = addLocalDays(currentWeekStart, -(Math.max(weeks, 1) - 1) * 7);
   const cells: HeatmapGridCell[] = [];
@@ -1231,7 +1377,7 @@ function buildPreviewCalendarWeeks(
 }
 
 function buildPreviewHeatmapGrid(source: Map<string, HeatmapDay>, days: number): HeatmapGridCell[] {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   const rangeStart = addLocalDays(today, -(days - 1));
   const gridStart = addLocalDays(rangeStart, -rangeStart.getDay());
   const cells: HeatmapGridCell[] = [];
@@ -1275,68 +1421,22 @@ function emptyPreviewCell(date: Date): HeatmapDay {
 
 function previewDurationSeconds(date: Date, today: Date): number {
   const daysAgo = daysBetween(date, today);
-  const recentMinutes = recentPreviewWorkoutMinutes(daysAgo);
-  if (recentMinutes !== null) {
-    return recentMinutes * 60;
-  }
-
-  if (!isPreviewWorkoutDay(date)) {
-    return 0;
-  }
-
-  const dateKey = toLocalDateKey(date);
-  const durationRoll = seededUnit(`${dateKey}:duration`);
-  const typeRoll = seededUnit(`${dateKey}:type`);
-  let minutes = 38 + Math.round(durationRoll * 52);
-
-  if (typeRoll < 0.12) {
-    minutes = 28 + Math.round(seededUnit(`${dateKey}:short`) * 10);
-  } else if (typeRoll > 0.88) {
-    minutes += 10 + Math.round(seededUnit(`${dateKey}:long`) * 16);
-  }
-
-  return clamp(roundToNearest(minutes, 5), 28, 110) * 60;
-}
-
-function recentPreviewWorkoutMinutes(daysAgo: number): number | null {
-  switch (daysAgo) {
-    case 0:
-      return 68;
-    case 1:
-      return 48;
-    case 2:
-      return 0;
-    case 3:
-      return 74;
-    case 4:
-      return 0;
-    case 5:
-      return 56;
-    default:
-      return null;
-  }
-}
-
-function isPreviewWorkoutDay(date: Date): boolean {
-  const dateKey = toLocalDateKey(date);
-  const weekdayPreference = [0.26, 0.55, 0.4, 0.58, 0.36, 0.52, 0.44][date.getDay()];
-  const weekRoll = seededUnit(`${weekKey(date)}:volume`);
-  const weekBias = weekRoll < 0.14 ? -0.18 : weekRoll > 0.84 ? 0.16 : 0;
-  const monthBias = (seededUnit(`${date.getFullYear()}-${date.getMonth()}:month`) - 0.5) * 0.1;
-  return seededUnit(`${dateKey}:workout`) < weekdayPreference + weekBias + monthBias;
+  const pattern = PREVIEW_FIXTURE.heatmap.durationPatternSeconds;
+  return pattern[daysAgo % pattern.length] ?? 0;
 }
 
 function heatmapBucketForDuration(durationSeconds: number): HeatmapBucket {
+  const [first, second, third] = WIDGET_RENDERER_CONTRACT.heatmap.bucketThresholdSeconds;
   if (durationSeconds <= 0) {
     return 0;
   }
-  if (durationSeconds < 30 * 60) {
+  if (durationSeconds < first) {
     return 1;
   }
-  if (durationSeconds < 60 * 60) {
+  if (durationSeconds < second) {
     return 2;
   }
-  if (durationSeconds < 90 * 60) {
+  if (durationSeconds < third) {
     return 3;
   }
   return 4;
@@ -1354,7 +1454,7 @@ function rangeStatsFromCells(cells: Array<HeatmapDay & { inRange?: boolean }>): 
 }
 
 function recentSixMonthCells(cells: HeatmapGridCell[]): HeatmapGridCell[] {
-  const today = startOfLocalDay(new Date());
+  const today = PREVIEW_HEATMAP_ANCHOR;
   const rangeStart = new Date(today.getFullYear(), today.getMonth() - 5, 1);
   return cells.filter(
     (cell) => cell.inRange && dateFromKey(cell.dateKey).getTime() >= rangeStart.getTime()
@@ -1365,6 +1465,13 @@ function averageDurationSeconds(stats: RangeStats): number {
   return stats.workoutCount ? Math.round(stats.durationSeconds / stats.workoutCount) : 0;
 }
 
+function elapsedLabelSeconds(label: string): number {
+  return label
+    .split(':')
+    .map(Number)
+    .reduce((total, value) => total * 60 + value, 0);
+}
+
 function daysBetween(start: Date, end: Date): number {
   return Math.max(0, Math.round((end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000)));
 }
@@ -1372,28 +1479,6 @@ function daysBetween(start: Date, end: Date): number {
 function dateFromKey(dateKey: string): Date {
   const [year, month, day] = dateKey.split('-').map(Number);
   return new Date(year, (month || 1) - 1, day || 1);
-}
-
-function weekKey(date: Date): string {
-  const yearStart = new Date(date.getFullYear(), 0, 1);
-  return `${date.getFullYear()}-${Math.floor(daysBetween(yearStart, date) / 7)}`;
-}
-
-function seededUnit(input: string): number {
-  let hash = 2166136261;
-  for (let index = 0; index < input.length; index += 1) {
-    hash ^= input.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return (hash >>> 0) / 4294967295;
-}
-
-function roundToNearest(value: number, step: number): number {
-  return Math.round(value / step) * step;
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 /** The one small-widget CTA pill — PRE/DURING must share identical geometry. */
@@ -1618,6 +1703,50 @@ const styles = StyleSheet.create({
     fontSize: LIVE_ACTIVITY_PREVIEW.expanded.buttonTextSize,
     lineHeight: WIDGET_TYPE.md.lineHeight,
   },
+  androidNotification: {
+    borderRadius: WIDGET_RADIUS.control,
+    borderWidth: StyleSheet.hairlineWidth,
+    gap: WIDGET_SPACE.xs,
+    minHeight: LIVE_ACTIVITY_BANNER.minHeight,
+    padding: LIVE_ACTIVITY_BANNER.contentPadding,
+  },
+  androidNotificationAppRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: WIDGET_SPACE.sm,
+  },
+  androidNotificationIcon: {
+    alignItems: 'center',
+    borderRadius: 7,
+    height: 14,
+    justifyContent: 'center',
+    width: 14,
+  },
+  androidNotificationIconText: {
+    fontSize: 8,
+    fontWeight: WIDGET_WEIGHT.bold,
+    lineHeight: 10,
+  },
+  androidNotificationAppName: {
+    fontSize: WIDGET_TYPE.sm.size,
+    lineHeight: WIDGET_TYPE.sm.lineHeight,
+  },
+  androidNotificationTitle: {
+    fontSize: LIVE_ACTIVITY_BANNER.titleFontSize,
+    fontWeight: WIDGET_WEIGHT.bold,
+    lineHeight: WIDGET_TYPE.lg.lineHeight,
+  },
+  androidNotificationDetail: {
+    fontSize: LIVE_ACTIVITY_BANNER.statusFontSize,
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+  },
+  androidNotificationAction: {
+    alignSelf: 'flex-start',
+    fontSize: LIVE_ACTIVITY_BANNER.buttonFontSize,
+    fontWeight: WIDGET_WEIGHT.bold,
+    lineHeight: WIDGET_TYPE.md.lineHeight,
+    marginTop: WIDGET_SPACE.sm,
+  },
   liveIslandScroller: {
     alignItems: 'center',
     gap: spacing.sm,
@@ -1741,10 +1870,11 @@ const styles = StyleSheet.create({
     gap: CONTROL.footerGap,
     justifyContent: 'flex-start',
   },
-  // iOS systemMedium proportions (~364x170pt). Content spreads vertically so
-  // cards with less content keep the same footprint.
+  // iOS keeps the existing WidgetKit preview baseline; Android overrides this
+  // with its launcher representative viewport at the call site.
   mediumRect: {
-    aspectRatio: 2.14,
+    aspectRatio:
+      IOS_WIDGET_VIEWPORTS.homeMedium.width / IOS_WIDGET_VIEWPORTS.homeMedium.height,
     justifyContent: 'space-between',
   },
   typePreview: {

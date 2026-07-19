@@ -16,7 +16,7 @@ struct CurrentMonthCalendarWidget: Widget {
   }
 }
 
-private struct CurrentMonthCalendarWidgetView: View {
+struct CurrentMonthCalendarWidgetView: View {
   let entry: LoofitWidgetEntry
 
   private var days: [LoofitHeatmapDay] {
@@ -37,7 +37,7 @@ private struct CurrentMonthCalendarWidgetView: View {
       let contentPadding = LoofitHomeWidgetContentPadding(for: geometry.size)
       let gap = spec.cellGap
       let width = max(0, geometry.size.width - contentPadding * 2 - gap * 6)
-      let headerHeight = spec.headerFontSize + 4
+      let headerHeight = spec.headerLineHeight
       let gridHeight = max(
         0,
         geometry.size.height - contentPadding * 2 - headerHeight - spec.headerGap
@@ -50,6 +50,7 @@ private struct CurrentMonthCalendarWidgetView: View {
           .font(.system(size: spec.headerFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
           .foregroundStyle(LoofitColor(entry.palette.tx3))
           .lineLimit(1)
+          .minimumScaleFactor(spec.headerMinimumScaleFactor)
           .frame(height: headerHeight)
 
         VStack(alignment: .leading, spacing: gap) {
@@ -94,10 +95,14 @@ private struct CurrentMonthCalendarWidgetView: View {
         Text("\(Calendar.current.component(.day, from: day.date))")
           .font(.system(size: LoofitWidgetRendererContract.CurrentMonth.cellLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitHeatmapTextColor(for: day, palette: entry.palette))
+          .lineLimit(1)
+          .minimumScaleFactor(LoofitWidgetRendererContract.CurrentMonth.cellLabelMinimumScaleFactor)
       } else if LoofitWidgetRendererContract.CurrentMonth.outsideMonthDateLabelOnly {
         Text("\(Calendar.current.component(.day, from: day.date))")
           .font(.system(size: LoofitWidgetRendererContract.CurrentMonth.cellLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
           .foregroundStyle(LoofitColor(entry.palette.tx4))
+          .lineLimit(1)
+          .minimumScaleFactor(LoofitWidgetRendererContract.CurrentMonth.cellLabelMinimumScaleFactor)
       }
     }
     .frame(width: size, height: size)

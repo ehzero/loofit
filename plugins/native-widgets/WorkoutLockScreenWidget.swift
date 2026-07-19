@@ -16,7 +16,7 @@ struct WorkoutLockScreenWidget: Widget {
   }
 }
 
-private struct LoofitWorkoutLockScreenWidgetView: View {
+struct LoofitWorkoutLockScreenWidgetView: View {
   @Environment(\.widgetFamily) private var family
   @Environment(\.widgetRenderingMode) private var renderingMode
 
@@ -81,7 +81,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
       .font(.system(size: LoofitWidgetRendererContract.LockScreen.inlineFontSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
       .foregroundStyle(primaryColor)
       .lineLimit(1)
-      .minimumScaleFactor(0.75)
+      .minimumScaleFactor(LoofitWidgetRendererContract.LockScreen.inlineMinimumScaleFactor)
   }
 
   private var circular: some View {
@@ -104,9 +104,9 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
     .foregroundStyle(primaryColor)
     .widgetAccentable()
     .lineLimit(1)
-    .minimumScaleFactor(0.48)
+    .minimumScaleFactor(LoofitWidgetRendererContract.LockScreen.circularMinimumScaleFactor)
     .multilineTextAlignment(.center)
-    .padding(.horizontal, 2)
+    .padding(.horizontal, LoofitWidgetRendererContract.LockScreen.circularHorizontalPadding)
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
   }
 
@@ -125,7 +125,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
       .foregroundStyle(primaryColor)
       .widgetAccentable()
       .lineLimit(1)
-      .minimumScaleFactor(0.62)
+      .minimumScaleFactor(LoofitWidgetRendererContract.LockScreen.rectangularTitleMinimumScaleFactor)
       .multilineTextAlignment(.center)
       .frame(maxWidth: .infinity, alignment: .center)
 
@@ -133,7 +133,7 @@ private struct LoofitWorkoutLockScreenWidgetView: View {
         .font(.system(size: LoofitWidgetRendererContract.LockScreen.rectangularDetailFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
         .foregroundStyle(secondaryColor)
         .lineLimit(1)
-        .minimumScaleFactor(0.68)
+        .minimumScaleFactor(LoofitWidgetRendererContract.LockScreen.rectangularDetailMinimumScaleFactor)
     }
     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
   }

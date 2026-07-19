@@ -80,6 +80,9 @@ export function LockScreenCalendarWidgetPreview({
                   ]}
                 >
                   <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    minimumFontScale={SPEC.cellLabelMinimumScaleFactor}
                     style={[
                       styles.dayLabel,
                       { color: cell.heatLevel >= 3 ? palette.inverse : palette.primary },

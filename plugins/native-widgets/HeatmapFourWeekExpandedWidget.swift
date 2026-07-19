@@ -16,7 +16,7 @@ struct HeatmapFourWeekExpandedWidget: Widget {
   }
 }
 
-private struct HeatmapFourWeekExpandedWidgetView: View {
+struct HeatmapFourWeekExpandedWidgetView: View {
   let entry: LoofitWidgetEntry
 
   private var days: [LoofitHeatmapDay] {

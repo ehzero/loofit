@@ -3,31 +3,498 @@
 
 package com.loofit.workoutcore
 
+internal enum class LoofitHeatmapStyle { DETAILED, EXPANDED, COMPACT }
+internal enum class LoofitHeatmapHeaderSummary { NONE, COUNT, COUNT_TOTAL_AVERAGE }
+internal enum class LoofitHeatmapCalendarAlignment {
+  ROLLING_DAYS,
+  CALENDAR_WEEKS,
+  CONTINUOUS_MONTHS_WITH_BOUNDARY_SLOTS,
+}
+internal enum class LoofitHeatmapStat { COUNT, TOTAL_DURATION, AVERAGE_DURATION }
+
+internal data class LoofitWidgetViewportSpec(val width: Float, val height: Float)
+
+internal data class LoofitWidgetProviderSizeSpec(
+  val minWidth: Int,
+  val minHeight: Int,
+  val targetCellWidth: Int,
+  val targetCellHeight: Int,
+)
+
+internal data class LoofitHeatmapRendererSpec(
+  val title: String,
+  val style: LoofitHeatmapStyle,
+  val rangeDays: Int,
+  val rangeWeeks: Int,
+  val rangeMonths: Int,
+  val columns: Int,
+  val contentPadding: Float,
+  val cellGap: Float,
+  val cellRadius: Float,
+  val cellLabelSize: Float,
+  val cellLabelMinimumScaleFactor: Float,
+  val headerGap: Float,
+  val headerVisible: Boolean,
+  val headerFontSize: Float,
+  val headerLineHeight: Float,
+  val headerMinimumScaleFactor: Float,
+  val headerSummary: LoofitHeatmapHeaderSummary,
+  val calendarAlignment: LoofitHeatmapCalendarAlignment,
+  val showLeadingCalendarCells: Boolean,
+  val monthBoundaryGapSlots: Int,
+  val reservedHeaderHeight: Float,
+  val reservedFooterHeight: Float,
+)
+
 internal object LoofitWidgetLayoutContract {
+  const val version = 1
+  const val fingerprint = "a25417beed95972b4f4ded5a3817f926252204e318341098526cae1f1f89c9f7"
   const val calendarColumns = 7
   const val contentPadding = 12f
   const val containerRadius = 24f
 
+  object SurfaceKinds {
+    const val CONTROL = "WorkoutControlWidget"
+    const val HEATMAP_WEEK = "HeatmapWeekWidget"
+    const val HEATMAP_MONTH = "HeatmapMonthWidget"
+    const val HEATMAP_SIX_MONTHS = "HeatmapYearWidget"
+    const val CURRENT_MONTH = "CurrentMonthCalendarWidget"
+    const val FOUR_WEEK_EXPANDED = "HeatmapFourWeekExpandedWidget"
+    const val ROUTINE_PROGRESS = "RoutineProgressWidget"
+    const val BODY_PART_DURATION = "BodyPartDurationWidget"
+    const val LOCK_WORKOUT = "WorkoutLockScreenWidget"
+    const val LOCK_THREE_WEEK = "ThreeWeekCalendarLockScreenWidget"
+    const val LOCK_NEXT_THREE_WEEK = "NextThreeWeekCalendarLockScreenWidget"
+    const val LOCK_ROUTINE_PROGRESS = "RoutineProgressLockScreenWidget"
+    val all = listOf(
+      CONTROL,
+      HEATMAP_WEEK,
+      HEATMAP_MONTH,
+      HEATMAP_SIX_MONTHS,
+      CURRENT_MONTH,
+      FOUR_WEEK_EXPANDED,
+      ROUTINE_PROGRESS,
+      BODY_PART_DURATION,
+      LOCK_WORKOUT,
+      LOCK_THREE_WEEK,
+      LOCK_NEXT_THREE_WEEK,
+      LOCK_ROUTINE_PROGRESS,
+    )
+  }
+
+  object ContentMargins {
+    const val homeReferenceShortestEdge = 158f
+  }
+
+  object PreviewViewports {
+    val homeSmall = LoofitWidgetViewportSpec(
+      width = 158f,
+      height = 158f,
+    )
+    val homeMedium = LoofitWidgetViewportSpec(
+      width = 338f,
+      height = 158f,
+    )
+    val accessoryRectangular = LoofitWidgetViewportSpec(
+      width = 160f,
+      height = 72f,
+    )
+  }
+
+  object AndroidPlatform {
+    const val renderer = "bitmapAndRemoteViews"
+    const val sizing = "launcherExactSizes"
+
+    object PreviewViewports {
+      val homeSmall = LoofitWidgetViewportSpec(
+        width = 164f,
+        height = 188f,
+      )
+      val homeMedium = LoofitWidgetViewportSpec(
+        width = 356f,
+        height = 188f,
+      )
+      val accessoryRectangular = LoofitWidgetViewportSpec(
+        width = 356f,
+        height = 80f,
+      )
+    }
+
+    object ProviderSizing {
+      val homeSmall = LoofitWidgetProviderSizeSpec(
+        minWidth = 110,
+        minHeight = 110,
+        targetCellWidth = 2,
+        targetCellHeight = 2,
+      )
+      val homeMedium = LoofitWidgetProviderSizeSpec(
+        minWidth = 250,
+        minHeight = 110,
+        targetCellWidth = 4,
+        targetCellHeight = 2,
+      )
+      val accessoryRectangular = LoofitWidgetProviderSizeSpec(
+        minWidth = 250,
+        minHeight = 40,
+        targetCellWidth = 4,
+        targetCellHeight = 1,
+      )
+    }
+  }
+
+  object Spacing {
+    const val xs = 2f
+    const val sm = 4f
+    const val md = 8f
+    const val lg = 12f
+  }
+
+  object Radius {
+    const val cell = 3f
+    const val control = 12f
+    const val container = 24f
+  }
+
+  object Typography {
+    object Sm {
+      const val size = 8f
+      const val lineHeight = 10f
+    }
+    object Md {
+      const val size = 12f
+      const val lineHeight = 16f
+    }
+    object Lg {
+      const val size = 16f
+      const val lineHeight = 21f
+    }
+    object Xl {
+      const val size = 26f
+      const val lineHeight = 31f
+    }
+  }
+
+  object FontWeight {
+    const val bold = 800
+    const val medium = 700
+    const val light = 600
+  }
+
+  object Opacity {
+    const val defaultValue = 1f
+    const val muted = 0.72f
+  }
+
+  object MinimumScale {
+    const val compact = 0.48f
+    const val calendar = 0.6f
+    const val display = 0.62f
+    const val dense = 0.68f
+    const val timer = 0.72f
+    const val defaultValue = 0.75f
+  }
+
+  object Text {
+    object Label {
+      const val size = 12f
+      const val lineHeight = 16f
+      const val weight = 800
+    }
+    object Brand {
+      const val size = 8f
+      const val lineHeight = 10f
+      const val weight = 700
+    }
+    object Calendar {
+      const val weekdaySize = 8f
+      const val weekdayLineHeight = 10f
+      const val weekdayWeight = 800
+      const val monthSize = 8f
+      const val monthLineHeight = 10f
+    }
+  }
+
+  object Control {
+    const val cardSize = 158f
+    const val bodyGap = 4f
+    const val activeDotSize = 7f
+    const val activeDotGap = 8f
+    const val buttonHeight = 28f
+    const val buttonRadius = 12f
+    const val footerGap = 2f
+    const val timerMaxHours = 8
+    const val titleSize = 16f
+    const val titleLineHeight = 21f
+    const val titleWeight = 800
+    const val titleMinimumScaleFactor = 0.75f
+    const val timerSize = 26f
+    const val timerLineHeight = 31f
+    const val timerWeight = 800
+    const val timerMinimumScaleFactor = 0.72f
+    const val detailSize = 12f
+    const val detailLineHeight = 16f
+    const val detailWeight = 600
+    const val buttonTextSize = 12f
+    const val buttonTextWeight = 800
+    const val durationSize = 26f
+    const val durationLineHeight = 31f
+    const val durationWeight = 800
+    const val rangeSize = 12f
+    const val rangeLineHeight = 16f
+    const val rangeWeight = 600
+
+    object Copy {
+      const val idle = "다음 운동"
+      const val active = "운동 중"
+      const val completed = "오늘 운동 완료"
+      const val start = "운동 시작"
+      const val end = "운동 종료"
+      const val routineRequired = "루틴 설정 필요"
+    }
+  }
+
   object Heatmap {
+    val weekdayLabels = listOf("일", "월", "화", "수", "목", "금", "토")
+    val weekendWeekdayLabels = listOf("일", "토")
+    val bucketThresholdSeconds = intArrayOf(1800, 3600, 5400)
+    val bucketAccentWeights = floatArrayOf(0.24f, 0.48f, 0.74f, 1f)
+    const val weekdayLabelHeightInCells = 1f
+    const val strongCellLabelMinimumBucket = 3
+    const val strongCellLabelMinimumDurationSeconds = 3600
     const val weekRangeDays = 7
     const val monthRangeWeeks = 5
     const val sixMonthRangeMonths = 6
     const val monthBoundaryGapSlots = 7
     const val currentMonthMaxRows = 6
     const val fourWeekExpandedRangeWeeks = 4
+    val week = LoofitHeatmapRendererSpec(
+      title = "지난 7일",
+      style = LoofitHeatmapStyle.DETAILED,
+      rangeDays = 7,
+      rangeWeeks = 0,
+      rangeMonths = 0,
+      columns = 7,
+      contentPadding = 12f,
+      cellGap = 4f,
+      cellRadius = 3f,
+      cellLabelSize = 8f,
+      cellLabelMinimumScaleFactor = 0.6f,
+      headerGap = 8f,
+      headerVisible = false,
+      headerFontSize = 12f,
+      headerLineHeight = 16f,
+      headerMinimumScaleFactor = 0.75f,
+      headerSummary = LoofitHeatmapHeaderSummary.NONE,
+      calendarAlignment = LoofitHeatmapCalendarAlignment.ROLLING_DAYS,
+      showLeadingCalendarCells = false,
+      monthBoundaryGapSlots = 0,
+      reservedHeaderHeight = 0f,
+      reservedFooterHeight = 63f,
+    )
+    val month = LoofitHeatmapRendererSpec(
+      title = "지난 5주",
+      style = LoofitHeatmapStyle.DETAILED,
+      rangeDays = 0,
+      rangeWeeks = 5,
+      rangeMonths = 0,
+      columns = 7,
+      contentPadding = 12f,
+      cellGap = 4f,
+      cellRadius = 3f,
+      cellLabelSize = 8f,
+      cellLabelMinimumScaleFactor = 0.6f,
+      headerGap = 8f,
+      headerVisible = false,
+      headerFontSize = 12f,
+      headerLineHeight = 16f,
+      headerMinimumScaleFactor = 0.75f,
+      headerSummary = LoofitHeatmapHeaderSummary.NONE,
+      calendarAlignment = LoofitHeatmapCalendarAlignment.CALENDAR_WEEKS,
+      showLeadingCalendarCells = false,
+      monthBoundaryGapSlots = 0,
+      reservedHeaderHeight = 0f,
+      reservedFooterHeight = 18f,
+    )
+    val year = LoofitHeatmapRendererSpec(
+      title = "지난 6개월",
+      style = LoofitHeatmapStyle.COMPACT,
+      rangeDays = 0,
+      rangeWeeks = 0,
+      rangeMonths = 6,
+      columns = 0,
+      contentPadding = 12f,
+      cellGap = 2f,
+      cellRadius = 3f,
+      cellLabelSize = 0f,
+      cellLabelMinimumScaleFactor = 0.6f,
+      headerGap = 8f,
+      headerVisible = true,
+      headerFontSize = 8f,
+      headerLineHeight = 10f,
+      headerMinimumScaleFactor = 0.75f,
+      headerSummary = LoofitHeatmapHeaderSummary.COUNT_TOTAL_AVERAGE,
+      calendarAlignment = LoofitHeatmapCalendarAlignment.CONTINUOUS_MONTHS_WITH_BOUNDARY_SLOTS,
+      showLeadingCalendarCells = true,
+      monthBoundaryGapSlots = 7,
+      reservedHeaderHeight = 22f,
+      reservedFooterHeight = 0f,
+    )
+
+    object SixMonth {
+      const val monthLabelSize = 8f
+      const val monthLabelHeight = 16f
+      const val monthHeaderBottomGap = 8f
+    }
+
+    object WeekFooter {
+      val statOrder = listOf(LoofitHeatmapStat.COUNT, LoofitHeatmapStat.TOTAL_DURATION, LoofitHeatmapStat.AVERAGE_DURATION)
+      val statLabels = listOf("횟수", "총 시간", "평균")
+      const val recentLabel = "최근 운동"
+      const val emptyRecentLabel = "아직 기록 없음"
+      const val alwaysShowRecent = true
+      const val recentLimit = 2
+      const val topRowGap = 8f
+      const val statGap = 4f
+      const val recentRowGap = 2f
+      const val statLabelSize = 8f
+      const val statValueSize = 16f
+      const val statValueMinimumScale = 0.75f
+      const val recentLabelSize = 8f
+      const val recentValueSize = 12f
+      const val recentMetaSize = 8f
+    }
+
+    object MonthFooter {
+      val statOrder = listOf(LoofitHeatmapStat.COUNT, LoofitHeatmapStat.TOTAL_DURATION)
+      const val separator = " · "
+      const val totalDurationPrefix = "총 "
+    }
+  }
+
+  object CurrentMonth {
+    const val contentPadding = 12f
+    const val cellGap = 4f
+    const val cellRadius = 3f
+    const val cellLabelSize = 8f
+    const val cellLabelMinimumScaleFactor = 0.6f
+    const val headerGap = 8f
+    const val headerFontSize = 12f
+    const val headerLineHeight = 16f
+    const val headerMinimumScaleFactor = 0.75f
+    const val outsideMonthDateLabelOnly = true
+    const val todayIndicatorWidth = 1.5f
+  }
+
+  object FourWeekExpanded {
+    const val rangeWeeks = 4
+    const val columns = 7
+    const val contentPadding = 12f
+    const val cellGap = 4f
+    const val cellRadius = 3f
+    const val cellLabelSize = 8f
+    const val cellLabelMinimumScaleFactor = 0.6f
+    const val cellLabelLineHeight = 10f
+    const val bodyPartLabelSize = 8f
+    const val bodyPartLabelLineHeight = 10f
+    const val bodyPartLabelOpacity = 0.72f
+    const val cellContentGap = 2f
+    const val weekdayHeaderHeight = 10f
+    const val headerGap = 4f
+    const val bodyPartSeparator = "·"
   }
 
   object RoutineProgress {
     const val visibleItemLimit = 3
+    const val contentPadding = 12f
+    const val metadataSeparator = " · "
+    const val emptyRelativeDay = "기록 없음"
+    const val splitSize = 26f
+    const val splitLineHeight = 31f
+    const val splitWeight = 800
+    const val metadataSize = 8f
+    const val metadataLineHeight = 10f
+    const val metadataWeight = 700
+
+    object LockScreen {
+      const val visibleItemLimit = 3
+      const val contentPadding = 4f
+      const val columnGap = 4f
+      const val itemGap = 2f
+      const val workoutSize = 16f
+      const val workoutLineHeight = 21f
+      const val workoutWeight = 800
+      const val relativeDaySize = 12f
+      const val relativeDayLineHeight = 16f
+      const val relativeDayWeight = 700
+    }
   }
 
   object BodyPartDuration {
     const val rangeDays = 30
     const val visibleItemLimit = 4
+    const val title = "최근 30일"
+    const val contentPadding = 12f
+    const val barHeight = 4f
+    const val barRadius = 3f
+    const val titleSize = 12f
+    const val titleLineHeight = 16f
+    const val titleWeight = 800
+    const val bodyPartSize = 12f
+    const val bodyPartLineHeight = 16f
+    const val bodyPartWeight = 800
+    const val durationSize = 8f
+    const val durationLineHeight = 10f
+    const val durationWeight = 700
   }
 
   object LockScreen {
+    const val active = "운동 중"
+    const val completedEyebrow = "오늘 완료"
+    const val completedBadge = "오운완"
+    const val idle = "다음 운동"
+    const val routineRequired = "루틴 설정 필요"
+    const val compactCharacterLimit = 3
+    const val inlineMinimumScaleFactor = 0.75f
+    const val circularMinimumScaleFactor = 0.48f
+    const val circularHorizontalPadding = 2f
+    const val rectangularTitleSize = 26f
+    const val rectangularTitleLineHeight = 31f
+    const val rectangularTitleWeight = 800
+    const val rectangularTitleMinimumScaleFactor = 0.62f
+    const val rectangularDetailSize = 16f
+    const val rectangularDetailLineHeight = 21f
+    const val rectangularDetailWeight = 700
+    const val rectangularDetailMinimumScaleFactor = 0.68f
     const val threeWeekCalendarRangeWeeks = 3
     const val nextThreeWeekCalendarRangeWeeks = 3
+
+    object ThreeWeekCalendar {
+      const val rangeWeeks = 3
+      const val columns = 7
+      const val contentPadding = 2f
+      const val cellGap = 2f
+      const val cellRadius = 3f
+      const val cellLabelSize = 8f
+      const val cellLabelMinimumScaleFactor = 0.68f
+      const val weekdayLabelSize = 8f
+      const val weekdayLabelLineHeight = 10f
+      val dimmedWeekdayLabels = listOf("일", "토")
+      const val dimmedWeekdayOpacity = 0.72f
+      val bucketOpacities = floatArrayOf(0.28f, 0.48f, 0.72f, 1f)
+      const val todayIndicatorColor = "#FFFFFF"
+      const val todayIndicatorWidth = 1f
+    }
+  }
+
+  object OngoingNotification {
+    const val contentPadding = 12f
+    const val contentGap = 8f
+    const val rowGap = 4f
+    const val titleSize = 16f
+    const val titleMinimumScaleFactor = 0.75f
+    const val statusSize = 12f
+    const val timerSize = 26f
+    const val buttonHeight = 32f
+    const val buttonTextSize = 12f
   }
 }

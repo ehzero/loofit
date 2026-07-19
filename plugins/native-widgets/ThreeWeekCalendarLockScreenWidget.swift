@@ -115,19 +115,17 @@ struct ThreeWeekCalendarLockScreenWidgetView: View {
         ))
         .foregroundStyle(cellLabelColor(level: level))
         .lineLimit(1)
-        .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.dense)
+        .minimumScaleFactor(spec.cellLabelMinimumScaleFactor)
     }
     .frame(width: width, height: height)
   }
 
   private func heatLevel(for day: LoofitHeatmapDay) -> Int {
-    switch day.durationSeconds {
-    case ...0: return 0
-    case ..<(30 * 60): return 1
-    case ..<(60 * 60): return 2
-    case ..<(90 * 60): return 3
-    default: return 4
+    guard day.durationSeconds > 0 else { return 0 }
+    for (index, threshold) in LoofitWidgetRendererContract.Heatmap.bucketThresholdSeconds.enumerated() {
+      if day.durationSeconds < threshold { return index + 1 }
     }
+    return LoofitWidgetRendererContract.Heatmap.bucketAccentWeights.count
   }
 
   private func cellFillColor(level: Int) -> Color {

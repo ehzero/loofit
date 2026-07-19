@@ -66,6 +66,7 @@
     "test": "vitest run && npm run contracts:check && npm run lint:tokens",
     "test:command-contract": "vitest run src/db/repositories/workout-command-contract.test.ts",
     "test:ios-core": "./scripts/test-ios-workout-core.sh",
+    "test:ios-widgets": "./scripts/test-ios-widget-renderer.sh",
     "test:ios-core:generated": "./scripts/run-generated-ios-core-tests.sh",
     "test:android-core": "./scripts/test-android-workout-core.sh",
     "schema:generate": "node ./scripts/generate-workout-schema.mjs",
