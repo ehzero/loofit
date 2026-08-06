@@ -33,10 +33,35 @@ export const WIDGET_PREVIEW_SPEC = {
       cellRadius: heatmap.variants.year.cellRadius,
       headerGap: heatmap.variants.year.headerGap,
       headerVisible: heatmap.variants.year.headerVisible,
+      headerLineHeight: heatmap.variants.year.headerLineHeight,
+      headerMinimumScaleFactor: heatmap.variants.year.headerMinimumScaleFactor,
       cellLabelSize: heatmap.variants.year.cellLabelSize,
+      cellLabelMinimumScaleFactor: heatmap.variants.year.cellLabelMinimumScaleFactor,
     },
   },
 } as const;
+
+export type WidgetPreviewPlatform = 'android' | 'ios';
+
+export function widgetPreviewViewports(platform: WidgetPreviewPlatform) {
+  return platform === 'android'
+    ? WIDGET_RENDERER_CONTRACT.platformPolicy.android.previewViewports
+    : WIDGET_RENDERER_CONTRACT.previewViewports;
+}
+
+export function widgetAccessoryPreviewBackdrop(platform: WidgetPreviewPlatform) {
+  if (platform !== 'android') {
+    return null;
+  }
+  const spec =
+    WIDGET_RENDERER_CONTRACT.platformPolicy.android.accessoryPreviewBackdrop;
+  return {
+    backgroundColor:
+      WIDGET_RENDERER_CONTRACT.previewPalette[spec.palette][spec.colorRole],
+    borderRadius: spec.radius,
+    mode: spec.mode,
+  } as const;
+}
 
 function previewHeatmapVariant(
   variant: typeof heatmap.variants.week | typeof heatmap.variants.month
@@ -48,7 +73,10 @@ function previewHeatmapVariant(
     cellRadius: variant.cellRadius,
     headerGap: variant.headerGap,
     headerVisible: variant.headerVisible,
+    headerLineHeight: variant.headerLineHeight,
+    headerMinimumScaleFactor: variant.headerMinimumScaleFactor,
     cellLabelSize: variant.cellLabelSize,
+    cellLabelMinimumScaleFactor: variant.cellLabelMinimumScaleFactor,
   } as const;
 }
 

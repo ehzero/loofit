@@ -61,7 +61,7 @@ export function HeatmapWidgetPreview({
     const contentHeight =
       cardSize.height -
       contentPadding * 2 -
-      WIDGET_PREVIEW_SPEC.text.label.lineHeight -
+      rendererSpec.headerLineHeight -
       widget.headerGap;
     const widthCell = (contentWidth - gridGap * 6) / 7;
     const calendarRowCount = rows.length + 1;
@@ -93,13 +93,13 @@ export function HeatmapWidgetPreview({
           <Text
             numberOfLines={1}
             adjustsFontSizeToFit
-            minimumFontScale={DESIGN_SYSTEM.minimumScale.default}
+            minimumFontScale={rendererSpec.headerMinimumScaleFactor}
             style={[
               styles.title,
               {
                 color: widget.titleColor,
                 fontSize: widget.titleSize,
-                lineHeight: WIDGET_PREVIEW_SPEC.text.label.lineHeight,
+                lineHeight: rendererSpec.headerLineHeight,
               },
             ]}
           >
@@ -171,6 +171,9 @@ export function HeatmapWidgetPreview({
                       ]}>
                       {showCalendarLabels && cell.label ? (
                         <Text
+                          numberOfLines={1}
+                          adjustsFontSizeToFit
+                          minimumFontScale={rendererSpec.cellLabelMinimumScaleFactor}
                           style={[
                             styles.cellLabel,
                             {
@@ -322,6 +325,8 @@ function HeatmapFooterStat({
       <Text style={[styles.footerStatLabel, { color: widget.brandColor }]}>{stat.label}</Text>
       <Text
         numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={WEEK_FOOTER.statValueMinimumScale}
         style={[styles.footerStatValue, { color: widget.footerValueColor }]}
       >
         {stat.value}

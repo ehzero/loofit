@@ -39,9 +39,12 @@ struct LoofitHeatmapRendererSpec {
   let cellGap: CGFloat
   let cellRadius: CGFloat
   let cellLabelSize: CGFloat
+  let cellLabelMinimumScaleFactor: CGFloat
   let headerGap: CGFloat
   let headerVisible: Bool
   let headerFontSize: CGFloat
+  let headerLineHeight: CGFloat
+  let headerMinimumScaleFactor: CGFloat
   let headerSummary: LoofitHeatmapHeaderSummary
   let calendarAlignment: LoofitHeatmapCalendarAlignment
   let showLeadingCalendarCells: Bool
@@ -52,10 +55,22 @@ struct LoofitHeatmapRendererSpec {
 
 enum LoofitWidgetRendererContract {
   static let version = 1
+  static let fingerprint = "a25417beed95972b4f4ded5a3817f926252204e318341098526cae1f1f89c9f7"
   static let contentPadding: CGFloat = 12
 
   enum ContentMargins {
     static let homeReferenceShortestEdge: CGFloat = 158
+  }
+
+  enum PreviewViewports {
+    static let homeSmall = CGSize(width: 158, height: 158)
+    static let homeMedium = CGSize(width: 338, height: 158)
+    static let accessoryRectangular = CGSize(width: 160, height: 72)
+  }
+
+  enum PreviewData {
+    static let paletteJSON = "{\"light\":{\"surface\":\"#F5F5F6\",\"raisedSurface\":\"#EDEDEF\",\"textHigh\":\"#17171A\",\"textMedium\":\"#3A3A40\",\"textLow\":\"#78787F\",\"textWeekend\":\"#C0392B\",\"accent\":\"#CFF56A\",\"onAccent\":\"#0B0B0B\",\"heatmapBase\":\"#FFFFFF\",\"heatmapEmpty\":\"#E7E7EB\",\"todayIndicator\":\"#000000\"},\"dark\":{\"surface\":\"#141416\",\"raisedSurface\":\"#1B1B1F\",\"textHigh\":\"#F4F4F2\",\"textMedium\":\"#C9C9CE\",\"textLow\":\"#7C7C82\",\"textWeekend\":\"#C87A7A\",\"accent\":\"#CFF56A\",\"onAccent\":\"#0B0B0B\",\"heatmapBase\":\"#16161A\",\"heatmapEmpty\":\"#1B1B1F\",\"todayIndicator\":\"#FFFFFF\"}}"
+    static let fixtureJSON = "{\"control\":{\"idle\":{\"eyebrow\":\"다음 운동\",\"title\":\"Pull\",\"detail\":\"등 · 이두\",\"action\":\"운동 시작\"},\"active\":{\"eyebrow\":\"운동 중\",\"elapsed\":\"42:10\",\"detail\":\"등 · 이두\",\"action\":\"운동 종료\"},\"completed\":{\"eyebrow\":\"오늘 운동 완료\",\"title\":\"Push\",\"detail\":\"가슴 · 어깨 · 삼두\",\"duration\":\"1시간 8분\",\"range\":\"오후 7:24 – 오후 8:32\"}},\"routineProgress\":{\"currentIndex\":1,\"items\":[{\"split\":\"Push\",\"bodyParts\":\"가슴·어깨·삼두\",\"duration\":\"1시간 8분\",\"relativeDay\":\"어제\"},{\"split\":\"Pull\",\"bodyParts\":\"등·이두\",\"duration\":\"48분\",\"relativeDay\":\"오늘\"},{\"split\":\"\",\"bodyParts\":\"하체\",\"duration\":\"56분\",\"relativeDay\":\"4일 전\"}]},\"bodyPartDuration\":[{\"bodyPart\":\"가슴\",\"durationSeconds\":23100},{\"bodyPart\":\"등\",\"durationSeconds\":20400},{\"bodyPart\":\"하체\",\"durationSeconds\":15300},{\"bodyPart\":\"어깨\",\"durationSeconds\":9000}],\"heatmap\":{\"anchorDate\":\"2026-07-18\",\"durationPatternSeconds\":[0,1200,2400,3600,5400,7200,3000,0,4200,6600]},\"notification\":{\"title\":\"하체 · 어깨\",\"detail\":\"운동 중\",\"elapsed\":\"42:10\",\"action\":\"운동 종료\"}}"
   }
 
   enum FontWeight {
@@ -83,7 +98,11 @@ enum LoofitWidgetRendererContract {
   }
 
   enum MinimumScale {
+    static let compact: CGFloat = 0.48
+    static let calendar: CGFloat = 0.6
+    static let display: CGFloat = 0.62
     static let dense: CGFloat = 0.68
+    static let timer: CGFloat = 0.72
     static let defaultValue: CGFloat = 0.75
   }
 
@@ -95,11 +114,22 @@ enum LoofitWidgetRendererContract {
     static let buttonRadius: CGFloat = 12
     static let footerGap: CGFloat = 2
     static let titleSize: CGFloat = 16
+    static let titleMinimumScaleFactor: CGFloat = 0.75
     static let timerSize: CGFloat = 26
+    static let timerMinimumScaleFactor: CGFloat = 0.72
     static let detailSize: CGFloat = 12
     static let buttonTextSize: CGFloat = 12
     static let durationSize: CGFloat = 26
     static let rangeSize: CGFloat = 12
+
+    enum Copy {
+      static let idle = "다음 운동"
+      static let active = "운동 중"
+      static let completed = "오늘 운동 완료"
+      static let start = "운동 시작"
+      static let end = "운동 종료"
+      static let routineRequired = "루틴 설정 필요"
+    }
   }
 
   enum CurrentMonth {
@@ -107,8 +137,11 @@ enum LoofitWidgetRendererContract {
     static let cellGap: CGFloat = 4
     static let cellRadius: CGFloat = 3
     static let cellLabelSize: CGFloat = 8
+    static let cellLabelMinimumScaleFactor: CGFloat = 0.6
     static let headerGap: CGFloat = 8
     static let headerFontSize: CGFloat = 12
+    static let headerLineHeight: CGFloat = 16
+    static let headerMinimumScaleFactor: CGFloat = 0.75
     static let outsideMonthDateLabelOnly = true
     static let todayIndicatorWidth: CGFloat = 1.5
   }
@@ -120,6 +153,7 @@ enum LoofitWidgetRendererContract {
     static let cellGap: CGFloat = 4
     static let cellRadius: CGFloat = 3
     static let cellLabelSize: CGFloat = 8
+    static let cellLabelMinimumScaleFactor: CGFloat = 0.6
     static let cellLabelLineHeight: CGFloat = 10
     static let bodyPartLabelSize: CGFloat = 8
     static let bodyPartLabelLineHeight: CGFloat = 10
@@ -173,6 +207,7 @@ enum LoofitWidgetRendererContract {
       static let contentGap: CGFloat = 8
       static let rowGap: CGFloat = 4
       static let titleFontSize: CGFloat = 16
+      static let titleMinimumScaleFactor: CGFloat = 0.75
       static let statusFontSize: CGFloat = 12
       static let timerFontSize: CGFloat = 26
       static let buttonWidth: CGFloat = 88
@@ -188,6 +223,7 @@ enum LoofitWidgetRendererContract {
 
     enum Minimal {
       static let fontSize: CGFloat = 12
+      static let minimumScaleFactor: CGFloat = 0.72
     }
 
     enum Expanded {
@@ -209,6 +245,8 @@ enum LoofitWidgetRendererContract {
 
   enum Heatmap {
     static let weekdayLabels = ["일", "월", "화", "수", "목", "금", "토"]
+    static let bucketThresholdSeconds = [1800, 3600, 5400]
+    static let bucketAccentWeights = [0.24, 0.48, 0.74, 1]
     static let weekdayLabelHeightInCells: CGFloat = 1
     static let weekendWeekdayLabels = ["일", "토"]
     static let weekdayLabelSize: CGFloat = 8
@@ -226,9 +264,12 @@ enum LoofitWidgetRendererContract {
       cellGap: 4,
       cellRadius: 3,
       cellLabelSize: 8,
+      cellLabelMinimumScaleFactor: 0.6,
       headerGap: 8,
       headerVisible: false,
       headerFontSize: 12,
+      headerLineHeight: 16,
+      headerMinimumScaleFactor: 0.75,
       headerSummary: .none,
       calendarAlignment: .rollingDays,
       showLeadingCalendarCells: false,
@@ -246,9 +287,12 @@ enum LoofitWidgetRendererContract {
       cellGap: 4,
       cellRadius: 3,
       cellLabelSize: 8,
+      cellLabelMinimumScaleFactor: 0.6,
       headerGap: 8,
       headerVisible: false,
       headerFontSize: 12,
+      headerLineHeight: 16,
+      headerMinimumScaleFactor: 0.75,
       headerSummary: .none,
       calendarAlignment: .calendarWeeks,
       showLeadingCalendarCells: false,
@@ -266,9 +310,12 @@ enum LoofitWidgetRendererContract {
       cellGap: 2,
       cellRadius: 3,
       cellLabelSize: 0,
+      cellLabelMinimumScaleFactor: 0.6,
       headerGap: 8,
       headerVisible: true,
       headerFontSize: 8,
+      headerLineHeight: 10,
+      headerMinimumScaleFactor: 0.75,
       headerSummary: .countTotalAverage,
       calendarAlignment: .continuousMonthsWithBoundarySlots,
       showLeadingCalendarCells: true,
@@ -293,6 +340,7 @@ enum LoofitWidgetRendererContract {
       static let recentRowGap: CGFloat = 2
       static let statLabelSize: CGFloat = 8
       static let statValueSize: CGFloat = 16
+      static let statValueMinimumScale: CGFloat = 0.75
       static let recentLabelSize: CGFloat = 8
       static let recentValueSize: CGFloat = 12
       static let recentMetaSize: CGFloat = 8
@@ -313,10 +361,15 @@ enum LoofitWidgetRendererContract {
     static let routineRequired = "루틴 설정 필요"
     static let compactCharacterLimit = 3
     static let inlineFontSize: CGFloat = 12
+    static let inlineMinimumScaleFactor: CGFloat = 0.75
     static let circularDefaultFontSize: CGFloat = 16
     static let circularCompletedFontSize: CGFloat = 16
+    static let circularMinimumScaleFactor: CGFloat = 0.48
+    static let circularHorizontalPadding: CGFloat = 2
     static let rectangularTitleFontSize: CGFloat = 26
+    static let rectangularTitleMinimumScaleFactor: CGFloat = 0.62
     static let rectangularDetailFontSize: CGFloat = 16
+    static let rectangularDetailMinimumScaleFactor: CGFloat = 0.68
 
     enum ThreeWeekCalendar {
       static let rangeWeeks = 3
@@ -325,6 +378,7 @@ enum LoofitWidgetRendererContract {
       static let cellGap: CGFloat = 2
       static let cellRadius: CGFloat = 3
       static let cellLabelSize: CGFloat = 8
+      static let cellLabelMinimumScaleFactor: CGFloat = 0.68
       static let weekdayLabelSize: CGFloat = 8
       static let weekdayLabelLineHeight: CGFloat = 10
       static let dimmedWeekdayLabels = ["일", "토"]

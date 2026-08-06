@@ -1,5 +1,80 @@
 {
   "version": 1,
+  "platformPolicy": {
+    "sharedSemantics": [
+      "function",
+      "content",
+      "informationPriority",
+      "statePolicy",
+      "dataPolicy",
+      "interactionPolicy"
+    ],
+    "visualParity": "platformNative",
+    "ios": {
+      "visualBaseline": "frozen",
+      "renderer": "swiftUIWidgetKit",
+      "sizing": "widgetKitFamilies"
+    },
+    "android": {
+      "visualBaseline": "editable",
+      "renderer": "bitmapAndRemoteViews",
+      "sizing": "launcherExactSizes",
+      "previewViewports": {
+        "homeSmall": {
+          "width": 164,
+          "height": 188
+        },
+        "homeMedium": {
+          "width": 356,
+          "height": 188
+        },
+        "accessoryRectangular": {
+          "width": 356,
+          "height": 80
+        }
+      },
+      "providerSizing": {
+        "homeSmall": {
+          "minWidth": 110,
+          "minHeight": 110,
+          "targetCellWidth": 2,
+          "targetCellHeight": 2
+        },
+        "homeMedium": {
+          "minWidth": 250,
+          "minHeight": 110,
+          "targetCellWidth": 4,
+          "targetCellHeight": 2
+        },
+        "accessoryRectangular": {
+          "minWidth": 250,
+          "minHeight": 40,
+          "targetCellWidth": 4,
+          "targetCellHeight": 1
+        }
+      },
+      "accessoryPreviewBackdrop": {
+        "mode": "representativeWallpaper",
+        "palette": "dark",
+        "colorRole": "surface",
+        "radius": "{radius.container}"
+      }
+    }
+  },
+  "surfaceKinds": {
+    "control": "WorkoutControlWidget",
+    "heatmapWeek": "HeatmapWeekWidget",
+    "heatmapMonth": "HeatmapMonthWidget",
+    "heatmapSixMonths": "HeatmapYearWidget",
+    "currentMonth": "CurrentMonthCalendarWidget",
+    "fourWeekExpanded": "HeatmapFourWeekExpandedWidget",
+    "routineProgress": "RoutineProgressWidget",
+    "bodyPartDuration": "BodyPartDurationWidget",
+    "lockWorkout": "WorkoutLockScreenWidget",
+    "lockThreeWeek": "ThreeWeekCalendarLockScreenWidget",
+    "lockNextThreeWeek": "NextThreeWeekCalendarLockScreenWidget",
+    "lockRoutineProgress": "RoutineProgressLockScreenWidget"
+  },
   "designSystem": {
     "spacing": {
       "xs": 2,
@@ -28,7 +103,11 @@
       "muted": 0.72
     },
     "minimumScale": {
+      "compact": 0.48,
+      "calendar": 0.6,
+      "display": 0.62,
       "dense": 0.68,
+      "timer": 0.72,
       "default": 0.75
     },
     "colorRoles": {
@@ -53,6 +132,112 @@
     },
     "accessory": {
       "mode": "systemManaged"
+    }
+  },
+  "previewViewports": {
+    "homeSmall": {
+      "width": 158,
+      "height": 158
+    },
+    "homeMedium": {
+      "width": 338,
+      "height": 158
+    },
+    "accessoryRectangular": {
+      "width": 160,
+      "height": 72
+    }
+  },
+  "previewPalette": {
+    "light": {
+      "surface": "#F5F5F6",
+      "raisedSurface": "#EDEDEF",
+      "textHigh": "#17171A",
+      "textMedium": "#3A3A40",
+      "textLow": "#78787F",
+      "textWeekend": "#C0392B",
+      "accent": "#CFF56A",
+      "onAccent": "#0B0B0B",
+      "heatmapBase": "#FFFFFF",
+      "heatmapEmpty": "#E7E7EB",
+      "todayIndicator": "#000000"
+    },
+    "dark": {
+      "surface": "#141416",
+      "raisedSurface": "#1B1B1F",
+      "textHigh": "#F4F4F2",
+      "textMedium": "#C9C9CE",
+      "textLow": "#7C7C82",
+      "textWeekend": "#C87A7A",
+      "accent": "#CFF56A",
+      "onAccent": "#0B0B0B",
+      "heatmapBase": "#16161A",
+      "heatmapEmpty": "#1B1B1F",
+      "todayIndicator": "#FFFFFF"
+    }
+  },
+  "previewFixture": {
+    "control": {
+      "idle": {
+        "eyebrow": "다음 운동",
+        "title": "Pull",
+        "detail": "등 · 이두",
+        "action": "운동 시작"
+      },
+      "active": {
+        "eyebrow": "운동 중",
+        "elapsed": "42:10",
+        "detail": "등 · 이두",
+        "action": "운동 종료"
+      },
+      "completed": {
+        "eyebrow": "오늘 운동 완료",
+        "title": "Push",
+        "detail": "가슴 · 어깨 · 삼두",
+        "duration": "1시간 8분",
+        "range": "오후 7:24 – 오후 8:32"
+      }
+    },
+    "routineProgress": {
+      "currentIndex": 1,
+      "items": [
+        {
+          "split": "Push",
+          "bodyParts": "가슴·어깨·삼두",
+          "duration": "1시간 8분",
+          "relativeDay": "어제"
+        },
+        {
+          "split": "Pull",
+          "bodyParts": "등·이두",
+          "duration": "48분",
+          "relativeDay": "오늘"
+        },
+        {
+          "split": "",
+          "bodyParts": "하체",
+          "duration": "56분",
+          "relativeDay": "4일 전"
+        }
+      ]
+    },
+    "bodyPartDuration": [
+      { "bodyPart": "가슴", "durationSeconds": 23100 },
+      { "bodyPart": "등", "durationSeconds": 20400 },
+      { "bodyPart": "하체", "durationSeconds": 15300 },
+      { "bodyPart": "어깨", "durationSeconds": 9000 }
+    ],
+    "heatmap": {
+      "anchorDate": "2026-07-18",
+      "durationPatternSeconds": [
+        0, 1200, 2400, 3600, 5400, 7200, 3000, 0, 4200, 6600
+      ]
+    },
+    "notification": {
+      "title": "하체 · 어깨",
+      "detail": "운동 중",
+      "elapsed": "42:10",
+      "action": "운동 종료"
     }
   },
   "card": {
@@ -92,16 +277,26 @@
     "buttonRadius": "{radius.control}",
     "footerGap": "{spacing.xs}",
     "timerMaxHours": 8,
+    "copy": {
+      "idle": "다음 운동",
+      "active": "운동 중",
+      "completed": "오늘 운동 완료",
+      "start": "운동 시작",
+      "end": "운동 종료",
+      "routineRequired": "루틴 설정 필요"
+    },
     "text": {
       "title": {
         "size": "{typography.lg.size}",
         "lineHeight": "{typography.lg.lineHeight}",
-        "weight": "{fontWeight.bold}"
+        "weight": "{fontWeight.bold}",
+        "minimumScaleFactor": "{minimumScale.default}"
       },
       "timer": {
         "size": "{typography.xl.size}",
         "lineHeight": "{typography.xl.lineHeight}",
-        "weight": "{fontWeight.bold}"
+        "weight": "{fontWeight.bold}",
+        "minimumScaleFactor": "{minimumScale.timer}"
       },
       "detail": {
         "size": "{typography.md.size}",
@@ -223,6 +418,7 @@
       "contentGap": "{spacing.md}",
       "rowGap": "{spacing.sm}",
       "titleFontSize": "{typography.lg.size}",
+      "titleMinimumScaleFactor": "{minimumScale.default}",
       "statusFontSize": "{typography.md.size}",
       "timerFontSize": "{typography.xl.size}",
       "buttonWidth": 88,
@@ -239,7 +435,8 @@
     },
     "minimal": {
       "previewSize": 46,
-      "fontSize": "{typography.md.size}"
+      "fontSize": "{typography.md.size}",
+      "minimumScaleFactor": "{minimumScale.timer}"
     },
     "expanded": {
       "regions": {
@@ -266,6 +463,8 @@
   },
   "heatmap": {
     "weekdayLabels": ["일", "월", "화", "수", "목", "금", "토"],
+    "bucketThresholdSeconds": [1800, 3600, 5400],
+    "bucketAccentWeights": [0.24, 0.48, 0.74, 1],
     "weekdayLabelHeightInCells": 1,
     "weekdayLabelColorPolicy": {
       "weekendLabels": ["일", "토"],
@@ -285,8 +484,11 @@
         "cellGap": "{spacing.sm}",
         "cellRadius": "{radius.cell}",
         "cellLabelSize": "{typography.sm.size}",
+        "cellLabelMinimumScaleFactor": "{minimumScale.calendar}",
         "headerGap": "{spacing.md}",
-        "headerFontSize": "{typography.md.size}"
+        "headerFontSize": "{typography.md.size}",
+        "headerLineHeight": "{typography.md.lineHeight}",
+        "headerMinimumScaleFactor": "{minimumScale.default}"
       },
       "expanded": {
         "columns": 7,
@@ -294,6 +496,7 @@
         "cellGap": "{spacing.sm}",
         "cellRadius": "{radius.cell}",
         "cellLabelSize": "{typography.sm.size}",
+        "cellLabelMinimumScaleFactor": "{minimumScale.calendar}",
         "cellLabelLineHeight": "{typography.sm.lineHeight}",
         "bodyPartLabelSize": "{typography.sm.size}",
         "bodyPartLabelLineHeight": "{typography.sm.lineHeight}",
@@ -302,6 +505,8 @@
         "weekdayHeaderHeight": "{typography.sm.lineHeight}",
         "headerGap": "{spacing.sm}",
         "headerFontSize": "{typography.md.size}",
+        "headerLineHeight": "{typography.md.lineHeight}",
+        "headerMinimumScaleFactor": "{minimumScale.default}",
         "aspectRatio": 2.14
       },
       "compact": {
@@ -310,8 +515,11 @@
         "cellGap": "{spacing.xs}",
         "cellRadius": "{radius.cell}",
         "cellLabelSize": 0,
+        "cellLabelMinimumScaleFactor": "{minimumScale.calendar}",
         "headerGap": "{spacing.md}",
-        "headerFontSize": "{typography.sm.size}"
+        "headerFontSize": "{typography.sm.size}",
+        "headerLineHeight": "{typography.sm.lineHeight}",
+        "headerMinimumScaleFactor": "{minimumScale.default}"
       }
     },
     "previewVariants": {
@@ -413,6 +621,7 @@
       "recentRowGap": "{spacing.xs}",
       "statLabelSize": "{typography.sm.size}",
       "statValueSize": "{typography.lg.size}",
+      "statValueMinimumScale": "{minimumScale.default}",
       "recentLabelSize": "{typography.sm.size}",
       "recentValueSize": "{typography.md.size}",
       "recentMetaSize": "{typography.sm.size}"
@@ -436,22 +645,27 @@
       "inline": {
         "size": "{typography.md.size}",
         "lineHeight": "{typography.md.lineHeight}",
-        "weight": "{fontWeight.bold}"
+        "weight": "{fontWeight.bold}",
+        "minimumScaleFactor": "{minimumScale.default}"
       },
       "circular": {
         "size": "{typography.lg.size}",
         "lineHeight": "{typography.lg.lineHeight}",
-        "weight": "{fontWeight.bold}"
+        "weight": "{fontWeight.bold}",
+        "minimumScaleFactor": "{minimumScale.compact}",
+        "horizontalPadding": "{spacing.xs}"
       },
       "rectangularTitle": {
         "size": "{typography.xl.size}",
         "lineHeight": "{typography.xl.lineHeight}",
-        "weight": "{fontWeight.bold}"
+        "weight": "{fontWeight.bold}",
+        "minimumScaleFactor": "{minimumScale.display}"
       },
       "rectangularDetail": {
         "size": "{typography.lg.size}",
         "lineHeight": "{typography.lg.lineHeight}",
-        "weight": "{fontWeight.medium}"
+        "weight": "{fontWeight.medium}",
+        "minimumScaleFactor": "{minimumScale.dense}"
       }
     },
     "threeWeekCalendar": {
@@ -465,6 +679,7 @@
       "cellGap": "{spacing.xs}",
       "cellRadius": "{radius.cell}",
       "cellLabelSize": "{typography.sm.size}",
+      "cellLabelMinimumScaleFactor": "{minimumScale.dense}",
       "weekdayLabelSize": "{typography.sm.size}",
       "weekdayLabelLineHeight": "{typography.sm.lineHeight}",
       "dimmedWeekdayLabels": ["일", "토"],

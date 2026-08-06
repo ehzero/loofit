@@ -14,6 +14,7 @@ const widgetRendererContract = require('../src/widgets/widget-renderer-contract.
 
 const TARGET_NAME = 'ExpoWidgetsTarget';
 const RENDERER_CONTRACT_FILE = 'LoofitWidgetRendererContract.generated.swift';
+const SHARED_RENDERER_FILE = 'LoofitWidgetShared.swift';
 const KOREAN_LANGUAGE_CODE = 'ko';
 
 function withAndroidKoreanLocale(config) {
@@ -238,16 +239,16 @@ function removeLegacyWidgetSource(project, platformProjectRoot) {
   fs.rmSync(path.join(platformProjectRoot, TARGET_NAME, legacyFilename), { force: true });
 }
 
-function includeGeneratedRendererContract(project) {
-  if (project.hasFile(RENDERER_CONTRACT_FILE)) {
+function includeWidgetSource(project, filename) {
+  if (project.hasFile(filename)) {
     return;
   }
   const targetUuid = project.findTargetKey(TARGET_NAME);
   if (!targetUuid) {
-    throw new Error(`[Loofit] Could not resolve ${TARGET_NAME} while linking renderer contract.`);
+    throw new Error(`[Loofit] Could not resolve ${TARGET_NAME} while linking ${filename}.`);
   }
   IOSConfig.XcodeUtils.addBuildSourceFileToGroup({
-    filepath: RENDERER_CONTRACT_FILE,
+    filepath: filename,
     groupName: TARGET_NAME,
     project,
     targetUuid,
@@ -270,7 +271,8 @@ function withWidgetBuildSettings(config) {
 
     removeWidgetExpoRuntimeBuildArtifacts(project, target);
     removeLegacyWidgetSource(project, nextConfig.modRequest.platformProjectRoot);
-    includeGeneratedRendererContract(project);
+    includeWidgetSource(project, RENDERER_CONTRACT_FILE);
+    includeWidgetSource(project, SHARED_RENDERER_FILE);
 
     const configurationList = project.pbxXCConfigurationList()[target.buildConfigurationList];
     const configurations = project.pbxXCBuildConfigurationSection();
@@ -322,6 +324,10 @@ module.exports = function withLoofitNativeWidgets(config) {
       // generated runtime view with the repo-owned native WidgetKit pipeline.
       write(
         path.join(targetDirectory, 'index.swift'),
+        readNativeSource('WidgetBundleEntry.swift')
+      );
+      write(
+        path.join(targetDirectory, SHARED_RENDERER_FILE),
         readNativeSource('LoofitWidgetBundle.swift')
       );
       write(

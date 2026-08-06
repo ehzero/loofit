@@ -15,7 +15,7 @@ struct RoutineProgressLockScreenWidget: Widget {
   }
 }
 
-private struct RoutineProgressLockScreenWidgetView: View {
+struct RoutineProgressLockScreenWidgetView: View {
   @Environment(\.widgetRenderingMode) private var renderingMode
 
   let entry: LoofitWidgetEntry

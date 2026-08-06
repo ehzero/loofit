@@ -5,31 +5,6 @@ import SwiftUI
 import WidgetKit
 import LoofitWorkoutCore
 
-@main
-struct ExportWidgets0: WidgetBundle {
-  var body: some Widget {
-    WorkoutControlWidget()
-    HeatmapWeekWidget()
-    HeatmapMonthWidget()
-    HeatmapYearWidget()
-    CurrentMonthCalendarWidget()
-    HeatmapFourWeekExpandedWidget()
-    RoutineProgressWidget()
-    BodyPartDurationWidget()
-    ExportWidgets1().body
-  }
-}
-
-struct ExportWidgets1: WidgetBundle {
-  var body: some Widget {
-    WorkoutLockScreenWidget()
-    ThreeWeekCalendarLockScreenWidget()
-    NextThreeWeekCalendarLockScreenWidget()
-    RoutineProgressLockScreenWidget()
-    LoofitWorkoutLiveActivity()
-  }
-}
-
 // MARK: - Shared timeline
 
 struct LoofitWidgetEntry: TimelineEntry {
@@ -315,17 +290,19 @@ func LoofitHeatmapFillColor(
       ? LoofitColor(palette.heatmapEmpty)
       : LoofitColor(palette.heatmapGap)
   }
+  let thresholds = LoofitWidgetRendererContract.Heatmap.bucketThresholdSeconds
+  let weights = LoofitWidgetRendererContract.Heatmap.bucketAccentWeights
   switch day.durationSeconds {
   case ...0:
     return LoofitColor(palette.heatmapEmpty)
-  case ..<(30 * 60):
-    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: 0.24)
-  case ..<(60 * 60):
-    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: 0.48)
-  case ..<(90 * 60):
-    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: 0.74)
+  case ..<thresholds[0]:
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: weights[0])
+  case ..<thresholds[1]:
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: weights[1])
+  case ..<thresholds[2]:
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: weights[2])
   default:
-    return LoofitColor(palette.accent)
+    return LoofitMixColor(palette.accent, palette.heatmapBase, weight: weights[3])
   }
 }
 
@@ -435,9 +412,9 @@ struct LoofitHeatmapWidgetView: View {
           Text(headerTitle)
             .font(.system(size: rendererSpec.headerFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
             .foregroundStyle(LoofitColor(entry.palette.tx3))
-            .opacity(0.82)
             .lineLimit(1)
-            .minimumScaleFactor(0.68)
+            .minimumScaleFactor(rendererSpec.headerMinimumScaleFactor)
+            .frame(height: rendererSpec.headerLineHeight, alignment: .leading)
         }
 
         if rendererSpec.calendarAlignment == .continuousMonthsWithBoundarySlots {
@@ -516,7 +493,8 @@ struct LoofitHeatmapWidgetView: View {
                 Text("\(Calendar.current.component(.day, from: day.date))")
                   .font(.system(size: rendererSpec.cellLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
                   .foregroundStyle(labelColor(for: day))
-                  .minimumScaleFactor(0.6)
+                  .lineLimit(1)
+                  .minimumScaleFactor(rendererSpec.cellLabelMinimumScaleFactor)
               }
             }
             .frame(width: cell, height: cell)
@@ -699,7 +677,9 @@ struct LoofitHeatmapWidgetView: View {
         .foregroundStyle(LoofitColor(entry.palette.tx2))
         .lineLimit(1)
         .allowsTightening(true)
-        .minimumScaleFactor(0.88)
+        .minimumScaleFactor(
+          LoofitWidgetRendererContract.Heatmap.WeekFooter.statValueMinimumScale
+        )
     }
   }
 
@@ -812,6 +792,7 @@ struct LoofitWorkoutLiveActivity: Widget {
           ))
           .foregroundStyle(LoofitColor(context.state.accent))
           .lineLimit(1)
+          .minimumScaleFactor(LoofitWidgetRendererContract.LiveActivity.Minimal.minimumScaleFactor)
       }
       .widgetURL(URL(string: "loofit://"))
       .keylineTint(LoofitColor(context.state.accent))
@@ -832,9 +813,9 @@ private struct LoofitWorkoutActivityBanner: View {
           ))
           .foregroundStyle(LoofitColor(context.state.titleColor))
           .lineLimit(1)
-          .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.defaultValue)
+          .minimumScaleFactor(LoofitWidgetRendererContract.LiveActivity.Banner.titleMinimumScaleFactor)
         Spacer(minLength: 0)
-        Text("운동 중")
+        Text(LoofitWidgetRendererContract.Control.Copy.active)
           .font(.system(
             size: LoofitWidgetRendererContract.LiveActivity.Banner.statusFontSize,
             weight: LoofitWidgetRendererContract.FontWeight.bold
@@ -903,7 +884,7 @@ private struct LoofitActivityEndButton: View {
   }
 
   private var label: some View {
-    Text("운동 종료")
+    Text(LoofitWidgetRendererContract.Control.Copy.end)
       .font(.system(size: fontSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
       .foregroundStyle(LoofitColor(accentText))
       .lineLimit(1)

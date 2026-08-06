@@ -254,19 +254,24 @@ export function makeColors(scheme: ThemeScheme, accent: string): ThemeColors {
  * Heatmap cell color for a duration bucket (0-4), matching the design's
  * accent-mixed ramp. `inRange = false` renders the out-of-range placeholder.
  */
-export function heatColor(colors: ThemeColors, bucket: number, inRange = true): string {
+export function heatColor(
+  colors: ThemeColors,
+  bucket: number,
+  inRange = true,
+  accentWeights: readonly number[] = [0.24, 0.48, 0.74, 1]
+): string {
   if (!inRange) {
     return colors.heatoff;
   }
   switch (bucket) {
     case 1:
-      return mixHex(colors.accent, colors.heatbase, 0.24);
+      return mixHex(colors.accent, colors.heatbase, accentWeights[0] ?? 0.24);
     case 2:
-      return mixHex(colors.accent, colors.heatbase, 0.48);
+      return mixHex(colors.accent, colors.heatbase, accentWeights[1] ?? 0.48);
     case 3:
-      return mixHex(colors.accent, colors.heatbase, 0.74);
+      return mixHex(colors.accent, colors.heatbase, accentWeights[2] ?? 0.74);
     case 4:
-      return colors.accent;
+      return mixHex(colors.accent, colors.heatbase, accentWeights[3] ?? 1);
     default:
       return colors.heat0;
   }

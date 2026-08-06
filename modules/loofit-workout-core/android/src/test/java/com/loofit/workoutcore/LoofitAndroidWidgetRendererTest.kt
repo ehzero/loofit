@@ -11,6 +11,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.time.LocalDate
 import java.time.ZoneId
+import java.time.ZonedDateTime
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -54,12 +55,49 @@ class LoofitAndroidWidgetRendererTest {
   }
 
   @Test
+  fun lockScreenWidgetsRequestAOneRowLauncherFootprint() {
+    val providerInfos = listOf(
+      R.xml.loofit_widget_lock_workout_info,
+      R.xml.loofit_widget_lock_three_week_info,
+      R.xml.loofit_widget_lock_next_three_week_info,
+      R.xml.loofit_widget_lock_routine_progress_info,
+    )
+    val androidNamespace = "http://schemas.android.com/apk/res/android"
+    val expected = LoofitWidgetLayoutContract.AndroidPlatform.ProviderSizing.accessoryRectangular
+
+    providerInfos.forEach { providerInfo ->
+      context.resources.getXml(providerInfo).use { parser ->
+        while (parser.eventType != org.xmlpull.v1.XmlPullParser.START_TAG) {
+          parser.next()
+        }
+        assertEquals(expected.targetCellWidth, parser.getAttributeIntValue(androidNamespace, "targetCellWidth", 0))
+        assertEquals(expected.targetCellHeight, parser.getAttributeIntValue(androidNamespace, "targetCellHeight", 0))
+        assertTrue(
+          parser.getAttributeValue(androidNamespace, "minWidth") in
+            setOf("${expected.minWidth}dp", "${expected.minWidth}.0dip"),
+        )
+        assertTrue(
+          parser.getAttributeValue(androidNamespace, "minHeight") in
+            setOf("${expected.minHeight}dp", "${expected.minHeight}.0dip"),
+        )
+      }
+    }
+  }
+
+  @Test
   fun allHeatmapVariantsRenderAtWidgetSize() {
     val snapshot = sampleSnapshot()
     LoofitAndroidWidgetVariant.entries
       .filter { it.name.contains("HEATMAP") || it.name.contains("MONTH") || it.name.contains("WEEK") }
       .forEach { variant ->
-        val bitmap = LoofitHeatmapBitmapRenderer.render(context, variant, snapshot, 300, 140)
+        val viewport = LoofitWidgetViewport(300, 140)
+        val plan = LoofitWidgetRenderPlanBuilder.build(
+          variant,
+          snapshot,
+          viewport,
+          ZonedDateTime.parse("2026-07-18T12:00:00+09:00[Asia/Seoul]"),
+        )
+        val bitmap = LoofitWidgetBitmapRenderer.render(context, plan)
         assertEquals(
           "$variant width",
           (300 * context.resources.displayMetrics.density).toInt(),
@@ -82,7 +120,14 @@ class LoofitAndroidWidgetRendererTest {
 
   @Test
   fun bodyPartDurationBarsRender() {
-    val bitmap = LoofitDurationBitmapRenderer.render(context, sampleSnapshot(), 140, 80)
+    val viewport = LoofitWidgetViewport(140, 80)
+    val plan = LoofitWidgetRenderPlanBuilder.build(
+      LoofitAndroidWidgetVariant.BODY_PART_DURATION,
+      sampleSnapshot(),
+      viewport,
+      ZonedDateTime.parse("2026-07-18T12:00:00+09:00[Asia/Seoul]"),
+    )
+    val bitmap = LoofitWidgetBitmapRenderer.render(context, plan)
     assertEquals((140 * context.resources.displayMetrics.density).toInt(), bitmap.width)
     assertEquals((80 * context.resources.displayMetrics.density).toInt(), bitmap.height)
   }

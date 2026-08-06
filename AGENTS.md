@@ -126,8 +126,10 @@
 - `LoofitWorkoutCore` Pod는 Expo 의존성이 없는 순수 Swift Core이고 앱의 Expo bridge는 `LoofitWorkoutExpoAdapter` Pod로 분리한다. Widget Extension은 `LoofitWorkoutCore`만 링크하며 ExpoModulesCore, React Native, Hermes를 포함하지 않는다.
 - `plugins/with-loofit-heatmap-widgets.js`는 `plugins/native-widgets/*.swift`의 typed TimelineProvider, SwiftUI 렌더러와 Live Activity를 iOS 위젯 타깃에 생성하고 `LoofitWorkoutCore`를 링크한다. 홈 위젯과 Live Activity의 AppIntent는 Core가 제공한다.
 - 실제 iOS 위젯은 `expo-widgets`의 범용 JS 평가나 timeline 저장소를 사용하지 않는다. 패키지는 autolinking에서 제외하고 Widget Extension 타깃과 entitlement 생성 config plugin 용도로만 유지한다.
-- 앱 내 미리보기와 SwiftUI·Android 위젯의 레이아웃·variant·표시 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 변경 후 `npm run generate:widget-contract`로 TS, Swift Core layout, Widget Extension Swift, Kotlin Core layout 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
-- 위젯 디자인 값은 계약의 `designSystem` 기초 토큰과 의미 색상 역할을 사용한다. 공통 여백·모서리·타이포·투명도·최소 축소율은 토큰에서, surface별 배치와 제품 동작은 컴포넌트·variant 레시피에서 관리한다. 앱 미리보기와 Swift 렌더러에 디자인 숫자나 앱 팔레트 키를 직접 추가하지 않으며 상세 규칙은 `docs/widget-design-system.md`를 따른다.
+- 앱 내 미리보기와 SwiftUI·Android 위젯의 기능, 콘텐츠, 정보 우선순위, 상태·데이터·인터랙션 정책 원천은 `src/widgets/widget-renderer-contract.json` 하나다. 계약의 `surfaceKinds`는 두 플랫폼이 제공하는 12개 위젯 식별자의 단일 원천이고, `platformPolicy`는 시각적 동일성이 아니라 플랫폼 네이티브 렌더링을 명시하며 iOS 시각 기준은 동결하고 Android만 개선 대상으로 둔다. 변경 후 `npm run generate:widget-contract`로 TS, Swift Core layout, Widget Extension Swift, Kotlin Core layout 산출물을 함께 갱신하며 생성 파일은 직접 수정하지 않는다. `src/widgets/widget-spec.ts`, 히트맵·잠금화면 모델은 이 계약을 소비한다.
+- 계약의 `previewPalette`의 라이트·다크 팔레트와 `previewFixture`는 앱 내 미리보기와 Android 런처 선택 화면의 예시 색상·콘텐츠 원천이다. Android 런처 미리보기는 시스템 모드에 맞는 `values`·`values-night` 팔레트를 사용한다. 12개 `previewLayout`과 전용 drawable·color·style, provider metadata XML은 `scripts/generate-widget-renderer-contract.mjs`가 계약에서 생성하며 직접 수정하지 않는다. Android provider의 최소 크기와 목표 셀은 `platformPolicy.android.providerSizing`에서 관리하고 잠금화면형은 RN의 `accessoryRectangular` 비율에 맞게 `250dp × 40dp`, `4 × 1`을 요청한다. 실제 잠금화면형 위젯은 시스템 surface 위에 투명하게 표시하되 Android RN 미리보기에는 `accessoryPreviewBackdrop`의 대표 어두운 배경을 미리보기 전용으로 깔아 라이트 앱 테마에서도 시스템 단색 콘텐츠를 판독할 수 있게 한다. 생성된 TS·Swift·Kotlin 경계에는 같은 계약 fingerprint를 포함해 산출물 혼용을 검출한다.
+- 위젯 디자인 값은 계약의 `designSystem` 기초 토큰과 의미 색상 역할을 공유한다. 브랜드 색상과 정보 위계는 공통으로 유지하되 외곽 크기·시스템 여백·타이포 메트릭·상호작용 표현은 플랫폼 레시피로 분리한다. 현재 iOS SwiftUI 렌더러의 시각 결과는 변경하지 않고 Android RN 미리보기와 네이티브 렌더러만 Android 레시피를 소비한다. 상세 규칙은 `docs/widget-design-system.md`를 따른다.
+- Android의 12개 위젯은 semantic snapshot을 `LoofitWidgetRenderPlanBuilder`에서 공통 콘텐츠·배치 계획으로 변환한다. 정적 surface는 이 계획을 `LoofitWidgetBitmapRenderer`가 전체 카드 bitmap으로 그리며, 시스템 `Chronometer`와 클릭 액션이 필요한 운동 상태 위젯만 동일 계획을 소비하는 `RemoteViews`를 사용한다. Android 12 이상에서는 런처가 전달한 `OPTION_APPWIDGET_SIZES` 각각에 맞는 정확한 크기의 `RemoteViews`를 생성하고, 이전 버전에서는 현재 화면 방향에 맞는 min/max 크기 쌍을 사용한다. variant별 Canvas renderer나 독립 레이아웃 상수를 추가하지 않는다.
 - 네이티브 히트맵의 날짜 범위·달력 정렬·6개월 월 경계 slot은 `modules/loofit-workout-core/ios/LoofitHeatmapLayout.swift`가 담당한다. 지난 5주는 4주 전 일요일부터 오늘까지 29~35일을 집계하고 현재 주의 남은 칸은 투명 placeholder로 채워 항상 5행을 유지한다. 6개월은 첫 달 이후 매월 1일 앞에 7개 gap slot을 넣어 월 경계부터 한 열씩 이동한다.
 - 7일 히트맵은 상단 요약 제목을 표시하지 않는다. 하단에는 `횟수`, `총 시간`, `평균`을 이 순서로 항상 표시하고 세 통계 값은 같은 텍스트 크기를 유지한다. 완료 기록이 없어도 `최근 운동` 영역과 `아직 기록 없음` 상태를 유지한다.
 - 지난 5주 히트맵은 달력 아래에 `{횟수}회 · 총 {시간}` 요약을 항상 표시한다.
@@ -161,6 +163,8 @@
 - JS/TS 표시 모델은 앱 미리보기로 빠르게 확인할 수 있지만, 실제 크기·폰트·타이머·AppIntent·자정 전환은 설치된 iOS 위젯에서 확인한다.
 - config plugin, `plugins/native-widgets`, `modules/loofit-workout-core`, `app.config.js`, `app.json` 변경 후에는 `npm run ios:prebuild:widgets`로 네이티브 프로젝트를 동기화한 뒤 `npm run ios`로 빌드한다.
 - Android Core·위젯·Manifest·리소스 변경 후에는 `npm run android:prebuild`, `npm run test:android-core`, `npm run android` 순서로 생성 프로젝트와 실기기 동작을 검증한다.
+- iOS 위젯 시각 회귀는 루트 Swift Package가 Widget Extension의 실제 SwiftUI 렌더러 소스를 직접 컴파일하고 `npm run test:ios-widgets`에서 12개 variant의 라이트·다크와 운동 완료 상태를 고정 pixel hash로 확인한다. 현재 iOS 디자인은 동결 기준이므로 Android 개선 작업에서 iOS hash를 갱신하지 않는다. 실패 시 비교용 PNG는 `build/reports/loofit-widget-goldens-ios`에서 확인하며 별도 iOS 디자인 변경이 명시된 경우에만 기준 hash를 갱신한다. 동적 타이머, AppIntent, WidgetKit 시스템 margin·material은 설치된 Development Build에서 별도로 검증한다.
+- Android 위젯 시각 회귀는 `LoofitWidgetRenderPlanTest`의 semantic plan·고정 PNG hash 검증과 `LoofitAndroidWidgetRendererTest`의 picker metadata·실제 bitmap 크기 검증으로 12개 variant의 라이트·다크, 운동 상태, 빈 상태, 축소 크기, 큰 글자 조건을 확인한다. 실패 시 비교용 PNG는 `modules/loofit-workout-core/android/build/reports/loofit-widget-goldens`에서 확인하고, 의도한 계약 변경일 때만 기준 hash를 갱신한다. 자동 검사를 통과해도 런처 선택 화면, 실제 배치 위젯, 진행 중 알림은 에뮬레이터와 지원 실기기에서 별도로 비교한다.
 
 ## 자주 쓰는 명령
 
@@ -171,6 +175,7 @@
 - `npm run contracts:check`
 - `npm run test:command-contract`
 - `npm run test:ios-core`
+- `npm run test:ios-widgets`
 - `npm run test:android-core`
 - `npm run android:prebuild`
 - `npm run android:build`
@@ -205,6 +210,7 @@
 
 ## Google Play listing과 배포
 
+- 현재 Android 정식 출시·배포 계획은 없으며, 아래 항목은 향후 출시를 위한 준비 기준으로만 유지한다.
 - Android 바이너리 AAB 빌드와 Google Play 제출은 EAS가 담당하고, Fastlane은 한국어 제품 페이지 메타데이터와 스크린샷만 관리한다.
 - Google Play listing 원천은 `fastlane/metadata/android/ko-KR`이다. `title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/default.txt`를 유지하며 512×512 스토어 아이콘은 `images/icon.png`, 1024×500 피처 그래픽은 `images/featureGraphic.png`, 휴대전화 스크린샷은 `images/phoneScreenshots`에 둔다. 피처 그래픽의 편집 가능한 원천은 `fastlane/google-play/feature-graphic.svg`다.
 - `npm run play:metadata`는 메타데이터만, `npm run play:screenshots`는 휴대전화 스크린샷만, `npm run play:listing`은 메타데이터·스토어 그래픽·스크린샷을 함께 업로드한다. 세 lane 모두 APK·AAB와 변경 로그 업로드를 생략한다.

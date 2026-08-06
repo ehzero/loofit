@@ -40,33 +40,20 @@ private data class AndroidRoutineDayBuilder(
 )
 
 internal object LoofitWidgetKinds {
-  const val CONTROL = "WorkoutControlWidget"
-  const val HEATMAP_WEEK = "HeatmapWeekWidget"
-  const val HEATMAP_MONTH = "HeatmapMonthWidget"
-  const val HEATMAP_SIX_MONTHS = "HeatmapYearWidget"
-  const val CURRENT_MONTH = "CurrentMonthCalendarWidget"
-  const val FOUR_WEEK_EXPANDED = "HeatmapFourWeekExpandedWidget"
-  const val ROUTINE_PROGRESS = "RoutineProgressWidget"
-  const val BODY_PART_DURATION = "BodyPartDurationWidget"
-  const val LOCK_WORKOUT = "WorkoutLockScreenWidget"
-  const val LOCK_THREE_WEEK = "ThreeWeekCalendarLockScreenWidget"
-  const val LOCK_NEXT_THREE_WEEK = "NextThreeWeekCalendarLockScreenWidget"
-  const val LOCK_ROUTINE_PROGRESS = "RoutineProgressLockScreenWidget"
+  const val CONTROL = LoofitWidgetLayoutContract.SurfaceKinds.CONTROL
+  const val HEATMAP_WEEK = LoofitWidgetLayoutContract.SurfaceKinds.HEATMAP_WEEK
+  const val HEATMAP_MONTH = LoofitWidgetLayoutContract.SurfaceKinds.HEATMAP_MONTH
+  const val HEATMAP_SIX_MONTHS = LoofitWidgetLayoutContract.SurfaceKinds.HEATMAP_SIX_MONTHS
+  const val CURRENT_MONTH = LoofitWidgetLayoutContract.SurfaceKinds.CURRENT_MONTH
+  const val FOUR_WEEK_EXPANDED = LoofitWidgetLayoutContract.SurfaceKinds.FOUR_WEEK_EXPANDED
+  const val ROUTINE_PROGRESS = LoofitWidgetLayoutContract.SurfaceKinds.ROUTINE_PROGRESS
+  const val BODY_PART_DURATION = LoofitWidgetLayoutContract.SurfaceKinds.BODY_PART_DURATION
+  const val LOCK_WORKOUT = LoofitWidgetLayoutContract.SurfaceKinds.LOCK_WORKOUT
+  const val LOCK_THREE_WEEK = LoofitWidgetLayoutContract.SurfaceKinds.LOCK_THREE_WEEK
+  const val LOCK_NEXT_THREE_WEEK = LoofitWidgetLayoutContract.SurfaceKinds.LOCK_NEXT_THREE_WEEK
+  const val LOCK_ROUTINE_PROGRESS = LoofitWidgetLayoutContract.SurfaceKinds.LOCK_ROUTINE_PROGRESS
 
-  val all = listOf(
-    CONTROL,
-    HEATMAP_WEEK,
-    HEATMAP_MONTH,
-    HEATMAP_SIX_MONTHS,
-    CURRENT_MONTH,
-    FOUR_WEEK_EXPANDED,
-    ROUTINE_PROGRESS,
-    BODY_PART_DURATION,
-    LOCK_WORKOUT,
-    LOCK_THREE_WEEK,
-    LOCK_NEXT_THREE_WEEK,
-    LOCK_ROUTINE_PROGRESS,
-  )
+  val all = LoofitWidgetLayoutContract.SurfaceKinds.all
 }
 
 internal object LoofitWorkoutProjection {

@@ -378,32 +378,19 @@ public struct LoofitWorkoutSnapshot: Codable, Sendable {
 }
 
 public enum LoofitWidgetKinds {
-  public static let control = "WorkoutControlWidget"
-  public static let heatmapWeek = "HeatmapWeekWidget"
-  public static let heatmapMonth = "HeatmapMonthWidget"
-  public static let heatmapSixMonths = "HeatmapYearWidget"
-  public static let currentMonthCalendar = "CurrentMonthCalendarWidget"
-  public static let heatmapFourWeekExpanded = "HeatmapFourWeekExpandedWidget"
-  public static let routineProgress = "RoutineProgressWidget"
-  public static let bodyPartDuration = "BodyPartDurationWidget"
-  public static let lockScreenWorkout = "WorkoutLockScreenWidget"
-  public static let lockScreenThreeWeekCalendar = "ThreeWeekCalendarLockScreenWidget"
-  public static let lockScreenNextThreeWeekCalendar = "NextThreeWeekCalendarLockScreenWidget"
-  public static let lockScreenRoutineProgress = "RoutineProgressLockScreenWidget"
-  public static let all = [
-    control,
-    heatmapWeek,
-    heatmapMonth,
-    heatmapSixMonths,
-    currentMonthCalendar,
-    heatmapFourWeekExpanded,
-    routineProgress,
-    bodyPartDuration,
-    lockScreenWorkout,
-    lockScreenThreeWeekCalendar,
-    lockScreenNextThreeWeekCalendar,
-    lockScreenRoutineProgress,
-  ]
+  public static let control = LoofitWidgetLayoutContract.SurfaceKinds.control
+  public static let heatmapWeek = LoofitWidgetLayoutContract.SurfaceKinds.heatmapWeek
+  public static let heatmapMonth = LoofitWidgetLayoutContract.SurfaceKinds.heatmapMonth
+  public static let heatmapSixMonths = LoofitWidgetLayoutContract.SurfaceKinds.heatmapSixMonths
+  public static let currentMonthCalendar = LoofitWidgetLayoutContract.SurfaceKinds.currentMonth
+  public static let heatmapFourWeekExpanded = LoofitWidgetLayoutContract.SurfaceKinds.fourWeekExpanded
+  public static let routineProgress = LoofitWidgetLayoutContract.SurfaceKinds.routineProgress
+  public static let bodyPartDuration = LoofitWidgetLayoutContract.SurfaceKinds.bodyPartDuration
+  public static let lockScreenWorkout = LoofitWidgetLayoutContract.SurfaceKinds.lockWorkout
+  public static let lockScreenThreeWeekCalendar = LoofitWidgetLayoutContract.SurfaceKinds.lockThreeWeek
+  public static let lockScreenNextThreeWeekCalendar = LoofitWidgetLayoutContract.SurfaceKinds.lockNextThreeWeek
+  public static let lockScreenRoutineProgress = LoofitWidgetLayoutContract.SurfaceKinds.lockRoutineProgress
+  public static let all = LoofitWidgetLayoutContract.SurfaceKinds.all
 }
 
 public struct LoofitWorkoutActivityAttributes: ActivityAttributes {

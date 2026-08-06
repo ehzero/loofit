@@ -52,7 +52,7 @@ internal object LoofitWorkoutNotification {
     val notification = NotificationCompat.Builder(context, channelId)
       .setSmallIcon(R.drawable.loofit_notification)
       .setContentTitle(active.title)
-      .setContentText(active.detail.ifBlank { "운동 중" })
+      .setContentText(active.detail.ifBlank { LoofitWidgetLayoutContract.Control.Copy.active })
       .setContentIntent(contentIntent)
       .setCategory(NotificationCompat.CATEGORY_STATUS)
       .setOngoing(true)
@@ -61,7 +61,7 @@ internal object LoofitWorkoutNotification {
       .setWhen(startedAtMillis)
       .setUsesChronometer(true)
       .setPriority(NotificationCompat.PRIORITY_LOW)
-      .addAction(0, "운동 종료", endPendingIntent)
+      .addAction(0, LoofitWidgetLayoutContract.Control.Copy.end, endPendingIntent)
       .build()
     NotificationManagerCompat.from(context).notify(notificationId, notification)
   }

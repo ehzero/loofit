@@ -16,7 +16,7 @@ struct RoutineProgressWidget: Widget {
   }
 }
 
-private struct RoutineProgressWidgetView: View {
+struct RoutineProgressWidgetView: View {
   let entry: LoofitWidgetEntry
 
   private var progress: LoofitRoutineProgressSnapshot? { entry.snapshot?.routineProgress }

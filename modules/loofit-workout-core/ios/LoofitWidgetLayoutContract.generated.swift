@@ -2,7 +2,37 @@
 // Edit src/widgets/widget-renderer-contract.json and regenerate instead.
 
 public enum LoofitWidgetLayoutContract {
+  public static let fingerprint = "a25417beed95972b4f4ded5a3817f926252204e318341098526cae1f1f89c9f7"
   public static let calendarRows = 7
+
+  public enum SurfaceKinds {
+    public static let control = "WorkoutControlWidget"
+    public static let heatmapWeek = "HeatmapWeekWidget"
+    public static let heatmapMonth = "HeatmapMonthWidget"
+    public static let heatmapSixMonths = "HeatmapYearWidget"
+    public static let currentMonth = "CurrentMonthCalendarWidget"
+    public static let fourWeekExpanded = "HeatmapFourWeekExpandedWidget"
+    public static let routineProgress = "RoutineProgressWidget"
+    public static let bodyPartDuration = "BodyPartDurationWidget"
+    public static let lockWorkout = "WorkoutLockScreenWidget"
+    public static let lockThreeWeek = "ThreeWeekCalendarLockScreenWidget"
+    public static let lockNextThreeWeek = "NextThreeWeekCalendarLockScreenWidget"
+    public static let lockRoutineProgress = "RoutineProgressLockScreenWidget"
+    public static let all = [
+      control,
+      heatmapWeek,
+      heatmapMonth,
+      heatmapSixMonths,
+      currentMonth,
+      fourWeekExpanded,
+      routineProgress,
+      bodyPartDuration,
+      lockWorkout,
+      lockThreeWeek,
+      lockNextThreeWeek,
+      lockRoutineProgress,
+    ]
+  }
 
   public enum HeaderSummary: String, Sendable {
     case none

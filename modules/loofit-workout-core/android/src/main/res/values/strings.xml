@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
   <string name="loofit_widget_heatmap_description">운동 기록 히트맵</string>
+  <string name="loofit_widget_surface_description">루핏 위젯 미리보기</string>
   <string name="loofit_widget_control_description">다음 운동을 확인하고 운동을 시작하거나 종료합니다.</string>
   <string name="loofit_widget_week_description">지난 7일의 운동 기록과 요약을 히트맵으로 확인합니다.</string>
   <string name="loofit_widget_month_description">이번 주를 포함한 지난 5주의 운동 기록을 히트맵으로 확인합니다.</string>

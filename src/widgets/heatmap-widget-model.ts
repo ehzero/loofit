@@ -224,7 +224,14 @@ function heatmapLabelColorForRole(
 }
 
 function heatmapCellColor(colors: ThemeColors, cell: HeatmapCellInput): string {
-  return cell.isGap ? TRANSPARENT_CELL : heatColor(colors, cell.bucket, true);
+  return cell.isGap
+    ? TRANSPARENT_CELL
+    : heatColor(
+        colors,
+        cell.bucket,
+        true,
+        WIDGET_RENDERER_CONTRACT.heatmap.bucketAccentWeights
+      );
 }
 
 function heatmapCellLabelColor(colors: ThemeColors, cell: HeatmapCellInput): string {
