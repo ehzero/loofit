@@ -72,6 +72,18 @@ describe('widget renderer contract', () => {
       family: 'systemSmall',
       orientation: 'vertical',
       progressBasis: 'nextSplitPosition',
+      verticalDistribution: 'adaptiveByVisibleItemCount',
+      visibleItemLimit: 4,
+      layoutByVisibleItemCount: {
+        '1': { verticalDistribution: 'center' },
+        '2': { verticalDistribution: 'centeredGroup', itemGap: '{spacing.lg}' },
+        '3': { verticalDistribution: 'spaceBetween', density: 'default' },
+        '4': {
+          verticalDistribution: 'spaceBetween',
+          density: 'compact',
+          verticalContentPadding: '{spacing.md}',
+        },
+      },
     });
     expect(source.routineProgress.textList.lockScreen).toMatchObject({
       availability: 'native',
@@ -132,7 +144,12 @@ describe('widget renderer contract', () => {
       family: 'systemSmall',
       headerVisible: true,
       headerSummary: 'count',
+      headerOpacity: '{opacity.muted}',
       maxRows: 6,
+      denseRowThreshold: 6,
+      denseVerticalGap: '{spacing.xs}',
+      denseHeaderGap: '{spacing.sm}',
+      denseWeekdayHeaderHeight: '{typography.sm.lineHeight}',
       outsideMonthCells: 'dateLabelOnly',
       todayIndicator: {
         style: 'border',
@@ -820,6 +837,14 @@ describe('widget renderer contract', () => {
       WIDGET_RENDERER_CONTRACT.routineProgress.textList.visibleItemLimit
     );
     expect(routine).not.toMatch(/[●○]/);
+
+    const lockRoutine = fs.readFileSync(
+      `${previewDirectory}/loofit_widget_preview_lock_routine_progress.xml`,
+      'utf8'
+    );
+    expect(lockRoutine.match(/@style\/LoofitWidgetPreviewLockWorkout/g)).toHaveLength(
+      WIDGET_RENDERER_CONTRACT.routineProgress.textList.lockScreen.visibleItemLimit
+    );
 
     const background = fs.readFileSync(
       'modules/loofit-workout-core/android/src/main/res/drawable/loofit_widget_background.xml',

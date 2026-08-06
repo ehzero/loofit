@@ -287,10 +287,25 @@ function validate(value) {
   assert(
     routineProgressTextList.progressBasis === "nextSplitPosition" &&
       routineProgressTextList.orientation === "vertical" &&
-      routineProgressTextList.verticalDistribution === "spaceBetween" &&
-      routineProgressTextList.visibleItemLimit === 3 &&
+      routineProgressTextList.verticalDistribution === "adaptiveByVisibleItemCount" &&
+      routineProgressTextList.visibleItemLimit === 4 &&
       routineProgressTextList.visibleItemSelection === "currentCentered",
-    "routine progress text list must use next-split position and space-between distribution",
+    "routine progress text list must show up to four next-split items with adaptive distribution",
+  );
+  const routineProgressLayouts = routineProgressTextList.layoutByVisibleItemCount;
+  assert(
+    Object.keys(routineProgressLayouts ?? {}).join(",") === "1,2,3,4" &&
+      routineProgressLayouts["1"].verticalDistribution === "center" &&
+      routineProgressLayouts["2"].verticalDistribution === "centeredGroup" &&
+      routineProgressLayouts["2"].itemGap > 0 &&
+      routineProgressLayouts["3"].verticalDistribution === "spaceBetween" &&
+      routineProgressLayouts["3"].density === "default" &&
+      routineProgressLayouts["4"].verticalDistribution === "spaceBetween" &&
+      routineProgressLayouts["4"].density === "compact" &&
+      routineProgressLayouts["4"].verticalContentPadding > 0 &&
+      routineProgressTextList.compactText?.split?.size > 0 &&
+      routineProgressTextList.compactText.split.size < routineProgressTextList.text.split.size,
+    "routine progress layouts must center one or two items and compact four items",
   );
   assert(
     routineProgressTextList.currentTextColorRole === "accent" &&
@@ -518,9 +533,15 @@ function validate(value) {
       currentMonthPreview.kindAccessor === "currentMonthCalendar" &&
       currentMonthPreview.family === "systemSmall" &&
       currentMonthPreview.headerSummary === "count" &&
+      currentMonthPreview.headerOpacity > 0 &&
+      currentMonthPreview.headerOpacity <= 1 &&
       currentMonthPreview.maxRows === 6 &&
+      currentMonthPreview.denseRowThreshold === 6 &&
+      currentMonthPreview.denseVerticalGap > 0 &&
+      currentMonthPreview.denseHeaderGap > 0 &&
+      currentMonthPreview.denseWeekdayHeaderHeight > 0 &&
       currentMonthPreview.outsideMonthCells === "dateLabelOnly",
-    "current-month preview must use the detailed style with a count summary and up to six rows",
+    "current-month preview must use the detailed style with a dense six-row layout",
   );
   assert(
     currentMonthPreview.todayIndicator?.style === "border" &&
@@ -813,6 +834,10 @@ function validateTokenSource(value) {
     ["heatmap", "styles", "compact", "cellLabelMinimumScaleFactor"],
     ["heatmap", "styles", "compact", "headerLineHeight"],
     ["heatmap", "styles", "compact", "headerMinimumScaleFactor"],
+    ["heatmap", "previewVariants", "currentMonth", "denseVerticalGap"],
+    ["heatmap", "previewVariants", "currentMonth", "denseHeaderGap"],
+    ["heatmap", "previewVariants", "currentMonth", "denseWeekdayHeaderHeight"],
+    ["heatmap", "previewVariants", "currentMonth", "headerOpacity"],
     ["control", "text", "title", "minimumScaleFactor"],
     ["control", "text", "timer", "minimumScaleFactor"],
     ["liveActivity", "banner", "titleMinimumScaleFactor"],
@@ -830,6 +855,17 @@ function validateTokenSource(value) {
     ["routineProgress", "textList", "text", "metadata", "size"],
     ["routineProgress", "textList", "text", "metadata", "lineHeight"],
     ["routineProgress", "textList", "text", "metadata", "weight"],
+    ["routineProgress", "textList", "layoutByVisibleItemCount", "2", "itemGap"],
+    [
+      "routineProgress",
+      "textList",
+      "layoutByVisibleItemCount",
+      "4",
+      "verticalContentPadding",
+    ],
+    ["routineProgress", "textList", "compactText", "split", "size"],
+    ["routineProgress", "textList", "compactText", "split", "lineHeight"],
+    ["routineProgress", "textList", "compactText", "split", "weight"],
     ["routineProgress", "textList", "lockScreen", "contentPadding"],
     ["routineProgress", "textList", "lockScreen", "columnGap"],
     ["routineProgress", "textList", "lockScreen", "itemGap"],
@@ -1163,6 +1199,11 @@ enum LoofitWidgetRendererContract {
     static let headerFontSize: CGFloat = ${swiftNumber(currentMonth.headerFontSize)}
     static let headerLineHeight: CGFloat = ${swiftNumber(currentMonth.headerLineHeight)}
     static let headerMinimumScaleFactor: CGFloat = ${swiftNumber(currentMonth.headerMinimumScaleFactor)}
+    static let headerOpacity: Double = ${swiftNumber(currentMonth.headerOpacity)}
+    static let denseRowThreshold = ${currentMonth.denseRowThreshold}
+    static let denseVerticalGap: CGFloat = ${swiftNumber(currentMonth.denseVerticalGap)}
+    static let denseHeaderGap: CGFloat = ${swiftNumber(currentMonth.denseHeaderGap)}
+    static let denseWeekdayHeaderHeight: CGFloat = ${swiftNumber(currentMonth.denseWeekdayHeaderHeight)}
     static let outsideMonthDateLabelOnly = ${currentMonth.outsideMonthCells === "dateLabelOnly"}
     static let todayIndicatorWidth: CGFloat = ${swiftNumber(currentMonth.todayIndicator.width)}
   }
@@ -1188,10 +1229,15 @@ enum LoofitWidgetRendererContract {
   enum RoutineProgress {
     static let visibleItemLimit = ${routineProgress.visibleItemLimit}
     static let contentPadding: CGFloat = ${swiftNumber(routineProgress.contentPadding)}
+    static let twoItemGap: CGFloat = ${swiftNumber(routineProgress.layoutByVisibleItemCount["2"].itemGap)}
+    static let compactItemCount = 4
+    static let compactVerticalContentPadding: CGFloat = ${swiftNumber(routineProgress.layoutByVisibleItemCount["4"].verticalContentPadding)}
     static let metadataSeparator = ${swiftString(routineProgress.metadataSeparator)}
     static let emptyRelativeDay = ${swiftString(routineProgress.emptyRelativeDay)}
     static let splitSize: CGFloat = ${swiftNumber(routineProgress.text.split.size)}
     static let splitWeight: Font.Weight = .${swiftFontWeight(routineProgress.text.split.weight)}
+    static let compactSplitSize: CGFloat = ${swiftNumber(routineProgress.compactText.split.size)}
+    static let compactSplitWeight: Font.Weight = .${swiftFontWeight(routineProgress.compactText.split.weight)}
     static let metadataSize: CGFloat = ${swiftNumber(routineProgress.text.metadata.size)}
     static let metadataWeight: Font.Weight = .${swiftFontWeight(routineProgress.text.metadata.weight)}
 
@@ -1796,6 +1842,11 @@ internal object LoofitWidgetLayoutContract {
     const val headerFontSize = ${kotlinNumber(currentMonth.headerFontSize)}f
     const val headerLineHeight = ${kotlinNumber(currentMonth.headerLineHeight)}f
     const val headerMinimumScaleFactor = ${kotlinNumber(currentMonth.headerMinimumScaleFactor)}f
+    const val headerOpacity = ${kotlinNumber(currentMonth.headerOpacity)}f
+    const val denseRowThreshold = ${currentMonth.denseRowThreshold}
+    const val denseVerticalGap = ${kotlinNumber(currentMonth.denseVerticalGap)}f
+    const val denseHeaderGap = ${kotlinNumber(currentMonth.denseHeaderGap)}f
+    const val denseWeekdayHeaderHeight = ${kotlinNumber(currentMonth.denseWeekdayHeaderHeight)}f
     const val outsideMonthDateLabelOnly = ${currentMonth.outsideMonthCells === "dateLabelOnly"}
     const val todayIndicatorWidth = ${kotlinNumber(currentMonth.todayIndicator.width)}f
   }
@@ -1821,11 +1872,17 @@ internal object LoofitWidgetLayoutContract {
   object RoutineProgress {
     const val visibleItemLimit = ${routineProgress.visibleItemLimit}
     const val contentPadding = ${kotlinNumber(routineProgress.contentPadding)}f
+    const val twoItemGap = ${kotlinNumber(routineProgress.layoutByVisibleItemCount["2"].itemGap)}f
+    const val compactItemCount = 4
+    const val compactVerticalContentPadding = ${kotlinNumber(routineProgress.layoutByVisibleItemCount["4"].verticalContentPadding)}f
     const val metadataSeparator = ${kotlinString(routineProgress.metadataSeparator)}
     const val emptyRelativeDay = ${kotlinString(routineProgress.emptyRelativeDay)}
     const val splitSize = ${kotlinNumber(routineProgress.text.split.size)}f
     const val splitLineHeight = ${kotlinNumber(routineProgress.text.split.lineHeight)}f
     const val splitWeight = ${Number(routineProgress.text.split.weight)}
+    const val compactSplitSize = ${kotlinNumber(routineProgress.compactText.split.size)}f
+    const val compactSplitLineHeight = ${kotlinNumber(routineProgress.compactText.split.lineHeight)}f
+    const val compactSplitWeight = ${Number(routineProgress.compactText.split.weight)}
     const val metadataSize = ${kotlinNumber(routineProgress.text.metadata.size)}f
     const val metadataLineHeight = ${kotlinNumber(routineProgress.text.metadata.lineHeight)}f
     const val metadataWeight = ${Number(routineProgress.text.metadata.weight)}

@@ -55,7 +55,7 @@ struct LoofitHeatmapRendererSpec {
 
 enum LoofitWidgetRendererContract {
   static let version = 1
-  static let fingerprint = "a25417beed95972b4f4ded5a3817f926252204e318341098526cae1f1f89c9f7"
+  static let fingerprint = "b0721ee28787205cb8a0ba6aeef2bfd47ab565fb16093822faab27eb138e96f4"
   static let contentPadding: CGFloat = 12
 
   enum ContentMargins {
@@ -70,7 +70,7 @@ enum LoofitWidgetRendererContract {
 
   enum PreviewData {
     static let paletteJSON = "{\"light\":{\"surface\":\"#F5F5F6\",\"raisedSurface\":\"#EDEDEF\",\"textHigh\":\"#17171A\",\"textMedium\":\"#3A3A40\",\"textLow\":\"#78787F\",\"textWeekend\":\"#C0392B\",\"accent\":\"#CFF56A\",\"onAccent\":\"#0B0B0B\",\"heatmapBase\":\"#FFFFFF\",\"heatmapEmpty\":\"#E7E7EB\",\"todayIndicator\":\"#000000\"},\"dark\":{\"surface\":\"#141416\",\"raisedSurface\":\"#1B1B1F\",\"textHigh\":\"#F4F4F2\",\"textMedium\":\"#C9C9CE\",\"textLow\":\"#7C7C82\",\"textWeekend\":\"#C87A7A\",\"accent\":\"#CFF56A\",\"onAccent\":\"#0B0B0B\",\"heatmapBase\":\"#16161A\",\"heatmapEmpty\":\"#1B1B1F\",\"todayIndicator\":\"#FFFFFF\"}}"
-    static let fixtureJSON = "{\"control\":{\"idle\":{\"eyebrow\":\"다음 운동\",\"title\":\"Pull\",\"detail\":\"등 · 이두\",\"action\":\"운동 시작\"},\"active\":{\"eyebrow\":\"운동 중\",\"elapsed\":\"42:10\",\"detail\":\"등 · 이두\",\"action\":\"운동 종료\"},\"completed\":{\"eyebrow\":\"오늘 운동 완료\",\"title\":\"Push\",\"detail\":\"가슴 · 어깨 · 삼두\",\"duration\":\"1시간 8분\",\"range\":\"오후 7:24 – 오후 8:32\"}},\"routineProgress\":{\"currentIndex\":1,\"items\":[{\"split\":\"Push\",\"bodyParts\":\"가슴·어깨·삼두\",\"duration\":\"1시간 8분\",\"relativeDay\":\"어제\"},{\"split\":\"Pull\",\"bodyParts\":\"등·이두\",\"duration\":\"48분\",\"relativeDay\":\"오늘\"},{\"split\":\"\",\"bodyParts\":\"하체\",\"duration\":\"56분\",\"relativeDay\":\"4일 전\"}]},\"bodyPartDuration\":[{\"bodyPart\":\"가슴\",\"durationSeconds\":23100},{\"bodyPart\":\"등\",\"durationSeconds\":20400},{\"bodyPart\":\"하체\",\"durationSeconds\":15300},{\"bodyPart\":\"어깨\",\"durationSeconds\":9000}],\"heatmap\":{\"anchorDate\":\"2026-07-18\",\"durationPatternSeconds\":[0,1200,2400,3600,5400,7200,3000,0,4200,6600]},\"notification\":{\"title\":\"하체 · 어깨\",\"detail\":\"운동 중\",\"elapsed\":\"42:10\",\"action\":\"운동 종료\"}}"
+    static let fixtureJSON = "{\"control\":{\"idle\":{\"eyebrow\":\"다음 운동\",\"title\":\"Pull\",\"detail\":\"등 · 이두\",\"action\":\"운동 시작\"},\"active\":{\"eyebrow\":\"운동 중\",\"elapsed\":\"42:10\",\"detail\":\"등 · 이두\",\"action\":\"운동 종료\"},\"completed\":{\"eyebrow\":\"오늘 운동 완료\",\"title\":\"Push\",\"detail\":\"가슴 · 어깨 · 삼두\",\"duration\":\"1시간 8분\",\"range\":\"오후 7:24 – 오후 8:32\"}},\"routineProgress\":{\"currentIndex\":1,\"items\":[{\"split\":\"Push\",\"bodyParts\":\"가슴·어깨·삼두\",\"duration\":\"1시간 8분\",\"relativeDay\":\"어제\"},{\"split\":\"Pull\",\"bodyParts\":\"등·이두\",\"duration\":\"48분\",\"relativeDay\":\"오늘\"},{\"split\":\"\",\"bodyParts\":\"하체\",\"duration\":\"56분\",\"relativeDay\":\"4일 전\"},{\"split\":\"Upper\",\"bodyParts\":\"가슴·등\",\"duration\":\"42분\",\"relativeDay\":\"6일 전\"}]},\"bodyPartDuration\":[{\"bodyPart\":\"가슴\",\"durationSeconds\":23100},{\"bodyPart\":\"등\",\"durationSeconds\":20400},{\"bodyPart\":\"하체\",\"durationSeconds\":15300},{\"bodyPart\":\"어깨\",\"durationSeconds\":9000}],\"heatmap\":{\"anchorDate\":\"2026-07-18\",\"durationPatternSeconds\":[0,1200,2400,3600,5400,7200,3000,0,4200,6600]},\"notification\":{\"title\":\"하체 · 어깨\",\"detail\":\"운동 중\",\"elapsed\":\"42:10\",\"action\":\"운동 종료\"}}"
   }
 
   enum FontWeight {
@@ -142,6 +142,11 @@ enum LoofitWidgetRendererContract {
     static let headerFontSize: CGFloat = 12
     static let headerLineHeight: CGFloat = 16
     static let headerMinimumScaleFactor: CGFloat = 0.75
+    static let headerOpacity: Double = 0.72
+    static let denseRowThreshold = 6
+    static let denseVerticalGap: CGFloat = 2
+    static let denseHeaderGap: CGFloat = 4
+    static let denseWeekdayHeaderHeight: CGFloat = 10
     static let outsideMonthDateLabelOnly = true
     static let todayIndicatorWidth: CGFloat = 1.5
   }
@@ -165,12 +170,17 @@ enum LoofitWidgetRendererContract {
   }
 
   enum RoutineProgress {
-    static let visibleItemLimit = 3
+    static let visibleItemLimit = 4
     static let contentPadding: CGFloat = 12
+    static let twoItemGap: CGFloat = 12
+    static let compactItemCount = 4
+    static let compactVerticalContentPadding: CGFloat = 8
     static let metadataSeparator = " · "
     static let emptyRelativeDay = "기록 없음"
     static let splitSize: CGFloat = 26
     static let splitWeight: Font.Weight = .heavy
+    static let compactSplitSize: CGFloat = 16
+    static let compactSplitWeight: Font.Weight = .heavy
     static let metadataSize: CGFloat = 8
     static let metadataWeight: Font.Weight = .bold
 

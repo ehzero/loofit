@@ -35,37 +35,60 @@ struct CurrentMonthCalendarWidgetView: View {
     GeometryReader { geometry in
       let spec = LoofitWidgetRendererContract.CurrentMonth.self
       let contentPadding = LoofitHomeWidgetContentPadding(for: geometry.size)
-      let gap = spec.cellGap
-      let width = max(0, geometry.size.width - contentPadding * 2 - gap * 6)
+      let dense = rows.count >= spec.denseRowThreshold
+      let horizontalGap = spec.cellGap
+      let verticalGap = dense ? spec.denseVerticalGap : spec.cellGap
+      let headerGap = dense ? spec.denseHeaderGap : spec.headerGap
+      let width = max(0, geometry.size.width - contentPadding * 2 - horizontalGap * 6)
       let headerHeight = spec.headerLineHeight
-      let gridHeight = max(
+      let calendarHeight = max(
         0,
-        geometry.size.height - contentPadding * 2 - headerHeight - spec.headerGap
-          - gap * CGFloat(rows.count)
+        geometry.size.height - contentPadding * 2 - headerHeight - headerGap
       )
-      let cell = max(0, min(width / 7, gridHeight / CGFloat(max(rows.count + 1, 1))))
+      let widthCell = max(0, width / 7)
+      let denseWeekdayHeight = spec.denseWeekdayHeaderHeight
+      let heightCell = dense
+        ? max(
+            0,
+            min(
+              widthCell,
+              (calendarHeight - denseWeekdayHeight - verticalGap * CGFloat(rows.count))
+                / CGFloat(max(rows.count, 1))
+            )
+          )
+        : max(
+            0,
+            min(
+              widthCell,
+              (calendarHeight - verticalGap * CGFloat(rows.count))
+                / CGFloat(max(rows.count + 1, 1))
+            )
+          )
+      let cellWidth = dense ? widthCell : heightCell
+      let weekdayHeight = dense ? denseWeekdayHeight : heightCell
 
-      VStack(alignment: .leading, spacing: spec.headerGap) {
+      VStack(alignment: .leading, spacing: headerGap) {
         Text(title)
           .font(.system(size: spec.headerFontSize, weight: LoofitWidgetRendererContract.FontWeight.medium))
-          .foregroundStyle(LoofitColor(entry.palette.tx3))
+          .foregroundStyle(LoofitColor(entry.palette.heatmapTitle))
+          .opacity(spec.headerOpacity)
           .lineLimit(1)
           .minimumScaleFactor(spec.headerMinimumScaleFactor)
           .frame(height: headerHeight)
 
-        VStack(alignment: .leading, spacing: gap) {
-          HStack(spacing: gap) {
+        VStack(alignment: .leading, spacing: verticalGap) {
+          HStack(spacing: horizontalGap) {
             ForEach(Array(LoofitWidgetRendererContract.Heatmap.weekdayLabels.enumerated()), id: \.offset) { _, label in
               Text(label)
                 .font(.system(size: LoofitWidgetRendererContract.Heatmap.weekdayLabelSize, weight: LoofitWidgetRendererContract.FontWeight.bold))
                 .foregroundStyle(weekdayColor(label))
-                .frame(width: cell, height: cell)
+                .frame(width: cellWidth, height: weekdayHeight)
             }
           }
           ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-            HStack(spacing: gap) {
+            HStack(spacing: horizontalGap) {
               ForEach(row) { day in
-                dayCell(day, size: cell)
+                dayCell(day, width: cellWidth, height: heightCell)
               }
             }
           }
@@ -78,7 +101,7 @@ struct CurrentMonthCalendarWidgetView: View {
     .widgetURL(URL(string: "loofit://"))
   }
 
-  private func dayCell(_ day: LoofitHeatmapDay, size: CGFloat) -> some View {
+  private func dayCell(_ day: LoofitHeatmapDay, width: CGFloat, height: CGFloat) -> some View {
     ZStack {
       if day.inRange {
         RoundedRectangle(cornerRadius: LoofitWidgetRendererContract.CurrentMonth.cellRadius)
@@ -105,7 +128,7 @@ struct CurrentMonthCalendarWidgetView: View {
           .minimumScaleFactor(LoofitWidgetRendererContract.CurrentMonth.cellLabelMinimumScaleFactor)
       }
     }
-    .frame(width: size, height: size)
+    .frame(width: width, height: height)
   }
 
   private func weekdayColor(_ label: String) -> Color {

@@ -2,7 +2,7 @@
 // Edit src/widgets/widget-renderer-contract.json and regenerate instead.
 
 public enum LoofitWidgetLayoutContract {
-  public static let fingerprint = "a25417beed95972b4f4ded5a3817f926252204e318341098526cae1f1f89c9f7"
+  public static let fingerprint = "b0721ee28787205cb8a0ba6aeef2bfd47ab565fb16093822faab27eb138e96f4"
   public static let calendarRows = 7
 
   public enum SurfaceKinds {
@@ -71,7 +71,7 @@ public enum LoofitWidgetLayoutContract {
   }
 
   public enum RoutineProgress {
-    public static let visibleItemLimit = 3
+    public static let visibleItemLimit = 4
   }
 
   public enum BodyPartDuration {

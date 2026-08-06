@@ -39,6 +39,29 @@ export function RoutineProgressTextListWidgetPreview({
   const resolvedCurrentIndex = items.length
     ? Math.min(Math.max(currentIndex, 0), items.length - 1)
     : 0;
+  const maxStartIndex = Math.max(0, items.length - SPEC.visibleItemLimit);
+  const startIndex = Math.min(
+    Math.max(resolvedCurrentIndex - Math.floor(SPEC.visibleItemLimit / 2), 0),
+    maxStartIndex
+  );
+  const visibleItems = items.slice(startIndex, startIndex + SPEC.visibleItemLimit);
+  const visibleCurrentIndex = resolvedCurrentIndex - startIndex;
+  const compact = visibleItems.length >= SPEC.visibleItemLimit;
+  const horizontalPadding = resolveHomeWidgetContentPadding(cardSize, SPEC.contentPadding);
+  const verticalPadding = resolveHomeWidgetContentPadding(
+    cardSize,
+    compact
+      ? SPEC.layoutByVisibleItemCount['4'].verticalContentPadding
+      : SPEC.contentPadding
+  );
+  const distributionStyle =
+    visibleItems.length <= 2
+      ? styles.centeredGroup
+      : styles.spaceBetween;
+  const itemGap =
+    visibleItems.length === 2
+      ? SPEC.layoutByVisibleItemCount['2'].itemGap
+      : undefined;
   return (
     <View
       onLayout={(event) => {
@@ -52,14 +75,17 @@ export function RoutineProgressTextListWidgetPreview({
         {
           backgroundColor: palette.background,
           borderColor: palette.border,
-          padding: resolveHomeWidgetContentPadding(cardSize, SPEC.contentPadding),
+          gap: itemGap,
+          paddingHorizontal: horizontalPadding,
+          paddingVertical: verticalPadding,
         },
+        distributionStyle,
         style,
       ]}
     >
-      {items.map((item, index) => {
+      {visibleItems.map((item, index) => {
         const labels = resolveRoutineProgressLabels(item);
-        const current = index === resolvedCurrentIndex;
+        const current = index === visibleCurrentIndex;
         const rowColor = current
           ? palette[SPEC.currentTextColorRole]
           : palette[SPEC.nonCurrentTextColorRole];
@@ -78,7 +104,11 @@ export function RoutineProgressTextListWidgetPreview({
               <Text
                 ellipsizeMode="tail"
                 numberOfLines={1}
-                style={[styles.split, { color: rowColor }]}
+                style={[
+                  styles.split,
+                  compact && styles.compactSplit,
+                  { color: rowColor },
+                ]}
               >
                 {labels.workoutLabel}
               </Text>
@@ -109,9 +139,13 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     borderRadius: WIDGET_PREVIEW_SPEC.card.radius,
     borderWidth: StyleSheet.hairlineWidth,
-    justifyContent:
-      SPEC.verticalDistribution === 'spaceBetween' ? 'space-between' : 'flex-start',
     width: '100%',
+  },
+  centeredGroup: {
+    justifyContent: 'center',
+  },
+  spaceBetween: {
+    justifyContent: 'space-between',
   },
   row: {
     alignItems: 'baseline',
@@ -131,6 +165,11 @@ const styles = StyleSheet.create({
     fontWeight: SPEC.text.split.weight,
     lineHeight: SPEC.text.split.lineHeight,
     minWidth: 0,
+  },
+  compactSplit: {
+    fontSize: SPEC.compactText.split.size,
+    fontWeight: SPEC.compactText.split.weight,
+    lineHeight: SPEC.compactText.split.lineHeight,
   },
   relativeDay: {
     flexShrink: 0,

@@ -218,6 +218,12 @@
           "bodyParts": "하체",
           "duration": "56분",
           "relativeDay": "4일 전"
+        },
+        {
+          "split": "Upper",
+          "bodyParts": "가슴·등",
+          "duration": "42분",
+          "relativeDay": "6일 전"
         }
       ]
     },
@@ -327,9 +333,27 @@
       "family": "systemSmall",
       "orientation": "vertical",
       "progressBasis": "nextSplitPosition",
-      "verticalDistribution": "spaceBetween",
-      "visibleItemLimit": 3,
+      "verticalDistribution": "adaptiveByVisibleItemCount",
+      "visibleItemLimit": 4,
       "visibleItemSelection": "currentCentered",
+      "layoutByVisibleItemCount": {
+        "1": {
+          "verticalDistribution": "center"
+        },
+        "2": {
+          "verticalDistribution": "centeredGroup",
+          "itemGap": "{spacing.lg}"
+        },
+        "3": {
+          "verticalDistribution": "spaceBetween",
+          "density": "default"
+        },
+        "4": {
+          "verticalDistribution": "spaceBetween",
+          "density": "compact",
+          "verticalContentPadding": "{spacing.md}"
+        }
+      },
       "currentTextColorRole": "accent",
       "nonCurrentTextColorRole": "textLow",
       "rowContent": ["split", "relativeDay", "bodyParts", "duration"],
@@ -346,6 +370,13 @@
           "size": "{typography.sm.size}",
           "lineHeight": "{typography.sm.lineHeight}",
           "weight": "{fontWeight.medium}"
+        }
+      },
+      "compactText": {
+        "split": {
+          "size": "{typography.lg.size}",
+          "lineHeight": "{typography.lg.lineHeight}",
+          "weight": "{fontWeight.bold}"
         }
       },
       "lockScreen": {
@@ -530,7 +561,12 @@
         "family": "systemSmall",
         "headerVisible": true,
         "headerSummary": "count",
+        "headerOpacity": "{opacity.muted}",
         "maxRows": 6,
+        "denseRowThreshold": 6,
+        "denseVerticalGap": "{spacing.xs}",
+        "denseHeaderGap": "{spacing.sm}",
+        "denseWeekdayHeaderHeight": "{typography.sm.lineHeight}",
         "outsideMonthCells": "dateLabelOnly",
         "todayIndicator": {
           "style": "border",

@@ -30,18 +30,51 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
     for colorScheme in [ColorScheme.light, .dark] {
       let themeName = colorScheme == .light ? "light" : "dark"
       let palette = colorScheme == .light ? preview.palette.light : preview.palette.dark
-      let snapshot = snapshot(preview: preview.fixture, palette: palette, completed: false)
-      let entry = LoofitWidgetEntry(date: anchorDate, snapshot: snapshot)
+      let standardSnapshot = snapshot(preview: preview.fixture, palette: palette, completed: false)
+      let entry = LoofitWidgetEntry(date: anchorDate, snapshot: standardSnapshot)
+      let threeItemSnapshot = snapshot(
+        preview: preview.fixture,
+        palette: palette,
+        completed: false,
+        routineItemLimit: 3
+      )
+      let threeItemEntry = LoofitWidgetEntry(date: anchorDate, snapshot: threeItemSnapshot)
       for definition in definitions {
         let name = "\(themeName)_\(definition.name)"
         hashes[name] = try render(
           name: name,
-          view: definition.makeView(entry),
+          view: definition.makeView(
+            definition.name == "four_week_expanded" ? threeItemEntry : entry
+          ),
           size: definition.size,
           colorScheme: colorScheme,
           background: definition.isAccessory ? nil : palette.surface
         )
       }
+      let sixRowName = "\(themeName)_current_month_six_rows"
+      let sixRowEntry = LoofitWidgetEntry(date: sixRowAnchorDate, snapshot: standardSnapshot)
+      hashes[sixRowName] = try render(
+        name: sixRowName,
+        view: AnyView(CurrentMonthCalendarWidgetView(entry: sixRowEntry)),
+        size: LoofitWidgetRendererContract.PreviewViewports.homeSmall,
+        colorScheme: colorScheme,
+        background: palette.surface
+      )
+      let twoItemName = "\(themeName)_routine_progress_two_items"
+      let twoItemSnapshot = snapshot(
+        preview: preview.fixture,
+        palette: palette,
+        completed: false,
+        routineItemLimit: 2
+      )
+      let twoItemEntry = LoofitWidgetEntry(date: anchorDate, snapshot: twoItemSnapshot)
+      hashes[twoItemName] = try render(
+        name: twoItemName,
+        view: AnyView(RoutineProgressWidgetView(entry: twoItemEntry)),
+        size: LoofitWidgetRendererContract.PreviewViewports.homeSmall,
+        colorScheme: colorScheme,
+        background: palette.surface
+      )
     }
 
     let completedSnapshot = snapshot(
@@ -71,6 +104,10 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
 
   private var anchorDate: Date {
     date(year: 2026, month: 7, day: 18, hour: 20, minute: 32, second: 10)
+  }
+
+  private var sixRowAnchorDate: Date {
+    date(year: 2026, month: 8, day: 15, hour: 20, minute: 32, second: 10)
   }
 
   private func visualDefinitions() -> [VisualDefinition] {
@@ -209,9 +246,10 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
   private func snapshot(
     preview: PreviewFixture,
     palette: PreviewPalette,
-    completed: Bool
+    completed: Bool,
+    routineItemLimit: Int? = nil
   ) -> LoofitWorkoutSnapshot {
-    let routineItems = preview.routineProgress.items.enumerated().map { index, item in
+    let allRoutineItems = preview.routineProgress.items.enumerated().map { index, item in
       let parts = parts(item.bodyParts, firstId: Int64(index * 10 + 1))
       let completedDate = calendar.date(
         byAdding: .day,
@@ -233,6 +271,8 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
         )
       )
     }
+    let routineItems = routineItemLimit.map { Array(allRoutineItems.prefix($0)) }
+      ?? allRoutineItems
     let completedSession = session(
       id: 99,
       routineDayId: 1,
@@ -278,7 +318,7 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
       latestCompletedToday: completed ? completedSession : nil,
       completedToday: completed ? [completedSession] : [],
       dailyCompleted: daily,
-      recentCompleted: routineItems.compactMap(\.latestCompleted),
+      recentCompleted: Array(routineItems.prefix(3)).compactMap(\.latestCompleted),
       dailyDetails: dailyDetails,
       bodyPartDurations: preview.bodyPartDuration.map {
         LoofitBodyPartDurationSnapshot(
@@ -420,7 +460,8 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
     "dark_body_part_duration": "56c20ee7753b96f9688e463680b07869de518f3e593ac604871014e7ebb77472",
     "dark_control": "8649af95788eb8ae65ee6d1830895c5481dbcdc549c7c3d6f0c345b17b5600a3",
     "dark_control_completed": "cd7004b5362e7d9d01350a969a90e665043cb8eaf8e58c83848eccd85b4043a5",
-    "dark_current_month": "eae8a63f1a39035e8ae327d2162144cb3a95463eadc78f968a7c4904f2828dce",
+    "dark_current_month": "23bca005fdf4db7d9f2a77cd01035e506dc24e47f5d9ed0d128b04d6d80926d8",
+    "dark_current_month_six_rows": "84aba80e2a6eda58fff51b8041c3c993c640ac71250e368d03ef609722c5c11f",
     "dark_four_week_expanded": "de3094b6f2485e63a0ff37f50c2df21ff287cf835965609518f0c5318051cddc",
     "dark_heatmap_month": "5f3c5d0daeb696d9ba4799cc1d3e3afe2d481732c7d9d5c0284dbc659d117003",
     "dark_heatmap_six_months": "a5c85c3f9365689964af42695c144226920d926fbe6fe9dd0e87a8c2ba294992",
@@ -430,10 +471,12 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
     "dark_lock_three_week": "a76dc2e28872a02bd9a5b6250a0f11e4402ba415aadf5e4e953149bc43e1d8f3",
     "dark_lock_workout": "215013e3c9b50e97730619dfe6224c8a6af8dfeb4e480006f3e25f36111d6e20",
     "dark_lock_workout_completed": "affd4e7ecbb6285fe2baa0b30a5f3cb80f8a68fead3ecff7e3166f8a10e86fec",
-    "dark_routine_progress": "ef300e3acccf2a9d867e1d05de295d3fa8662149d002428cad7f1a0219eae543",
+    "dark_routine_progress": "11e9c9330db4b0dc0a66982e44cdb2f482af1553e2a78356ee68fb2ea459f0e9",
+    "dark_routine_progress_two_items": "719d76b397c13e0ef30b1700f8b72c4c680ed224f6a917136c0c70d968cb23f8",
     "light_body_part_duration": "c95a3c568e1e48c9abe5f92e4ed3d1093964c929a456b9448027193158151d29",
     "light_control": "65716b2cc9fced7039c223ba48e153cfde63e28948d14e51bf7a4f16a581ad54",
-    "light_current_month": "1cd3ff717d367ab4fd824ec8c04c74395eac255b3737957e5c2049ae768ae294",
+    "light_current_month": "3af02102f8ae6a4fb46e42f3c12d88639be20851688a6b75d63e88d502317636",
+    "light_current_month_six_rows": "1584c3e7daa82a0b8270393854fa66b11d7bda6109a87fb46731ed217757e812",
     "light_four_week_expanded": "f717ae85f29fe5b020f1e807a76fe206d912600e2b545362d59167be71f06377",
     "light_heatmap_month": "5e2de48aa029d4b85873ae78d336c8dd8662c547e1a2f8076b2d05f3dd8530e6",
     "light_heatmap_six_months": "244b36f1ce24ce56c8d17b9ab40e8edab9e98c9cfea971691fe4a875f03ccf74",
@@ -442,7 +485,8 @@ final class LoofitWidgetRendererVisualTests: XCTestCase {
     "light_lock_routine_progress": "8d2f8e0a50f3a1c98293955f25ab9a4050323d4cb4bfa3c7141ea487bdcb6525",
     "light_lock_three_week": "2ab6afb34d25623ca6758625ee412ac5fd473a666e487b2c76eafd52f502394f",
     "light_lock_workout": "5e6c144a29e356136aef88c949e0182f4b2d6c99347cdc1e71d9c26f7398cbc8",
-    "light_routine_progress": "e6bdf7ebc4502c4359cabd2bbca2324714ef2c1ebac0e6eeee905c5eb4a0fd15",
+    "light_routine_progress": "2e15be39d5426433bbf69f594d28315a68fb7717afcb8bedb1614830e0c3313d",
+    "light_routine_progress_two_items": "6ef9c004147123bed23c003b3718ee8afc30675aedafec98f1da8dc090826e48",
   ]
 }
 

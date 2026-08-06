@@ -154,6 +154,16 @@ class LoofitWidgetRenderPlanTest {
     assertEquals(4, currentMonth.days.count { !it.inRange })
     assertTrue(currentMonth.title.startsWith("7월 · "))
 
+    val sixRowMonth = LoofitWidgetRenderPlanBuilder.build(
+      LoofitAndroidWidgetVariant.CURRENT_MONTH,
+      snapshot,
+      viewport(LoofitAndroidWidgetVariant.CURRENT_MONTH),
+      ZonedDateTime.parse("2026-08-15T20:32:10+09:00[Asia/Seoul]"),
+    ).content as LoofitHeatmapRenderPlan
+    assertEquals(42, sixRowMonth.days.size)
+    assertEquals(11, sixRowMonth.days.count { !it.inRange })
+    assertTrue(sixRowMonth.title.startsWith("8월 · "))
+
     val previousLock = heatmapPlan(LoofitAndroidWidgetVariant.LOCK_THREE_WEEK, snapshot)
     val nextLock = heatmapPlan(LoofitAndroidWidgetVariant.LOCK_NEXT_THREE_WEEK, snapshot)
     assertEquals(21, previousLock.days.size)
@@ -164,15 +174,15 @@ class LoofitWidgetRenderPlanTest {
   }
 
   @Test
-  fun routinePlanUsesThreeCenteredRowsWithoutLegacyIndicators() {
+  fun routinePlanShowsFourAdaptiveRowsWithoutLegacyIndicators() {
     val home = LoofitWidgetRenderPlanBuilder.build(
       LoofitAndroidWidgetVariant.ROUTINE_PROGRESS,
       sampleSnapshot(ControlFixture.IDLE),
       viewport(LoofitAndroidWidgetVariant.ROUTINE_PROGRESS),
       now,
     ).content as LoofitRoutineRenderPlan
-    assertEquals(listOf("Push", "Pull", "하체"), home.items.map { it.title })
-    assertEquals(listOf(false, true, false), home.items.map { it.isCurrent })
+    assertEquals(listOf("Push", "Pull", "하체", "Upper"), home.items.map { it.title })
+    assertEquals(listOf(false, true, false, false), home.items.map { it.isCurrent })
     assertEquals("가슴 · 어깨 · 삼두 · 1시간 8분", home.items[0].metadata)
     assertFalse(home.items.any { it.title.startsWith("●") || it.title.startsWith("○") })
 
@@ -239,6 +249,30 @@ class LoofitWidgetRenderPlanTest {
           dark,
           viewport(LoofitAndroidWidgetVariant.ROUTINE_PROGRESS),
           contextWithFontScale(1.3f),
+        ),
+      )
+      val twoItemDark = dark.copy(
+        routineProgress = dark.routineProgress?.let { progress ->
+          progress.copy(items = progress.items.take(2))
+        },
+      )
+      val twoItemLight = twoItemDark.copy(theme = lightTheme())
+      add(
+        VisualCase(
+          "dark_routine_progress_two_items",
+          LoofitAndroidWidgetVariant.ROUTINE_PROGRESS,
+          twoItemDark,
+          viewport(LoofitAndroidWidgetVariant.ROUTINE_PROGRESS),
+          context,
+        ),
+      )
+      add(
+        VisualCase(
+          "light_routine_progress_two_items",
+          LoofitAndroidWidgetVariant.ROUTINE_PROGRESS,
+          twoItemLight,
+          viewport(LoofitAndroidWidgetVariant.ROUTINE_PROGRESS),
+          context,
         ),
       )
     }
@@ -369,6 +403,20 @@ class LoofitWidgetRenderPlanTest {
           "2026-07-14T10:56:00Z",
           3_360,
           legParts,
+        ),
+      ),
+      LoofitRoutineProgressItemSnapshot(
+        4,
+        "Upper",
+        pushParts + pullParts,
+        completedSession(
+          84,
+          "Upper",
+          "가슴 · 등",
+          "2026-07-12T10:00:00Z",
+          "2026-07-12T10:42:00Z",
+          2_520,
+          pushParts + pullParts,
         ),
       ),
     )
@@ -502,12 +550,12 @@ class LoofitWidgetRenderPlanTest {
       "light_heatmap_month" to "2eb7f6e341e22941444c273dfafca8f2b20cb0cf5c4e8465c73ee6b2e5279adf",
       "dark_heatmap_six_months" to "42de5d2eb7cafa5d6449224c799165ea4d4e6d78fc818657248a3a28f1876831",
       "light_heatmap_six_months" to "fc1c0cec881d1e3cc90ea9d46cef6ea532fabae73bd4cf89418004e062267a08",
-      "dark_current_month" to "d3fcbf800a96f31933cf22353f7b2dab30378420c008a4eaddda8b75d9123c47",
-      "light_current_month" to "049ec392942a4b18f42f77c29cb807df3a2cf935d6f01b8274fab393810b05d1",
+      "dark_current_month" to "ecb7fd7a941a44dd5172266911726976b334e0441ad9def8dbfe151c9bf840f6",
+      "light_current_month" to "1097ec20f1ce9cad374aebe51c292092052f070ef5686fb7dc9e288cec05fa1a",
       "dark_four_week_expanded" to "68299cf2c7fb2514947a6fe7a90720aeeff93ccc4894e26394f303659ebd60ba",
       "light_four_week_expanded" to "95e1f07a6247901a35217ca30ca8cd799f65a693dbf4ed8c3d7f7ae6cd855c2b",
-      "dark_routine_progress" to "5ed9c684f805acbb9cfe029abfa80399297914ee5f57deb2ceb020304bf22535",
-      "light_routine_progress" to "f66b44050f90ca4e0480e3f74723a62e4c26284451539287c244028d05bf400f",
+      "dark_routine_progress" to "b70722cfe0c35ec3c2ff8798134f07f90a41649d5af434a31e2e1f022f0ecaec",
+      "light_routine_progress" to "305ac286865416ed4c32b3338a2c43ed9c57cdeb3f5024f5c8ee285ce69afee4",
       "dark_body_part_duration" to "6d236c9c4f8831c9c4efb6df28c46c02a2a5329951ffb6f572fc3ba6e2c9c9a8",
       "light_body_part_duration" to "1b7b127a72a58c34f653e602679902bcd646142683ad623b501f9800c8c79e16",
       "dark_lock_workout" to "fe5435e09b238d5a457f3b53ccdfdafc30815c27383f6012d05b36cdbd17758a",
@@ -526,7 +574,9 @@ class LoofitWidgetRenderPlanTest {
       "empty_routine_progress" to "432e0372261a1840a54606f13474ecc1ca67424a8d1a0e2c7218d261f56e9dd6",
       "empty_body_part_duration" to "e297974818670a7280076d58d2d6546b2e849989b3856098c49b51a7e5883d9f",
       "resized_month_110x110" to "1c7648d482dd57efd622ac51328bad577110e4b72cfad7470382db7fae19be8a",
-      "font_130_routine_progress" to "343506e9472235ea8e3d98149428aa2517b1bb0074df71c381908fae1268471a",
+      "font_130_routine_progress" to "c14c757fab79faff528fa0482c1f52937f0bc06f280df79b50ce1071552bf174",
+      "dark_routine_progress_two_items" to "883f9af13fe02c6d0f5f3f5d593718e4b90cf6ad9af639a3ec2e46dde093816c",
+      "light_routine_progress_two_items" to "eaa71eea9810f93cdddfa9799e378ac061b18cd34c77d424154d60f4d592935f",
     )
   }
 }

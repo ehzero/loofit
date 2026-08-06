@@ -52,28 +52,88 @@ export function HeatmapWidgetPreview({
     Boolean(widget.recentWorkoutLabel) ||
     resolvedFooterRecords.length > 0;
   const fitsVariableMonthRows = variant === 'month' && showHeader && !hasFooter;
+  const currentMonthSpec = WIDGET_RENDERER_CONTRACT.heatmap.previewVariants.currentMonth;
+  const usesDenseMonthLayout =
+    fitsVariableMonthRows && rows.length >= currentMonthSpec.denseRowThreshold;
+  const resolvedHeaderGap = usesDenseMonthLayout
+    ? currentMonthSpec.denseHeaderGap
+    : widget.headerGap;
+  const resolvedVerticalGap = usesDenseMonthLayout
+    ? currentMonthSpec.denseVerticalGap
+    : gridGap;
   const contentPadding = resolveHomeWidgetContentPadding(cardSize, widget.contentPadding);
-  const fittedCellSize = useMemo(() => {
+  const fittedLayout = useMemo(() => {
     if (!fitsVariableMonthRows || cardSize.width <= 0 || cardSize.height <= 0) {
-      return 0;
+      return null;
     }
     const contentWidth = cardSize.width - contentPadding * 2;
     const contentHeight =
       cardSize.height -
       contentPadding * 2 -
       rendererSpec.headerLineHeight -
-      widget.headerGap;
+      resolvedHeaderGap;
     const widthCell = (contentWidth - gridGap * 6) / 7;
+    if (usesDenseMonthLayout) {
+      const weekdayHeight = currentMonthSpec.denseWeekdayHeaderHeight;
+      const heightCell = Math.max(
+        0,
+        Math.min(
+          widthCell,
+          (contentHeight - weekdayHeight - resolvedVerticalGap * rows.length) /
+            Math.max(rows.length, 1)
+        )
+      );
+      return {
+        calendarWidth: widthCell * 7 + gridGap * 6,
+        cellHeight: heightCell,
+        cellWidth: widthCell,
+        weekdayHeight,
+      };
+    }
     const calendarRowCount = rows.length + 1;
-    const heightCell =
-      (contentHeight - gridGap * rows.length) / Math.max(calendarRowCount, 1);
-    return Math.max(0, Math.min(widthCell, heightCell));
-  }, [cardSize, contentPadding, fitsVariableMonthRows, gridGap, rows.length, widget]);
-  const fittedCalendarWidth = fittedCellSize > 0 ? fittedCellSize * 7 + gridGap * 6 : undefined;
+    const cellSize = Math.max(
+      0,
+      Math.min(
+        widthCell,
+        (contentHeight - gridGap * rows.length) / Math.max(calendarRowCount, 1)
+      )
+    );
+    return {
+      calendarWidth: cellSize * 7 + gridGap * 6,
+      cellHeight: cellSize,
+      cellWidth: cellSize,
+      weekdayHeight: cellSize,
+    };
+  }, [
+    cardSize,
+    contentPadding,
+    currentMonthSpec.denseWeekdayHeaderHeight,
+    fitsVariableMonthRows,
+    gridGap,
+    rendererSpec.headerLineHeight,
+    resolvedHeaderGap,
+    resolvedVerticalGap,
+    rows.length,
+    usesDenseMonthLayout,
+  ]);
+  const fittedCalendarWidth = fittedLayout?.calendarWidth;
   const fittedCellStyle =
-    fittedCellSize > 0
-      ? { aspectRatio: undefined, flex: 0, height: fittedCellSize, width: fittedCellSize }
+    fittedLayout
+      ? {
+          aspectRatio: undefined,
+          flex: 0,
+          height: fittedLayout.cellHeight,
+          width: fittedLayout.cellWidth,
+        }
       : undefined;
+  const fittedWeekdayStyle = fittedLayout
+    ? {
+        aspectRatio: undefined,
+        flex: 0,
+        height: fittedLayout.weekdayHeight,
+        width: fittedLayout.cellWidth,
+      }
+    : undefined;
 
   return (
     <View
@@ -85,7 +145,7 @@ export function HeatmapWidgetPreview({
       }}
       style={[
         styles.card,
-        { backgroundColor: widget.background, gap: widget.headerGap, padding: contentPadding },
+        { backgroundColor: widget.background, gap: resolvedHeaderGap, padding: contentPadding },
         style,
       ]}>
       {rendererSpec.headerVisible || showHeader ? (
@@ -100,6 +160,9 @@ export function HeatmapWidgetPreview({
                 color: widget.titleColor,
                 fontSize: widget.titleSize,
                 lineHeight: rendererSpec.headerLineHeight,
+                opacity: fitsVariableMonthRows
+                  ? currentMonthSpec.headerOpacity
+                  : DESIGN_SYSTEM.opacity.muted,
               },
             ]}
           >
@@ -114,7 +177,7 @@ export function HeatmapWidgetPreview({
           <View
             style={[
               styles.calendar,
-              { gap: gridGap },
+              { gap: resolvedVerticalGap },
               fittedCalendarWidth ? { alignSelf: 'center', width: fittedCalendarWidth } : null,
             ]}
           >
@@ -128,7 +191,7 @@ export function HeatmapWidgetPreview({
                       aspectRatio:
                         1 / WIDGET_RENDERER_CONTRACT.heatmap.weekdayLabelHeightInCells,
                     },
-                    fittedCellStyle,
+                    fittedWeekdayStyle,
                   ]}
                 >
                   <Text
@@ -149,7 +212,7 @@ export function HeatmapWidgetPreview({
               ))}
             </View>
 
-            <View style={[styles.grid, { gap: gridGap }]}>
+            <View style={[styles.grid, { gap: resolvedVerticalGap }]}>
               {rows.map((row, rowIndex) => (
                 <View key={rowIndex} style={[styles.row, { gap: gridGap }]}>
                   {row.map((cell, cellIndex) => (
@@ -452,7 +515,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontWeight: FONT_WEIGHT.medium,
     letterSpacing: 0,
-    opacity: DESIGN_SYSTEM.opacity.muted,
   },
   body: {
     flex: 1,

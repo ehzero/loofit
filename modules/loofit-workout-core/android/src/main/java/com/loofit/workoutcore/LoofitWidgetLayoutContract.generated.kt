@@ -48,7 +48,7 @@ internal data class LoofitHeatmapRendererSpec(
 
 internal object LoofitWidgetLayoutContract {
   const val version = 1
-  const val fingerprint = "a25417beed95972b4f4ded5a3817f926252204e318341098526cae1f1f89c9f7"
+  const val fingerprint = "b0721ee28787205cb8a0ba6aeef2bfd47ab565fb16093822faab27eb138e96f4"
   const val calendarColumns = 7
   const val contentPadding = 12f
   const val containerRadius = 24f
@@ -381,6 +381,11 @@ internal object LoofitWidgetLayoutContract {
     const val headerFontSize = 12f
     const val headerLineHeight = 16f
     const val headerMinimumScaleFactor = 0.75f
+    const val headerOpacity = 0.72f
+    const val denseRowThreshold = 6
+    const val denseVerticalGap = 2f
+    const val denseHeaderGap = 4f
+    const val denseWeekdayHeaderHeight = 10f
     const val outsideMonthDateLabelOnly = true
     const val todayIndicatorWidth = 1.5f
   }
@@ -404,13 +409,19 @@ internal object LoofitWidgetLayoutContract {
   }
 
   object RoutineProgress {
-    const val visibleItemLimit = 3
+    const val visibleItemLimit = 4
     const val contentPadding = 12f
+    const val twoItemGap = 12f
+    const val compactItemCount = 4
+    const val compactVerticalContentPadding = 8f
     const val metadataSeparator = " · "
     const val emptyRelativeDay = "기록 없음"
     const val splitSize = 26f
     const val splitLineHeight = 31f
     const val splitWeight = 800
+    const val compactSplitSize = 16f
+    const val compactSplitLineHeight = 21f
+    const val compactSplitWeight = 800
     const val metadataSize = 8f
     const val metadataLineHeight = 10f
     const val metadataWeight = 700

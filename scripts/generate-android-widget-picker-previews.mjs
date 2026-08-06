@@ -340,6 +340,7 @@ function fourWeekPreview(contract, fixture) {
 
 function routinePreview(contract, fixture) {
   const spec = contract.routineProgress.textList;
+  const compact = fixture.routineProgress.items.length >= spec.visibleItemLimit;
   return homeRoot(
     contract,
     fixture.routineProgress.items
@@ -357,11 +358,12 @@ function routinePreview(contract, fixture) {
             ? "@color/loofit_widget_preview_accent"
             : "@color/loofit_widget_preview_text_low";
         return `<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:gravity="center_vertical" android:orientation="vertical">
-    <TextView style="@style/LoofitWidgetPreviewRoutineTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="${xml(title)}" android:textColor="${color}" />
+    <TextView style="@style/LoofitWidgetPreviewRoutineTitle" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="${xml(title)}" android:textColor="${color}"${compact ? ` android:textSize="${dp(spec.compactText.split.size, "sp")}"` : ""} />
     <TextView style="@style/LoofitWidgetPreviewMeta" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="${xml(metadata)}" android:textColor="${color}" />
   </LinearLayout>`;
       })
       .join("\n  "),
+    compact ? spec.layoutByVisibleItemCount["4"].verticalContentPadding : undefined,
   );
 }
 
@@ -421,10 +423,22 @@ function lockHeatmapPreview(contract, fixture, upcoming) {
 
 function lockRoutinePreview(contract, fixture) {
   const spec = contract.routineProgress.textList.lockScreen;
+  const maxStartIndex = Math.max(
+    0,
+    fixture.routineProgress.items.length - spec.visibleItemLimit,
+  );
+  const startIndex = Math.min(
+    Math.max(
+      fixture.routineProgress.currentIndex - Math.floor(spec.visibleItemLimit / 2),
+      0,
+    ),
+    maxStartIndex,
+  );
   const columns = fixture.routineProgress.items
+    .slice(startIndex, startIndex + spec.visibleItemLimit)
     .map((item, index) => {
       const color =
-        index === fixture.routineProgress.currentIndex
+        startIndex + index === fixture.routineProgress.currentIndex
           ? "@color/loofit_widget_preview_text"
           : "@color/loofit_widget_preview_text_low";
       return `<LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:gravity="center" android:orientation="vertical">
@@ -439,9 +453,12 @@ function lockRoutinePreview(contract, fixture) {
 </LinearLayout>`;
 }
 
-function homeRoot(contract, children) {
+function homeRoot(contract, children, verticalPadding) {
+  const paddingAttributes = verticalPadding === undefined
+    ? `android:padding="${dp(contract.card.contentPadding)}"`
+    : `android:paddingHorizontal="${dp(contract.card.contentPadding)}" android:paddingVertical="${dp(verticalPadding)}"`;
   return `${XML_HEADER}
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/loofit_widget_background" android:orientation="vertical" android:padding="${dp(contract.card.contentPadding)}">
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="@drawable/loofit_widget_background" android:orientation="vertical" ${paddingAttributes}>
 ${children.trimEnd()}
 </LinearLayout>`;
 }

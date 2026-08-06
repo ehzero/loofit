@@ -183,6 +183,7 @@ struct LoofitWidgetPalette {
   let tx2: String
   let tx3: String
   let tx4: String
+  let heatmapTitle: String
   let textWeekend: String
   let tx5: String
   let surface2: String
@@ -202,6 +203,7 @@ struct LoofitWidgetPalette {
     tx2 = theme.heatmapFooterValueColor
     tx3 = theme.detailColor
     tx4 = theme.heatmapWeekdayLabelColor
+    heatmapTitle = theme.heatmapTitleColor
     textWeekend = theme.heatmapWeekendLabelColor
     tx5 = theme.heatmapBrandColor
     surface2 = theme.secondaryButtonBackground

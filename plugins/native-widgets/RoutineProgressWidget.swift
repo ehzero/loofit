@@ -30,6 +30,12 @@ struct RoutineProgressWidgetView: View {
 
   var body: some View {
     GeometryReader { geometry in
+      let homePadding = LoofitHomeWidgetContentPadding(for: geometry.size)
+      let compact = items.count >= LoofitWidgetRendererContract.RoutineProgress.compactItemCount
+      let verticalPadding = compact
+        ? LoofitWidgetRendererContract.RoutineProgress.compactVerticalContentPadding
+        : homePadding
+
       Group {
         if items.isEmpty {
           Text(LoofitWidgetRendererContract.LockScreen.routineRequired)
@@ -37,22 +43,37 @@ struct RoutineProgressWidgetView: View {
             .foregroundStyle(LoofitColor(entry.palette.tx4))
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
         } else {
-          VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.offset) { index, item in
-              row(item)
-              if index < items.count - 1 { Spacer(minLength: 0) }
+          if items.count <= 2 {
+            VStack(
+              alignment: .leading,
+              spacing: items.count == 2
+                ? LoofitWidgetRendererContract.RoutineProgress.twoItemGap
+                : 0
+            ) {
+              ForEach(Array(items.enumerated()), id: \.offset) { _, item in
+                row(item, compact: compact)
+              }
+            }
+            .frame(maxHeight: .infinity, alignment: .center)
+          } else {
+            VStack(alignment: .leading, spacing: 0) {
+              ForEach(Array(items.enumerated()), id: \.offset) { index, item in
+                row(item, compact: compact)
+                if index < items.count - 1 { Spacer(minLength: 0) }
+              }
             }
           }
         }
       }
-      .padding(LoofitHomeWidgetContentPadding(for: geometry.size))
+      .padding(.horizontal, homePadding)
+      .padding(.vertical, verticalPadding)
       .frame(width: geometry.size.width, height: geometry.size.height, alignment: .topLeading)
     }
     .loofitWidgetBackground(LoofitColor(entry.palette.card))
     .widgetURL(URL(string: "loofit://"))
   }
 
-  private func row(_ item: LoofitRoutineProgressItemSnapshot) -> some View {
+  private func row(_ item: LoofitRoutineProgressItemSnapshot, compact: Bool) -> some View {
     let current = item.routineDayId == progress?.currentRoutineDayId
     let color = LoofitColor(current ? entry.palette.accent : entry.palette.tx4)
     let relativeDay = item.latestCompleted?.startedDate.map {
@@ -68,7 +89,14 @@ struct RoutineProgressWidgetView: View {
     return VStack(alignment: .leading, spacing: LoofitWidgetRendererContract.Spacing.xs) {
       HStack(alignment: .firstTextBaseline, spacing: LoofitWidgetRendererContract.Spacing.sm) {
         Text(LoofitRoutineWorkoutLabel(item))
-          .font(.system(size: LoofitWidgetRendererContract.RoutineProgress.splitSize, weight: LoofitWidgetRendererContract.RoutineProgress.splitWeight))
+          .font(.system(
+            size: compact
+              ? LoofitWidgetRendererContract.RoutineProgress.compactSplitSize
+              : LoofitWidgetRendererContract.RoutineProgress.splitSize,
+            weight: compact
+              ? LoofitWidgetRendererContract.RoutineProgress.compactSplitWeight
+              : LoofitWidgetRendererContract.RoutineProgress.splitWeight
+          ))
           .lineLimit(1)
           .minimumScaleFactor(LoofitWidgetRendererContract.MinimumScale.dense)
         Spacer(minLength: 0)

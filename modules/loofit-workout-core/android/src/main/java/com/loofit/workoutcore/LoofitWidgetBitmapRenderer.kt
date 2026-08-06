@@ -269,16 +269,49 @@ internal object LoofitWidgetBitmapRenderer {
       plan: LoofitWidgetRenderPlan,
       content: LoofitRoutineRenderPlan,
     ) {
-      val blockHeight = LoofitWidgetLayoutContract.RoutineProgress.splitLineHeight +
+      val compact = content.items.size >= LoofitWidgetLayoutContract.RoutineProgress.compactItemCount
+      val paddingScale = plan.contentPaddingDp / LoofitWidgetLayoutContract.RoutineProgress.contentPadding
+      val resolvedTop = if (compact) {
+        LoofitWidgetLayoutContract.RoutineProgress.compactVerticalContentPadding * paddingScale
+      } else {
+        top
+      }
+      val resolvedBottom = if (compact) plan.viewport.heightDp - resolvedTop else bottom
+      val splitSize = if (compact) {
+        LoofitWidgetLayoutContract.RoutineProgress.compactSplitSize
+      } else {
+        LoofitWidgetLayoutContract.RoutineProgress.splitSize
+      }
+      val splitLineHeight = if (compact) {
+        LoofitWidgetLayoutContract.RoutineProgress.compactSplitLineHeight
+      } else {
+        LoofitWidgetLayoutContract.RoutineProgress.splitLineHeight
+      }
+      val splitWeight = if (compact) {
+        LoofitWidgetLayoutContract.RoutineProgress.compactSplitWeight
+      } else {
+        LoofitWidgetLayoutContract.RoutineProgress.splitWeight
+      }
+      val blockHeight = splitLineHeight +
         LoofitWidgetLayoutContract.Spacing.xs +
         LoofitWidgetLayoutContract.RoutineProgress.metadataLineHeight
-      val spacing = if (content.items.size > 1) {
-        ((bottom - top) - blockHeight * content.items.size) / (content.items.size - 1)
+      val contentHeight = resolvedBottom - resolvedTop
+      val spacing = when (content.items.size) {
+        2 -> LoofitWidgetLayoutContract.RoutineProgress.twoItemGap
+        in 3..Int.MAX_VALUE -> max(
+          0f,
+          (contentHeight - blockHeight * content.items.size) / (content.items.size - 1),
+        )
+        else -> 0f
+      }
+      val groupHeight = blockHeight * content.items.size + spacing * (content.items.size - 1)
+      val startY = if (content.items.size <= 2) {
+        resolvedTop + max(0f, (contentHeight - groupHeight) / 2)
       } else {
-        0f
+        resolvedTop
       }
       content.items.forEachIndexed { index, item ->
-        val y = top + index * (blockHeight + spacing)
+        val y = startY + index * (blockHeight + spacing)
         val color = parseColor(
           if (item.isCurrent) plan.theme.accent else plan.theme.heatmapWeekdayLabelColor,
         )
@@ -292,9 +325,9 @@ internal object LoofitWidgetBitmapRenderer {
           left,
           y,
           max(0f, right - left - relativeWidth - LoofitWidgetLayoutContract.Spacing.sm),
-          LoofitWidgetLayoutContract.RoutineProgress.splitLineHeight,
-          LoofitWidgetLayoutContract.RoutineProgress.splitSize,
-          LoofitWidgetLayoutContract.RoutineProgress.splitWeight,
+          splitLineHeight,
+          splitSize,
+          splitWeight,
           color,
         )
         drawTextLine(
@@ -302,7 +335,7 @@ internal object LoofitWidgetBitmapRenderer {
           right,
           y,
           relativeWidth,
-          LoofitWidgetLayoutContract.RoutineProgress.splitLineHeight,
+          splitLineHeight,
           LoofitWidgetLayoutContract.RoutineProgress.metadataSize,
           LoofitWidgetLayoutContract.RoutineProgress.metadataWeight,
           color,
@@ -311,7 +344,7 @@ internal object LoofitWidgetBitmapRenderer {
         drawTextLine(
           item.metadata,
           left,
-          y + LoofitWidgetLayoutContract.RoutineProgress.splitLineHeight +
+          y + splitLineHeight +
             LoofitWidgetLayoutContract.Spacing.xs,
           right - left,
           LoofitWidgetLayoutContract.RoutineProgress.metadataLineHeight,
@@ -665,14 +698,35 @@ internal object LoofitWidgetBitmapRenderer {
 
     private fun currentMonth(plan: LoofitWidgetRenderPlan, content: LoofitHeatmapRenderPlan) {
       val padding = plan.contentPaddingDp
-      val gap = LoofitWidgetLayoutContract.CurrentMonth.cellGap
+      val horizontalGap = LoofitWidgetLayoutContract.CurrentMonth.cellGap
       val columns = LoofitWidgetLayoutContract.calendarColumns
       val rows = ceil(content.days.size / columns.toFloat()).toInt().coerceAtLeast(1)
-      val widthCell = (plan.viewport.widthDp - padding * 2 - gap * (columns - 1)) / columns
+      val dense = rows >= LoofitWidgetLayoutContract.CurrentMonth.denseRowThreshold
+      val verticalGap = if (dense) {
+        LoofitWidgetLayoutContract.CurrentMonth.denseVerticalGap
+      } else {
+        LoofitWidgetLayoutContract.CurrentMonth.cellGap
+      }
+      val headerGap = if (dense) {
+        LoofitWidgetLayoutContract.CurrentMonth.denseHeaderGap
+      } else {
+        LoofitWidgetLayoutContract.CurrentMonth.headerGap
+      }
+      val widthCell = (plan.viewport.widthDp - padding * 2 - horizontalGap * (columns - 1)) / columns
       val headerHeight = LoofitWidgetLayoutContract.CurrentMonth.headerLineHeight
-      val gridHeight = plan.viewport.heightDp - padding * 2 - headerHeight -
-        LoofitWidgetLayoutContract.CurrentMonth.headerGap - gap * rows
-      val cell = max(0f, min(widthCell, gridHeight / (rows + 1)))
+      val calendarHeight = plan.viewport.heightDp - padding * 2 - headerHeight - headerGap
+      val denseWeekdayHeight = LoofitWidgetLayoutContract.CurrentMonth.denseWeekdayHeaderHeight
+      val heightCell = if (dense) {
+        max(0f, min(widthCell, (calendarHeight - denseWeekdayHeight - verticalGap * rows) / rows))
+      } else {
+        max(0f, min(widthCell, (calendarHeight - verticalGap * rows) / (rows + 1)))
+      }
+      val cellWidth = if (dense) widthCell else heightCell
+      val weekdayHeight = if (dense) {
+        denseWeekdayHeight
+      } else {
+        heightCell
+      }
       drawTextLine(
         content.title,
         padding,
@@ -681,33 +735,36 @@ internal object LoofitWidgetBitmapRenderer {
         headerHeight,
         LoofitWidgetLayoutContract.CurrentMonth.headerFontSize,
         LoofitWidgetLayoutContract.FontWeight.medium,
-        parseColor(plan.theme.detailColor),
+        withAlpha(
+          parseColor(plan.theme.heatmapTitleColor),
+          LoofitWidgetLayoutContract.CurrentMonth.headerOpacity,
+        ),
         minimumScale = LoofitWidgetLayoutContract.CurrentMonth.headerMinimumScaleFactor,
       )
-      val weekdayTop = padding + headerHeight + LoofitWidgetLayoutContract.CurrentMonth.headerGap
+      val weekdayTop = padding + headerHeight + headerGap
       drawWeekdays(
         LoofitWidgetLayoutContract.Heatmap.weekdayLabels,
         padding,
         weekdayTop,
-        cell,
-        cell,
-        gap,
+        cellWidth,
+        weekdayHeight,
+        horizontalGap,
         plan.theme,
       )
-      val gridTop = weekdayTop + cell + gap
+      val gridTop = weekdayTop + weekdayHeight + verticalGap
       content.days.forEachIndexed { index, day ->
         val row = index / columns
         val column = index % columns
-        val left = padding + column * (cell + gap)
-        val top = gridTop + row * (cell + gap)
+        val left = padding + column * (cellWidth + horizontalGap)
+        val top = gridTop + row * (heightCell + verticalGap)
         val outside = !day.inRange
         if (!outside) {
           drawHomeHeatmapCell(
             day,
             left,
             top,
-            cell,
-            cell,
+            cellWidth,
+            heightCell,
             LoofitWidgetLayoutContract.CurrentMonth.cellRadius,
             LoofitWidgetLayoutContract.CurrentMonth.cellLabelSize,
             LoofitWidgetLayoutContract.CurrentMonth.cellLabelMinimumScaleFactor,
@@ -719,10 +776,10 @@ internal object LoofitWidgetBitmapRenderer {
         } else if (LoofitWidgetLayoutContract.CurrentMonth.outsideMonthDateLabelOnly) {
           drawTextLine(
             day.date.dayOfMonth.toString(),
-            left + cell / 2,
+            left + cellWidth / 2,
             top,
-            cell,
-            cell,
+            cellWidth,
+            heightCell,
             LoofitWidgetLayoutContract.CurrentMonth.cellLabelSize,
             LoofitWidgetLayoutContract.FontWeight.bold,
             parseColor(plan.theme.heatmapWeekdayLabelColor),
