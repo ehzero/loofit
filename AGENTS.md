@@ -210,6 +210,7 @@
 
 ## Google Play listing과 배포
 
+- 현재 Android 정식 출시·배포 계획은 없으며, 아래 항목은 향후 출시를 위한 준비 기준으로만 유지한다.
 - Android 바이너리 AAB 빌드와 Google Play 제출은 EAS가 담당하고, Fastlane은 한국어 제품 페이지 메타데이터와 스크린샷만 관리한다.
 - Google Play listing 원천은 `fastlane/metadata/android/ko-KR`이다. `title.txt`, `short_description.txt`, `full_description.txt`, `changelogs/default.txt`를 유지하며 512×512 스토어 아이콘은 `images/icon.png`, 1024×500 피처 그래픽은 `images/featureGraphic.png`, 휴대전화 스크린샷은 `images/phoneScreenshots`에 둔다. 피처 그래픽의 편집 가능한 원천은 `fastlane/google-play/feature-graphic.svg`다.
 - `npm run play:metadata`는 메타데이터만, `npm run play:screenshots`는 휴대전화 스크린샷만, `npm run play:listing`은 메타데이터·스토어 그래픽·스크린샷을 함께 업로드한다. 세 lane 모두 APK·AAB와 변경 로그 업로드를 생략한다.
