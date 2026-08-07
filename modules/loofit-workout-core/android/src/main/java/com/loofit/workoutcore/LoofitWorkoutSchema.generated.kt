@@ -20,7 +20,7 @@ internal data class LoofitWorkoutSchemaMigrationStep(
 
 internal object LoofitWorkoutSchemaContract {
   const val databaseName = "loofit.db"
-  const val currentVersion = 1
+  const val currentVersion = 2
   val migrations: List<LoofitWorkoutSchemaMigrationStep> = listOf(
     LoofitWorkoutSchemaMigrationStep(
       id = "initial_schema",
@@ -341,6 +341,331 @@ END;
 
 """.trimIndent(),
       afterSql = null,
+    ),
+    LoofitWorkoutSchemaMigrationStep(
+      id = "workout_cloud_backup",
+      version = 2,
+      schemaSql = """
+CREATE TABLE IF NOT EXISTS cloud_backup_state (
+  id INTEGER PRIMARY KEY CHECK (id = 1),
+  dataset_id TEXT NOT NULL,
+  owner_user_id TEXT,
+  last_successful_sync_at TEXT,
+  last_error TEXT,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS workout_sync_outbox (
+  sync_id TEXT PRIMARY KEY NOT NULL,
+  operation TEXT NOT NULL CHECK (operation IN ('UPSERT', 'DELETE')),
+  sync_version INTEGER NOT NULL,
+  created_at TEXT NOT NULL,
+  attempt_count INTEGER NOT NULL DEFAULT 0,
+  last_error TEXT
+);
+
+INSERT OR IGNORE INTO widget_sync_state
+  (id, desired_revision, published_revision, last_error, updated_at)
+VALUES
+  (1, 1, 0, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+
+""".trimIndent(),
+      columns = listOf(
+        LoofitWorkoutSchemaColumnMigration(table = "workout_sessions", column = "sync_id", definition = "TEXT"),
+        LoofitWorkoutSchemaColumnMigration(table = "workout_sessions", column = "sync_version", definition = "INTEGER NOT NULL DEFAULT 0"),
+      ),
+      postSchemaSql = """
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_sync_id
+  ON workout_sessions(sync_id)
+  WHERE sync_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_workout_sync_outbox_created_at
+  ON workout_sync_outbox(created_at);
+
+DROP TRIGGER IF EXISTS widget_sync_body_parts_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_body_parts_insert
+AFTER INSERT ON body_parts
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_body_parts_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_body_parts_update
+AFTER UPDATE ON body_parts
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_body_parts_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_body_parts_delete
+AFTER DELETE ON body_parts
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routines_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routines_insert
+AFTER INSERT ON routines
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routines_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routines_update
+AFTER UPDATE ON routines
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routines_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routines_delete
+AFTER DELETE ON routines
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_days_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_days_insert
+AFTER INSERT ON routine_days
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_days_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_days_update
+AFTER UPDATE ON routine_days
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_days_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_days_delete
+AFTER DELETE ON routine_days
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_day_parts_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_day_parts_insert
+AFTER INSERT ON routine_day_parts
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_day_parts_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_day_parts_update
+AFTER UPDATE ON routine_day_parts
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_day_parts_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_day_parts_delete
+AFTER DELETE ON routine_day_parts
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_workout_sessions_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_workout_sessions_insert
+AFTER INSERT ON workout_sessions
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_workout_sessions_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_workout_sessions_update
+AFTER UPDATE ON workout_sessions
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_workout_sessions_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_workout_sessions_delete
+AFTER DELETE ON workout_sessions
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_workout_session_parts_snapshot_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_workout_session_parts_snapshot_insert
+AFTER INSERT ON workout_session_parts_snapshot
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_workout_session_parts_snapshot_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_workout_session_parts_snapshot_update
+AFTER UPDATE ON workout_session_parts_snapshot
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_workout_session_parts_snapshot_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_workout_session_parts_snapshot_delete
+AFTER DELETE ON workout_session_parts_snapshot
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_progress_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_progress_insert
+AFTER INSERT ON routine_progress
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_progress_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_progress_update
+AFTER UPDATE ON routine_progress
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_routine_progress_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_routine_progress_delete
+AFTER DELETE ON routine_progress
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_app_settings_insert;
+CREATE TRIGGER IF NOT EXISTS widget_sync_app_settings_insert
+AFTER INSERT ON app_settings
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_app_settings_update;
+CREATE TRIGGER IF NOT EXISTS widget_sync_app_settings_update
+AFTER UPDATE ON app_settings
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+DROP TRIGGER IF EXISTS widget_sync_app_settings_delete;
+CREATE TRIGGER IF NOT EXISTS widget_sync_app_settings_delete
+AFTER DELETE ON app_settings
+BEGIN
+  UPDATE widget_sync_state
+  SET desired_revision = desired_revision + 1,
+      updated_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+  WHERE id = 1;
+END;
+
+""".trimIndent(),
+      afterSql = """
+INSERT OR IGNORE INTO cloud_backup_state (id, dataset_id, owner_user_id, last_successful_sync_at, last_error, updated_at) VALUES (1, lower(hex(randomblob(16))), NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
+UPDATE workout_sessions SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL;
+UPDATE workout_sessions SET sync_version = 1 WHERE status IN ('completed', 'canceled') AND sync_version < 1;
+INSERT INTO workout_sync_outbox (sync_id, operation, sync_version, created_at, attempt_count, last_error) SELECT sync_id, 'UPSERT', sync_version, updated_at, 0, NULL FROM workout_sessions WHERE status IN ('completed', 'canceled') AND sync_id IS NOT NULL ON CONFLICT(sync_id) DO UPDATE SET operation = excluded.operation, sync_version = excluded.sync_version, created_at = excluded.created_at, attempt_count = 0, last_error = NULL;
+DROP TRIGGER IF EXISTS workout_cloud_sync_after_insert;
+CREATE TRIGGER workout_cloud_sync_after_insert
+AFTER INSERT ON workout_sessions
+BEGIN
+  UPDATE workout_sessions
+  SET sync_id = COALESCE(sync_id, lower(hex(randomblob(16)))),
+      sync_version = CASE WHEN status IN ('completed', 'canceled') AND sync_version < 1 THEN 1 ELSE sync_version END
+  WHERE id = NEW.id;
+  INSERT INTO workout_sync_outbox
+    (sync_id, operation, sync_version, created_at, attempt_count, last_error)
+  SELECT sync_id, 'UPSERT', sync_version, updated_at, 0, NULL
+  FROM workout_sessions
+  WHERE id = NEW.id AND status IN ('completed', 'canceled') AND sync_id IS NOT NULL
+  ON CONFLICT(sync_id) DO UPDATE SET
+    operation = excluded.operation, sync_version = excluded.sync_version,
+    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;
+END;
+DROP TRIGGER IF EXISTS workout_cloud_sync_after_update;
+CREATE TRIGGER workout_cloud_sync_after_update
+AFTER UPDATE OF routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at, duration_seconds, status, note, updated_at ON workout_sessions
+WHEN NEW.status IN ('completed', 'canceled') AND NEW.sync_version = OLD.sync_version
+BEGIN
+  UPDATE workout_sessions SET sync_version = OLD.sync_version + 1 WHERE id = NEW.id;
+  INSERT INTO workout_sync_outbox
+    (sync_id, operation, sync_version, created_at, attempt_count, last_error)
+  SELECT sync_id, 'UPSERT', sync_version, updated_at, 0, NULL
+  FROM workout_sessions
+  WHERE id = NEW.id AND sync_id IS NOT NULL
+  ON CONFLICT(sync_id) DO UPDATE SET
+    operation = excluded.operation, sync_version = excluded.sync_version,
+    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;
+END;
+DROP TRIGGER IF EXISTS workout_cloud_sync_after_reopen;
+CREATE TRIGGER workout_cloud_sync_after_reopen
+AFTER UPDATE OF status ON workout_sessions
+WHEN OLD.status IN ('completed', 'canceled') AND NEW.status = 'active' AND NEW.sync_version = OLD.sync_version
+BEGIN
+  UPDATE workout_sessions SET sync_version = OLD.sync_version + 1 WHERE id = NEW.id;
+  INSERT INTO workout_sync_outbox
+    (sync_id, operation, sync_version, created_at, attempt_count, last_error)
+  SELECT sync_id, 'DELETE', sync_version, updated_at, 0, NULL
+  FROM workout_sessions
+  WHERE id = NEW.id AND sync_id IS NOT NULL
+  ON CONFLICT(sync_id) DO UPDATE SET
+    operation = excluded.operation, sync_version = excluded.sync_version,
+    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;
+END;
+DROP TRIGGER IF EXISTS workout_cloud_sync_after_delete;
+CREATE TRIGGER workout_cloud_sync_after_delete
+AFTER DELETE ON workout_sessions
+WHEN OLD.status IN ('completed', 'canceled') AND OLD.sync_id IS NOT NULL
+BEGIN
+  INSERT INTO workout_sync_outbox
+    (sync_id, operation, sync_version, created_at, attempt_count, last_error)
+  VALUES
+    (OLD.sync_id, 'DELETE', OLD.sync_version + 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0, NULL)
+  ON CONFLICT(sync_id) DO UPDATE SET
+    operation = excluded.operation, sync_version = excluded.sync_version,
+    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;
+END;
+""".trimIndent(),
     ),
   )
   const val widgetSyncStateTable = "widget_sync_state"

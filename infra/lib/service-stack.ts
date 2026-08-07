@@ -414,6 +414,110 @@ export class LoofitServiceStack extends Stack {
       },
     });
 
+    const workoutSyncLogGroup = new logs.LogGroup(
+      this,
+      'WorkoutSyncLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-workout-sync`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const workoutSyncFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'WorkoutSyncFunction',
+      {
+        functionName: `loofit-${config.environmentName}-workout-sync`,
+        description:
+          'Stores the local-first workout history backup for an authenticated user',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/workout-sync.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: workoutSyncLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    workoutSyncFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
+        resources: [userDataTable.tableArn],
+      })
+    );
+
+    const workoutBackupLogGroup = new logs.LogGroup(
+      this,
+      'WorkoutBackupLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-workout-backup`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const workoutBackupFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'WorkoutBackupFunction',
+      {
+        functionName: `loofit-${config.environmentName}-workout-backup`,
+        description:
+          'Returns workout backup metadata and paginated restore records',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/workout-backup.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: workoutBackupLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    workoutBackupFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem', 'dynamodb:Query'],
+        resources: [userDataTable.tableArn],
+      })
+    );
+
     this.api.addRoutes({
       path: '/health',
       methods: [apigwv2.HttpMethod.GET],
@@ -562,6 +666,54 @@ export class LoofitServiceStack extends Stack {
       cfnRoute.addResourceDependency(jwtAuthorizer);
     }
 
+    const workoutSyncRoutes = this.api.addRoutes({
+      path: '/v1/workouts/sync',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'WorkoutSyncIntegration',
+        workoutSyncFunction
+      ),
+    });
+    for (const route of workoutSyncRoutes) {
+      const cfnRoute = route.node.defaultChild;
+      if (!(cfnRoute instanceof apigwv2.CfnRoute)) {
+        throw new Error(
+          'Expected /v1/workouts/sync to synthesize an HTTP API route.'
+        );
+      }
+      cfnRoute.authorizationType = 'JWT';
+      cfnRoute.authorizerId = jwtAuthorizer.ref;
+      cfnRoute.addResourceDependency(jwtAuthorizer);
+    }
+
+    const workoutBackupRoutes: apigwv2.HttpRoute[] = [];
+    for (const path of [
+      '/v1/workouts/backup',
+      '/v1/workouts/backup/records',
+    ]) {
+      workoutBackupRoutes.push(
+        ...this.api.addRoutes({
+          path,
+          methods: [apigwv2.HttpMethod.GET],
+          integration: new integrations.HttpLambdaIntegration(
+            `WorkoutBackup${path.endsWith('/records') ? 'Records' : 'Metadata'}Integration`,
+            workoutBackupFunction
+          ),
+        })
+      );
+    }
+    for (const route of workoutBackupRoutes) {
+      const cfnRoute = route.node.defaultChild;
+      if (!(cfnRoute instanceof apigwv2.CfnRoute)) {
+        throw new Error(
+          'Expected workout backup GET routes to synthesize HTTP API routes.'
+        );
+      }
+      cfnRoute.authorizationType = 'JWT';
+      cfnRoute.authorizerId = jwtAuthorizer.ref;
+      cfnRoute.addResourceDependency(jwtAuthorizer);
+    }
+
     new cloudwatch.Alarm(this, 'HealthErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-health-errors`,
       alarmDescription: 'Health Lambda returned at least one error in five minutes.',
@@ -624,6 +776,30 @@ export class LoofitServiceStack extends Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
+    new cloudwatch.Alarm(this, 'WorkoutSyncErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-workout-sync-errors`,
+      alarmDescription:
+        'Workout sync Lambda returned at least one unhandled error in five minutes.',
+      metric: workoutSyncFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, 'WorkoutBackupErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-workout-backup-errors`,
+      alarmDescription:
+        'Workout backup Lambda returned at least one unhandled error in five minutes.',
+      metric: workoutBackupFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
     new cloudwatch.Alarm(this, 'ApiServerErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-api-5xx`,
       alarmDescription: 'Loofit HTTP API returned at least one 5xx response in five minutes.',
@@ -663,6 +839,12 @@ export class LoofitServiceStack extends Stack {
     });
     new CfnOutput(this, 'MeUrl', {
       value: `${this.api.apiEndpoint}/v1/me`,
+    });
+    new CfnOutput(this, 'WorkoutSyncUrl', {
+      value: `${this.api.apiEndpoint}/v1/workouts/sync`,
+    });
+    new CfnOutput(this, 'WorkoutBackupUrl', {
+      value: `${this.api.apiEndpoint}/v1/workouts/backup`,
     });
     new CfnOutput(this, 'KakaoConfigParameterName', {
       value: config.auth.kakaoConfigParameterName,

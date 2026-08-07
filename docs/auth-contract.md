@@ -21,12 +21,16 @@
 - 설정 화면의 현재 기기 로그아웃과 서버 세션 폐기
 - 랭킹 탭의 Kakao·Apple 로그인 유도 UI와 인증 상태 검증
 - JWT Authorizer로 보호하는 `GET /v1/me`
+- 로그인 성공 후 로컬 운동 기록 단방향 백업 시작
+- JWT Authorizer로 보호하는 `POST /v1/workouts/sync`
+- JWT Authorizer로 보호하는 `GET /v1/workouts/backup`과 paginated records 조회
+- 설정에서 사용자 확인 후 서버 운동 기록 병합 복원
 
 현재 구현하지 않는 범위:
 
 - Apple 웹 authorization code 교환과 Android·웹 로그인
 - 계정 전환·계정 연결·계정 병합·계정 삭제 API
-- 로컬 운동 기록 동기화
+- 자동 다중 기기 동기화와 서버 백업으로 로컬 전체 교체
 
 ## 계정과 identity 정책
 
@@ -133,7 +137,7 @@ GSI는 향후 계정 삭제 시 귀속 identity와 세션을 조회하고, 사�
 
 - 인증 모델이 저장하는 개인정보성 식별자는 내부 `userId`, provider 종류, provider subject의 단방향 해시, 세션 메타데이터다.
 - 이메일·닉네임은 현재 수집하지 않는다.
-- 로컬 운동 기록은 로그인 또는 인증 인프라 존재만으로 서버에 업로드하지 않는다.
+- 로컬 운동 기록은 명시적인 소셜 로그인 성공 후에만 `workout-sync-contract.md`의 단방향 백업 정책으로 업로드한다.
 - 로그인하지 않은 사용자는 기존 Local-first 운동 기능을 계속 사용할 수 있어야 한다.
 - 분석·광고 SDK와 인증 데이터의 결합은 별도 동의·스토어 고지 검토 전에는 하지 않는다.
 
@@ -248,9 +252,9 @@ Content-Type: application/json
 - Kakao·Apple SDK가 발급한 ID Token은 로그인 교환 요청에만 사용하고 SecureStore에 저장하지 않는다.
 - 루핏 `userId`, Access Token, Refresh Token과 각 만료 시각을 version 1 JSON 하나로 저장해 토큰 쌍이 부분 갱신되지 않게 한다.
 - iOS는 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` 접근성을 사용하고 Android는 SecureStore가 관리하는 암호화 저장소와 백업 제외 규칙을 사용한다.
-- 랭킹 탭의 provider CTA가 명시적으로 `signInWithKakao()` 또는 `signInWithApple()`을 호출할 때만 신규 로그인을 시작한다. 다른 운동 화면에 진입하는 것만으로 로그인 요청을 보내지 않는다.
+- 랭킹 탭의 provider CTA가 명시적으로 `signInWithKakao()` 또는 `signInWithApple()`을 호출할 때만 신규 로그인을 시작한다. 로그인 성공 후 운동 기록 백업을 비동기로 시작하되 로그인 성공 자체를 백업 완료까지 지연하지 않는다.
 - 설정의 로그아웃은 저장 세션이 있을 때만 표시하고, 확인 후 서버 세션 폐기와 SecureStore 삭제를 수행한다.
-- 로컬 SQLite 운동 기록은 로그인 과정이나 토큰 갱신 과정에서 서버로 전송하지 않는다.
+- 로컬 SQLite 운동 기록은 로그인 성공 직후와 이후 계약된 mutation·foreground trigger에서만 서버로 전송한다. 토큰 갱신 자체는 동기화를 시작하지 않는다.
 
 ## 랭킹 화면 인증 UX
 

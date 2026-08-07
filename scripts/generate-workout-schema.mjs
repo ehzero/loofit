@@ -21,7 +21,12 @@ const contract = JSON.parse(await readFile(CONTRACT_PATH, 'utf8'));
 validateContract(contract);
 
 const migrationSteps = buildMigrationSteps(contract);
-const latestSchemaSQL = schemaSQL(contract.database.version);
+const latestSchemaSQL = [
+  schemaSQL(contract.database.version),
+  ...migrationSteps
+    .map((migration) => migration.afterSQL)
+    .filter((afterSQL) => afterSQL?.trim()),
+].join('\n');
 
 const outputs = new Map([
   [TYPESCRIPT_OUTPUT, renderTypeScript()],

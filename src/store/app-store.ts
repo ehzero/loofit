@@ -47,6 +47,7 @@ import {
   appOperationCoordinator as operationCoordinator,
   type RefreshTicket,
 } from './app-operation-coordinator';
+import { requestWorkoutSync } from '@/src/services/workout-sync/workout-sync-events';
 
 let initializationPromise: Promise<void> | null = null;
 let pendingBusyOperations = 0;
@@ -158,23 +159,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     runWorkoutAction(set, startCommand(input), async () => startWorkout(input)),
   completeActive: async () => {
     const sessionId = get().overview?.activeSession?.id;
-    return runWorkoutAction(
+    const result = await runWorkoutAction(
       set,
       sessionId ? { type: 'complete', expectedSessionId: sessionId } : null,
       sessionId
         ? async () => completeActiveWorkout(sessionId)
         : async () => ({ status: 'noop', session: null })
     );
+    requestWorkoutSyncAfterApplied(result);
+    return result;
   },
   cancelActive: async () => {
     const sessionId = get().overview?.activeSession?.id;
-    return runWorkoutAction(
+    const result = await runWorkoutAction(
       set,
       sessionId ? { type: 'cancel', expectedSessionId: sessionId } : null,
       sessionId
         ? async () => cancelActiveWorkout(sessionId)
         : async () => ({ status: 'noop', session: null })
     );
+    requestWorkoutSyncAfterApplied(result);
+    return result;
   },
   changeActive: async (input) => {
     const sessionId = get().overview?.activeSession?.id;
@@ -200,11 +205,24 @@ export const useAppStore = create<AppState>((set, get) => ({
   deleteDay: async (dayId) => runMutationAction(set, async () => deleteRoutineDay(dayId)),
   chooseNextDay: async (routineDayId) =>
     runMutationAction(set, async () => setNextRoutineDay(routineDayId)),
-  updateRecord: async (id, updates) =>
-    runMutationAction(set, async () => updateSession(id, updates)),
-  deleteRecord: async (id) => runMutationAction(set, async () => deleteSession(id)),
+  updateRecord: async (id, updates) => {
+    const result = await runMutationAction(set, async () => updateSession(id, updates));
+    requestWorkoutSyncAfterApplied(result);
+    return result;
+  },
+  deleteRecord: async (id) => {
+    const result = await runMutationAction(set, async () => deleteSession(id));
+    requestWorkoutSyncAfterApplied(result);
+    return result;
+  },
   resetDevData: async () => runMutationAction(set, resetAllData),
 }));
+
+function requestWorkoutSyncAfterApplied(result: AppActionResult): void {
+  if (result.status === 'applied' && result.overviewStatus !== 'failed') {
+    requestWorkoutSync(1_500);
+  }
+}
 
 async function runMutationAction(
   set: (state: Partial<AppState>) => void,

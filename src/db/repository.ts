@@ -37,6 +37,23 @@ export type {
   GetSessionsOptions,
   RepositoryWorkoutResult,
 } from './repositories/session-repository';
+export {
+  applyWorkoutSyncResults,
+  getWorkoutBackupLocalState,
+  mergeWorkoutBackup,
+  prepareWorkoutSyncBatch,
+  recordWorkoutSyncFailure,
+  WorkoutRestoreActiveSessionError,
+  WorkoutSyncOwnerMismatchError,
+} from './repositories/workout-sync-repository';
+export type {
+  WorkoutBackupLocalState,
+  WorkoutBackupMergeResult,
+  WorkoutBackupRecord,
+  WorkoutSyncBatch,
+  WorkoutSyncOperation,
+  WorkoutSyncServerResult,
+} from './repositories/workout-sync-repository';
 export { getAppSetting, setAppSetting } from './repositories/settings-repository';
 export { getOverview } from './queries/overview-query';
 

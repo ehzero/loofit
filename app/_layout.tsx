@@ -15,6 +15,11 @@ import { AppState, StyleSheet } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { useAppStore } from '@/src/store/app-store';
+import {
+  pauseWorkoutSyncRetries,
+  triggerWorkoutSync,
+} from '@/src/services/workout-sync/native-workout-sync';
+import { registerWorkoutSyncTrigger } from '@/src/services/workout-sync/workout-sync-events';
 import { ThemeProvider, useTheme } from '@/src/theme/ThemeProvider';
 import { ToastProvider, useToast } from '@/src/theme/ToastProvider';
 import { subscribeToExternalWorkoutCommands } from '@/src/widgets/pipeline';
@@ -61,8 +66,16 @@ export default function RootLayout() {
   useEffect(() => {
     if (loaded && isReady) {
       SplashScreen.hideAsync();
+      triggerWorkoutSync();
     }
   }, [loaded, isReady]);
+
+  useEffect(() => {
+    if (!loaded) {
+      return;
+    }
+    return registerWorkoutSyncTrigger(triggerWorkoutSync);
+  }, [loaded]);
 
   useEffect(() => {
     if (!loaded) {
@@ -71,6 +84,9 @@ export default function RootLayout() {
     const subscription = AppState.addEventListener('change', (state) => {
       if (state === 'active' && didInitialize.current) {
         refresh();
+        triggerWorkoutSync();
+      } else if (state !== 'active') {
+        pauseWorkoutSyncRetries();
       }
     });
     return () => subscription.remove();
@@ -83,6 +99,7 @@ export default function RootLayout() {
     const subscription = subscribeToExternalWorkoutCommands(() => {
       if (didInitialize.current) {
         refresh();
+        triggerWorkoutSync();
       }
     });
     return () => subscription?.remove();

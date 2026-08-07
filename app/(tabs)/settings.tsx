@@ -22,6 +22,15 @@ import {
   signOut,
 } from '@/src/services/auth/native-auth';
 import {
+  getWorkoutBackupStatus,
+  restoreWorkoutBackup,
+  WorkoutBackupChangedError,
+  WorkoutBackupNotFoundError,
+  type WorkoutBackupStatus,
+} from '@/src/services/workout-sync/native-workout-backup';
+import { requestWorkoutSync } from '@/src/services/workout-sync/workout-sync-events';
+import { WorkoutRestoreActiveSessionError } from '@/src/db/repository';
+import {
   isActionSuccessful,
   shouldDismissAfterAction,
   useAppStore,
@@ -47,14 +56,67 @@ const PRIVACY_URL = BRAND.urls.privacy;
 const CONTACT_EMAIL = BRAND.contactEmail;
 const APP_UPDATE_LOOKUP_TIMEOUT_MS = 5_000;
 
+const formatBackupTime = (value: string | null): string | null => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) {
+    return null;
+  }
+  return new Intl.DateTimeFormat('ko-KR', {
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(date);
+};
+
+const backupStatusDescription = (status: WorkoutBackupStatus | null): string => {
+  if (!status) {
+    return '백업 상태를 확인하고 있어요.';
+  }
+  if (status.kind === 'accountMismatch') {
+    return '다른 계정에 연결된 로컬 기록은 백업하거나 가져올 수 없어요.';
+  }
+  if (status.kind === 'restoreAvailable') {
+    return status.localRecordCount > 0
+      ? '서버 기록을 현재 기록과 합쳐서 가져올 수 있어요.'
+      : '서버에 보관된 운동 기록을 이 기기로 가져올 수 있어요.';
+  }
+  if (status.kind === 'connected') {
+    const formatted = formatBackupTime(status.lastBackupAt);
+    return formatted ? `마지막 서버 백업 ${formatted}` : '서버 백업과 연결되어 있어요.';
+  }
+  return status.localRecordCount > 0
+    ? '운동 기록을 서버에 백업할 준비를 하고 있어요.'
+    : '운동 기록이 생기면 자동으로 백업해요.';
+};
+
 export default function SettingsScreen() {
   const router = useRouter();
   const { colors, mode, setMode, accent, setAccent } = useTheme();
   const { showToast } = useToast();
   const resetDevData = useAppStore((state) => state.resetDevData);
+  const refreshApp = useAppStore((state) => state.refresh);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
   const [isSignedIn, setIsSignedIn] = useState(false);
+  const [backupStatus, setBackupStatus] = useState<WorkoutBackupStatus | null>(null);
+  const [isBackupLoading, setIsBackupLoading] = useState(false);
+  const [hasBackupStatusError, setHasBackupStatusError] = useState(false);
+  const loadBackupStatus = useCallback(async () => {
+    setIsBackupLoading(true);
+    setHasBackupStatusError(false);
+    try {
+      setBackupStatus(await getWorkoutBackupStatus());
+    } catch {
+      setBackupStatus(null);
+      setHasBackupStatusError(true);
+    } finally {
+      setIsBackupLoading(false);
+    }
+  }, []);
   const openContactEmail = useCallback(async () => {
     const subject = encodeURIComponent(`[${BRAND.displayName}] 문의`);
 
@@ -133,6 +195,12 @@ export default function SettingsScreen() {
         .then((session) => {
           if (active) {
             setIsSignedIn(session !== null);
+            if (session) {
+              void loadBackupStatus();
+            } else {
+              setBackupStatus(null);
+              setHasBackupStatusError(false);
+            }
           }
         })
         .catch(() => {
@@ -143,7 +211,7 @@ export default function SettingsScreen() {
       return () => {
         active = false;
       };
-    }, [])
+    }, [loadBackupStatus])
   );
 
   return (
@@ -153,41 +221,6 @@ export default function SettingsScreen() {
           <ListRow title="루틴 설정" chevron divider onPress={() => router.push('/routine')} />
           <ListRow title="위젯 둘러보기" chevron onPress={() => router.push('/widgets')} />
         </Card>
-
-        {isSignedIn ? (
-          <Card padding={0} gap={0} style={styles.group}>
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="로그아웃"
-              onPress={() =>
-                setConfirm({
-                  title: '로그아웃할까요?',
-                  description:
-                    '현재 기기에서 로그아웃해요. 운동 기록과 루틴은 삭제되지 않아요.',
-                  confirmLabel: '로그아웃',
-                  onConfirm: async () => {
-                    try {
-                      const result = await signOut();
-                      setIsSignedIn(false);
-                      showToast(
-                        result.serverSessionRevoked
-                          ? '로그아웃했어요'
-                          : '이 기기에서 로그아웃했어요'
-                      );
-                      return true;
-                    } catch {
-                      showToast('로그아웃하지 못했어요. 다시 시도해 주세요');
-                      return false;
-                    }
-                  },
-                })
-              }
-              style={styles.actionRow}>
-              <AppText variant="item">로그아웃</AppText>
-              <Icon name="logOut" size={18} color={colors.tx3} />
-            </Pressable>
-          </Card>
-        ) : null}
 
         <Card padding={spacing.md} gap={spacing.md}>
           <View style={styles.subBlock}>
@@ -255,6 +288,95 @@ export default function SettingsScreen() {
           </Card>
         ) : null}
 
+        {isSignedIn ? (
+          <Card gap={spacing.md} style={styles.backupCard}>
+            <View style={styles.updateInfo}>
+              <View style={[styles.updateIcon, { backgroundColor: colors.surface2 }]}>
+                <Icon name="download" size={18} color={colors.accent} />
+              </View>
+              <View style={styles.updateCopy}>
+                <AppText variant="item">클라우드 백업</AppText>
+                <AppText variant="footnote" tone="tertiary" wordBreak>
+                  {hasBackupStatusError
+                    ? '백업 상태를 확인하지 못했어요.'
+                    : backupStatusDescription(backupStatus)}
+                </AppText>
+              </View>
+            </View>
+            {hasBackupStatusError ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="클라우드 백업 상태 다시 확인"
+                disabled={isBackupLoading}
+                onPress={() => void loadBackupStatus()}
+                style={({ pressed }) => [
+                  styles.updateAction,
+                  { backgroundColor: colors.accent },
+                  pressed ? styles.updatePressed : null,
+                  isBackupLoading ? styles.backupDisabled : null,
+                ]}>
+                <AppText variant="body" weight="800" tone="accentContrast">
+                  다시 확인
+                </AppText>
+              </Pressable>
+            ) : backupStatus?.kind === 'connected' ||
+            backupStatus?.kind === 'restoreAvailable' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="백업에서 운동 기록 가져오기"
+                disabled={isBackupLoading || backupStatus.hasActiveSession}
+                onPress={() =>
+                  setConfirm({
+                    title: '백업 기록을 가져올까요?',
+                    description: backupStatus.hasActiveSession
+                      ? '진행 중인 운동을 종료한 뒤 기록을 가져올 수 있어요.'
+                      : '서버에 보관된 운동 기록을 현재 기록과 합쳐요. 루틴 설정과 다음 운동 위치는 바뀌지 않아요.',
+                    confirmLabel: '기록 가져오기',
+                    onConfirm: async () => {
+                      try {
+                        const result = await restoreWorkoutBackup();
+                        await refreshApp();
+                        requestWorkoutSync();
+                        await loadBackupStatus();
+                        showToast(
+                          result.added + result.updated + result.deleted > 0
+                            ? '백업 기록을 가져왔어요'
+                            : '이미 최신 백업이 적용되어 있어요'
+                        );
+                        return true;
+                      } catch (error) {
+                        if (error instanceof WorkoutRestoreActiveSessionError) {
+                          showToast('진행 중인 운동을 종료한 뒤 다시 시도해 주세요');
+                        } else if (error instanceof WorkoutBackupChangedError) {
+                          showToast('백업이 갱신됐어요. 다시 시도해 주세요');
+                        } else if (error instanceof WorkoutBackupNotFoundError) {
+                          showToast('가져올 백업 기록이 없어요');
+                        } else {
+                          showToast('백업 기록을 가져오지 못했어요. 다시 시도해 주세요');
+                        }
+                        return false;
+                      }
+                    },
+                  })
+                }
+                style={({ pressed }) => [
+                  styles.updateAction,
+                  { backgroundColor: colors.accent },
+                  pressed ? styles.updatePressed : null,
+                  isBackupLoading || backupStatus.hasActiveSession
+                    ? styles.backupDisabled
+                    : null,
+                ]}>
+                <AppText variant="body" weight="800" tone="accentContrast">
+                  {backupStatus.hasActiveSession
+                    ? '운동 종료 후 가져오기'
+                    : '백업에서 기록 가져오기'}
+                </AppText>
+              </Pressable>
+            ) : null}
+          </Card>
+        ) : null}
+
         <Card padding={0} gap={0} style={styles.group}>
           <ListRow
             title="앱 정보"
@@ -266,6 +388,46 @@ export default function SettingsScreen() {
               </AppText>
             }
           />
+          {isSignedIn ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="로그아웃"
+              onPress={() =>
+                setConfirm({
+                  title: '로그아웃할까요?',
+                  description:
+                    '현재 기기에서 로그아웃해요. 운동 기록과 루틴은 삭제되지 않아요.',
+                  confirmLabel: '로그아웃',
+                  onConfirm: async () => {
+                    try {
+                      const result = await signOut();
+                      setIsSignedIn(false);
+                      setBackupStatus(null);
+                      setHasBackupStatusError(false);
+                      showToast(
+                        result.serverSessionRevoked
+                          ? '로그아웃했어요'
+                          : '이 기기에서 로그아웃했어요'
+                      );
+                      return true;
+                    } catch {
+                      showToast('로그아웃하지 못했어요. 다시 시도해 주세요');
+                      return false;
+                    }
+                  },
+                })
+              }
+              style={[
+                styles.actionRow,
+                {
+                  borderBottomColor: colors.line,
+                  borderBottomWidth: StyleSheet.hairlineWidth,
+                },
+              ]}>
+              <AppText variant="item">로그아웃</AppText>
+              <Icon name="logOut" size={18} color={colors.tx3} />
+            </Pressable>
+          ) : null}
           <Pressable
             onPress={() =>
               setConfirm({
@@ -277,6 +439,9 @@ export default function SettingsScreen() {
                   const result = await resetDevData();
                   if (isActionSuccessful(result)) {
                     showToast('데이터를 초기화했어요');
+                    if (isSignedIn) {
+                      void loadBackupStatus();
+                    }
                   }
                   return shouldDismissAfterAction(result);
                 },
@@ -349,6 +514,9 @@ const styles = StyleSheet.create({
   updateCard: {
     overflow: 'hidden',
   },
+  backupCard: {
+    overflow: 'hidden',
+  },
   updateInfo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -375,6 +543,9 @@ const styles = StyleSheet.create({
   },
   updatePressed: {
     opacity: 0.85,
+  },
+  backupDisabled: {
+    opacity: 0.45,
   },
   actionRow: {
     flexDirection: 'row',

@@ -1,7 +1,7 @@
 {
   "database": {
     "name": "loofit.db",
-    "version": 1
+    "version": 2
   },
   "tables": [
     {
@@ -64,7 +64,9 @@
         { "name": "status", "definition": "TEXT NOT NULL CHECK (status IN ('active', 'completed', 'canceled'))", "sinceVersion": 1 },
         { "name": "note", "definition": "TEXT", "sinceVersion": 1 },
         { "name": "created_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
-        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 },
+        { "name": "sync_id", "definition": "TEXT", "sinceVersion": 2 },
+        { "name": "sync_version", "definition": "INTEGER NOT NULL DEFAULT 0", "sinceVersion": 2 }
       ]
     },
     {
@@ -108,6 +110,30 @@
         { "name": "last_error", "definition": "TEXT", "sinceVersion": 1 },
         { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 1 }
       ]
+    },
+    {
+      "name": "cloud_backup_state",
+      "sinceVersion": 2,
+      "columns": [
+        { "name": "id", "definition": "INTEGER PRIMARY KEY CHECK (id = 1)", "sinceVersion": 2 },
+        { "name": "dataset_id", "definition": "TEXT NOT NULL", "sinceVersion": 2 },
+        { "name": "owner_user_id", "definition": "TEXT", "sinceVersion": 2 },
+        { "name": "last_successful_sync_at", "definition": "TEXT", "sinceVersion": 2 },
+        { "name": "last_error", "definition": "TEXT", "sinceVersion": 2 },
+        { "name": "updated_at", "definition": "TEXT NOT NULL", "sinceVersion": 2 }
+      ]
+    },
+    {
+      "name": "workout_sync_outbox",
+      "sinceVersion": 2,
+      "columns": [
+        { "name": "sync_id", "definition": "TEXT PRIMARY KEY NOT NULL", "sinceVersion": 2 },
+        { "name": "operation", "definition": "TEXT NOT NULL CHECK (operation IN ('UPSERT', 'DELETE'))", "sinceVersion": 2 },
+        { "name": "sync_version", "definition": "INTEGER NOT NULL", "sinceVersion": 2 },
+        { "name": "created_at", "definition": "TEXT NOT NULL", "sinceVersion": 2 },
+        { "name": "attempt_count", "definition": "INTEGER NOT NULL DEFAULT 0", "sinceVersion": 2 },
+        { "name": "last_error", "definition": "TEXT", "sinceVersion": 2 }
+      ]
     }
   ],
   "indexes": [
@@ -130,6 +156,20 @@
       "unique": true,
       "where": "status = 'active'",
       "sinceVersion": 1
+    },
+    {
+      "name": "idx_sessions_sync_id",
+      "table": "workout_sessions",
+      "columns": ["sync_id"],
+      "unique": true,
+      "where": "sync_id IS NOT NULL",
+      "sinceVersion": 2
+    },
+    {
+      "name": "idx_workout_sync_outbox_created_at",
+      "table": "workout_sync_outbox",
+      "columns": ["created_at"],
+      "sinceVersion": 2
     }
   ],
   "widgetSync": {
@@ -153,6 +193,24 @@
     {
       "id": "initial_schema",
       "version": 1
+    },
+    {
+      "id": "workout_cloud_backup",
+      "version": 2,
+      "afterSql": [
+        "INSERT OR IGNORE INTO cloud_backup_state (id, dataset_id, owner_user_id, last_successful_sync_at, last_error, updated_at) VALUES (1, lower(hex(randomblob(16))), NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));",
+        "UPDATE workout_sessions SET sync_id = lower(hex(randomblob(16))) WHERE sync_id IS NULL;",
+        "UPDATE workout_sessions SET sync_version = 1 WHERE status IN ('completed', 'canceled') AND sync_version < 1;",
+        "INSERT INTO workout_sync_outbox (sync_id, operation, sync_version, created_at, attempt_count, last_error) SELECT sync_id, 'UPSERT', sync_version, updated_at, 0, NULL FROM workout_sessions WHERE status IN ('completed', 'canceled') AND sync_id IS NOT NULL ON CONFLICT(sync_id) DO UPDATE SET operation = excluded.operation, sync_version = excluded.sync_version, created_at = excluded.created_at, attempt_count = 0, last_error = NULL;",
+        "DROP TRIGGER IF EXISTS workout_cloud_sync_after_insert;",
+        "CREATE TRIGGER workout_cloud_sync_after_insert\nAFTER INSERT ON workout_sessions\nBEGIN\n  UPDATE workout_sessions\n  SET sync_id = COALESCE(sync_id, lower(hex(randomblob(16)))),\n      sync_version = CASE WHEN status IN ('completed', 'canceled') AND sync_version < 1 THEN 1 ELSE sync_version END\n  WHERE id = NEW.id;\n  INSERT INTO workout_sync_outbox\n    (sync_id, operation, sync_version, created_at, attempt_count, last_error)\n  SELECT sync_id, 'UPSERT', sync_version, updated_at, 0, NULL\n  FROM workout_sessions\n  WHERE id = NEW.id AND status IN ('completed', 'canceled') AND sync_id IS NOT NULL\n  ON CONFLICT(sync_id) DO UPDATE SET\n    operation = excluded.operation, sync_version = excluded.sync_version,\n    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;\nEND;",
+        "DROP TRIGGER IF EXISTS workout_cloud_sync_after_update;",
+        "CREATE TRIGGER workout_cloud_sync_after_update\nAFTER UPDATE OF routine_id, routine_day_id, routine_day_name_snapshot, started_at, ended_at, duration_seconds, status, note, updated_at ON workout_sessions\nWHEN NEW.status IN ('completed', 'canceled') AND NEW.sync_version = OLD.sync_version\nBEGIN\n  UPDATE workout_sessions SET sync_version = OLD.sync_version + 1 WHERE id = NEW.id;\n  INSERT INTO workout_sync_outbox\n    (sync_id, operation, sync_version, created_at, attempt_count, last_error)\n  SELECT sync_id, 'UPSERT', sync_version, updated_at, 0, NULL\n  FROM workout_sessions\n  WHERE id = NEW.id AND sync_id IS NOT NULL\n  ON CONFLICT(sync_id) DO UPDATE SET\n    operation = excluded.operation, sync_version = excluded.sync_version,\n    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;\nEND;",
+        "DROP TRIGGER IF EXISTS workout_cloud_sync_after_reopen;",
+        "CREATE TRIGGER workout_cloud_sync_after_reopen\nAFTER UPDATE OF status ON workout_sessions\nWHEN OLD.status IN ('completed', 'canceled') AND NEW.status = 'active' AND NEW.sync_version = OLD.sync_version\nBEGIN\n  UPDATE workout_sessions SET sync_version = OLD.sync_version + 1 WHERE id = NEW.id;\n  INSERT INTO workout_sync_outbox\n    (sync_id, operation, sync_version, created_at, attempt_count, last_error)\n  SELECT sync_id, 'DELETE', sync_version, updated_at, 0, NULL\n  FROM workout_sessions\n  WHERE id = NEW.id AND sync_id IS NOT NULL\n  ON CONFLICT(sync_id) DO UPDATE SET\n    operation = excluded.operation, sync_version = excluded.sync_version,\n    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;\nEND;",
+        "DROP TRIGGER IF EXISTS workout_cloud_sync_after_delete;",
+        "CREATE TRIGGER workout_cloud_sync_after_delete\nAFTER DELETE ON workout_sessions\nWHEN OLD.status IN ('completed', 'canceled') AND OLD.sync_id IS NOT NULL\nBEGIN\n  INSERT INTO workout_sync_outbox\n    (sync_id, operation, sync_version, created_at, attempt_count, last_error)\n  VALUES\n    (OLD.sync_id, 'DELETE', OLD.sync_version + 1, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), 0, NULL)\n  ON CONFLICT(sync_id) DO UPDATE SET\n    operation = excluded.operation, sync_version = excluded.sync_version,\n    created_at = excluded.created_at, attempt_count = 0, last_error = NULL;\nEND;"
+      ]
     }
   ]
 }

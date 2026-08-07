@@ -172,6 +172,12 @@ export async function resetDatabaseForDevelopment(): Promise<void> {
       DELETE FROM routine_progress;
       DELETE FROM app_settings;
       DELETE FROM body_parts;
+      DELETE FROM workout_sync_outbox;
+      DELETE FROM cloud_backup_state;
+      INSERT INTO cloud_backup_state
+        (id, dataset_id, owner_user_id, last_successful_sync_at, last_error, updated_at)
+      VALUES
+        (1, lower(hex(randomblob(16))), NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
     `);
   });
   await seedDefaultBodyParts(db);

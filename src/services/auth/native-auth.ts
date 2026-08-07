@@ -5,6 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
 import authConfig from '@/src/config/auth.json';
+import { requestWorkoutSync } from '@/src/services/workout-sync/workout-sync-events';
 
 import {
   AuthUnavailableError,
@@ -63,9 +64,17 @@ export const nativeAuth = createAuthService({
   },
 });
 
-export const signInWithKakao = () => nativeAuth.signInWithKakao();
+export const signInWithKakao = async () => {
+  const result = await nativeAuth.signInWithKakao();
+  requestWorkoutSync();
+  return result;
+};
 
-export const signInWithApple = () => nativeAuth.signInWithApple();
+export const signInWithApple = async () => {
+  const result = await nativeAuth.signInWithApple();
+  requestWorkoutSync();
+  return result;
+};
 
 export const isAppleSignInAvailable = async () =>
   Platform.OS === 'ios' && AppleAuthentication.isAvailableAsync();

@@ -158,6 +158,28 @@ describe('Loofit production infrastructure', () => {
     });
     template.hasResourceProperties('AWS::Lambda::Function', {
       Architectures: ['arm64'],
+      FunctionName: 'loofit-production-workout-sync',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          USER_DATA_TABLE_NAME: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-workout-backup',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          USER_DATA_TABLE_NAME: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
       FunctionName: 'loofit-production-auth-refresh',
       Runtime: 'nodejs22.x',
       TracingConfig: { Mode: 'Active' },
@@ -251,6 +273,21 @@ describe('Loofit production infrastructure', () => {
       AuthorizerId: Match.anyValue(),
       RouteKey: 'GET /v1/me',
     });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'JWT',
+      AuthorizerId: Match.anyValue(),
+      RouteKey: 'POST /v1/workouts/sync',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'JWT',
+      AuthorizerId: Match.anyValue(),
+      RouteKey: 'GET /v1/workouts/backup',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'JWT',
+      AuthorizerId: Match.anyValue(),
+      RouteKey: 'GET /v1/workouts/backup/records',
+    });
     template.hasResourceProperties('AWS::ApiGatewayV2::Authorizer', {
       AuthorizerType: 'JWT',
       IdentitySource: ['$request.header.Authorization'],
@@ -329,6 +366,8 @@ describe('Loofit production infrastructure', () => {
         'MeUrl',
         'RefreshUrl',
         'SigningKeyArn',
+        'WorkoutBackupUrl',
+        'WorkoutSyncUrl',
       ])
     );
     expect(Object.keys(outputs)).not.toEqual(
@@ -338,6 +377,9 @@ describe('Loofit production infrastructure', () => {
     expect(templateJson).toContain('kms:Sign');
     expect(templateJson).toContain('ssm:GetParameter');
     expect(templateJson).toContain('dynamodb:ConditionCheckItem');
+    expect(templateJson).toContain('dynamodb:GetItem');
+    expect(templateJson).toContain('dynamodb:PutItem');
+    expect(templateJson).toContain('dynamodb:Query');
     expect(templateJson).toContain('dynamodb:TransactWriteItems');
   });
 });

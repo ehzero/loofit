@@ -90,15 +90,17 @@
 - 하단 랭킹 탭과 비로그인 Kakao·Apple 로그인 유도
 - Kakao·Apple OIDC와 루핏 Access/Refresh Token 기반 자체 인증
 - SecureStore 세션 저장과 랭킹 진입 시 Access Token 갱신
+- 로그인 사용자 운동 기록의 로컬 SSOT 기반 단방향 서버 백업
+- 설정에서 사용자 확인 후 서버 운동 기록을 로컬 기록과 병합 복원
 
-아직 랭킹 조회·집계 API와 로컬 운동 기록 동기화는 포함하지 않는다.
+아직 랭킹 조회·집계 API, 자동 다중 기기 동기화, 계정 전환, 서버 백업으로 로컬 전체 교체는 포함하지 않는다.
 
 ## 구현 기준
 
 - React Native + Expo + TypeScript + Expo Router 기반이다.
 - 패키지 매니저는 `npm`을 사용한다.
 - SQLite를 영속 데이터의 원천으로 사용하고, Zustand는 현재 세션과 화면 상태 캐시로 사용한다.
-- 운동 기능은 로그인 여부와 관계없이 SQLite 기반 Local-first로 동작한다. 현재 네트워크 인증은 랭킹 탭에서 사용자가 Kakao 또는 Apple 로그인을 명시적으로 시작하거나 저장된 세션을 갱신할 때만 실행한다.
+- 운동 기능은 로그인 여부와 관계없이 SQLite 기반 Local-first로 동작한다. 사용자가 Kakao 또는 Apple 로그인에 성공하면 완료·취소 운동 기록의 단방향 서버 백업을 시작하되 로컬 mutation과 화면 반영은 네트워크 결과를 기다리지 않는다.
 - 앱 버전의 단일 원천은 루트 `package.json`의 `version`이다. `app.config.js`가 Expo 버전에 반영하고 앱 UI는 `expo-constants`로 주입된 버전을 표시한다.
 - 날짜 계산과 히트맵 귀속은 기기 로컬 시간 기준으로 처리한다.
 - 위젯, Live Activity, Android 고정 알림은 Expo Go가 아니라 각 플랫폼 Development Build 기준으로 검증한다.
@@ -154,7 +156,7 @@
 - 홈 화면 Small `루틴 진행`은 최대 4개 분할을 표시하고 항목 수에 따라 세로 배치를 조정한다. 1개는 중앙, 2개는 고정 `lg` 간격의 중앙 그룹, 3개는 기본 타이포그래피의 `space-between`, 4개는 `lg` 제목과 `md` 세로 padding을 사용하는 compact `space-between`으로 표시한다. 잠금화면의 최대 3개 가로 목록 정책은 유지한다.
 - 지난 7일 히트맵의 `횟수`, `총 시간`, `평균` 통계 라벨은 `sm`, 통계 값은 `lg` 크기를 사용한다.
 - iOS에서 앱과 위젯은 App Group의 `LoofitWidgets` 디렉터리에 있는 SQLite DB를 공유한다. 이전 기본 DB나 다른 공유 디렉터리의 개발 데이터는 자동으로 복사하지 않으며, build mode나 저장소 baseline을 바꿀 때는 개발 데이터를 초기화한다.
-- DB version, table·column, index, 위젯 sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. 현재 미출시 완성 스키마 전체를 version 1 baseline으로 사용하고, 출시 후 첫 스키마 변경부터 version 2 migration을 추가한다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → 후처리` 순서를 TS·Swift·Kotlin이 동일하게 실행한다. 현재 version이면 schema 작업 없이 반환하고, 낮은 version에만 미적용 migration을 실행하며, 지원 version보다 높은 DB는 즉시 오류로 처리한다. 적용 완료 migration의 backfill이나 repair를 반복 실행하지 않는다. 변경 후 `npm run schema:generate`로 세 플랫폼 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.
+- DB version, table·column, index, 위젯·cloud sync trigger 계약의 원천은 `contracts/workout-schema.json` 하나다. version 1은 출시 baseline이고 version 2는 운동 기록 cloud backup의 `sync_id`·revision·outbox·dataset binding migration이다. migration은 버전마다 빠짐없이 선언하고 생성된 `새 테이블 → 기존 테이블 column → index·trigger → 후처리` 순서를 TS·Swift·Kotlin이 동일하게 실행한다. 현재 version이면 schema 작업 없이 반환하고, 낮은 version에만 미적용 migration을 실행하며, 지원 version보다 높은 DB는 즉시 오류로 처리한다. 적용 완료 migration의 backfill이나 repair를 반복 실행하지 않는다. 변경 후 `npm run schema:generate`로 세 플랫폼 산출물을 함께 갱신하고, 생성 파일은 직접 수정하지 않는다.
 - 앱 DB 접근 구현은 `src/db/repositories/*`와 `src/db/queries/*`에 책임별로 둔다. 앱 계층은 안정적인 facade인 `src/db/repository.ts`를 통해 접근하며 repository 사이 의존성은 body part → routine → session → overview query 방향을 유지한다.
 - 관련 DB 변경은 `widget_sync_state` revision을 증가시킨다. Core는 DB를 한 번 읽어 semantic snapshot을 만들고 iOS App Group 또는 Android 앱 전용 snapshot 파일에 atomic replace한 뒤 변경된 위젯만 reload하고 Live Activity·고정 알림을 조정한다.
 - 앱, 홈 위젯, Live Activity·고정 알림의 시작·종료 진입점은 모두 같은 Core pipeline을 호출한다. 앱 초기화·foreground와 루틴·기록·테마 변경 후 reconcile이 미완료 revision을 복구한다.
@@ -189,12 +191,16 @@
 - 인증 사용자·identity·세션은 `loofit-production-user-data` 단일 테이블에 저장한다. `byUser` GSI의 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회하고, 세션 `expiresAt`은 DynamoDB TTL로 정리한다.
 - Refresh Token은 `lrt1.<sessionId>.<32-byte secret>` 형식으로 발급하되 전체 토큰의 SHA-256 해시만 저장한다. 갱신은 기존 해시·미폐기 상태·만료 시각을 조건으로 한 원자적 update로 한 요청만 성공시킨다.
 - 설정의 로그아웃은 현재 Refresh Token과 일치하는 서버 세션을 폐기한 뒤 SecureStore의 루핏 토큰 쌍을 삭제한다. 서버 연결 실패 시에도 이 기기의 토큰은 삭제하되 SQLite 운동 기록과 루틴은 유지한다. provider 계정 연결 해제나 Kakao·Apple 자체 로그아웃은 수행하지 않는다.
+- 완료·취소 운동 기록은 로컬 SQLite가 SSOT이고 서버는 계정별 단방향 백업이다. DB v2 trigger가 모든 TS·Swift·Kotlin 운동 쓰기 경로에서 `sync_id`와 단조 revision, `workout_sync_outbox`를 원자적으로 관리한다. `cloud_backup_state`의 dataset은 최초 동기화 사용자에게 바인딩하며 다른 사용자에게는 이전하지 않는다. 같은 사용자의 다른 서버 dataset은 자동 업로드를 중단하고 설정의 명시적 복원에서만 로컬 기록과 병합한 뒤 서버 dataset으로 다시 연결한다.
+- 운동 기록 동기화는 로그인 성공 직후, 운동 완료·취소, 기록 편집·삭제의 1.5초 debounce, 앱 시작·foreground, 외부 운동 명령 확인 후와 foreground backoff 재시도에서 실행한다. 랭킹 탭 진입과 로그아웃 직전에는 별도 실행하지 않으며 background timer에 의존하지 않는다. 상세 계약은 `docs/workout-sync-contract.md`를 따른다.
+- `POST /v1/workouts/sync`는 JWT Authorizer로 보호하고 최대 50개 operation을 받는다. DynamoDB에는 `USER#<userId>`·`WORKOUT#<syncId>`로 전체 기록 또는 삭제 tombstone을 저장한다. 높은 revision만 적용하고 server revision이 더 높으면 앱이 로컬 payload를 유지한 채 더 높은 revision으로 재전송한다.
+- `GET /v1/workouts/backup`과 `GET /v1/workouts/backup/records`는 JWT Authorizer로 보호하며 dataset·backup revision과 최대 100개씩의 기록·tombstone page를 반환한다. 복원은 모든 page와 전후 revision을 검증한 뒤 진행 중 운동이 없을 때 SQLite 단일 transaction으로 실행한다. 서버에만 있는 기록은 추가하고 같은 `sync_id`는 높은 revision을 적용하며 로컬에만 있는 기록은 outbox에 유지한다. 복원 기록은 과거 snapshot으로 표시하고 루틴 설정과 다음 운동 위치를 변경하지 않는다.
 - 앱 자체 인증 코드는 `src/services/auth`에 둔다. Kakao·Apple provider token은 교환 요청 후 저장하지 않고 루핏 Access/Refresh Token 쌍만 `expo-secure-store`의 단일 versioned JSON으로 저장한다. Access Token 만료 60초 전 갱신하며 프로세스 내 동시 refresh 요청을 하나로 합친다.
 - 랭킹 인증 화면의 상태 판정과 사용자 오류 문구는 `src/features/ranking/ranking-auth.ts`에 둔다. 저장 세션이 없거나 refresh가 `401`로 거부되면 로그인 유도 상태, 일시적 네트워크 실패면 저장 세션을 유지한 경고 상태로 처리한다.
 - 인증 저장·로그인 계약과 API 경계는 `docs/auth-contract.md`를 단일 기준으로 사용하고 서버 구현은 `server/src/auth`와 `server/src/handlers`에 둔다.
-- `GET /v1/me`는 API Gateway JWT Authorizer로 보호한다. `POST /v1/auth/kakao/exchange`, `POST /v1/auth/apple/exchange`, `POST /v1/auth/refresh`, `POST /v1/auth/logout`은 공개 route이되 초당 5개·burst 10개 제한, 입력·자격 증명 검증, 오류 응답 균질화를 적용한다. logout은 현재 Refresh Token 해시가 일치하는 세션만 폐기하며 유효하지 않거나 이미 폐기된 토큰도 `204`로 균질화한다.
+- `GET /v1/me`, `POST /v1/workouts/sync`, `GET /v1/workouts/backup`, `GET /v1/workouts/backup/records`는 API Gateway JWT Authorizer로 보호한다. `POST /v1/auth/kakao/exchange`, `POST /v1/auth/apple/exchange`, `POST /v1/auth/refresh`, `POST /v1/auth/logout`은 공개 route이되 초당 5개·burst 10개 제한, 입력·자격 증명 검증, 오류 응답 균질화를 적용한다. logout은 현재 Refresh Token 해시가 일치하는 세션만 폐기하며 유효하지 않거나 이미 폐기된 토큰도 `204`로 균질화한다.
 - AWS 배포는 현재 선택된 AWS CLI 자격의 계정을 사용하고 계정 ID를 소스에 고정하지 않는다. 리전은 `ap-northeast-2`로 고정한다.
-- 앱은 인증 모듈 추가와 관계없이 기존 Local-first 운동 동작을 유지한다. 사용자가 로그인 액션을 시작하기 전에는 인증 요청을 보내지 않으며 로그인·토큰 갱신은 로컬 운동 기록을 전송하지 않는다.
+- 앱은 인증·동기화 모듈과 관계없이 기존 Local-first 운동 동작을 유지한다. 사용자가 로그인 액션을 시작하기 전에는 인증·운동 기록 요청을 보내지 않는다. 로그인 성공은 비동기 초기 백업을 시작하지만 토큰 갱신, 랭킹 탭 진입, 로그아웃 직전 동작 자체는 동기화를 시작하지 않는다.
 - `npm run server:check`, `npm run infra:check`, `npm run infra:synth`, `npm run infra:diff`, `npm run infra:deploy`를 서버·인프라 검증과 배포 명령으로 사용한다.
 
 ### 위젯 검증
@@ -257,9 +263,9 @@
 - Google Play 서비스 계정 키 경로는 Git에서 제외된 `fastlane/.env`의 `PLAY_STORE_JSON_KEY`에만 둔다. JSON 키는 저장소 밖에서 보관하고 출력·로그·커밋에 포함하지 않는다.
 - Android 첫 배포는 EAS production AAB를 Google Play 내부 테스트에 먼저 제출한다. 앱의 전체 흐름, 12개 위젯, 알림 권한 허용·거부, 진행 중 알림의 경과 시간·종료, 재부팅·자정·시간대 변경 후 복구를 실기기에서 확인한 뒤 같은 release 계열을 production으로 승격한다.
 - Android 잠금화면 위젯은 기기 제조사와 런처 지원 여부가 다르므로 지원 기기에서는 keyguard 배치를 검증하고, 미지원 기기에서는 홈 화면 위젯과 진행 중 알림을 기준으로 검증한다.
-- 현재 제품은 Android에서 카카오 로그인 시 카카오 계정 식별자를 검증하고 서버에 내부 사용자 ID·provider subject 해시·세션 메타데이터를 저장한다. iOS의 Apple 로그인도 같은 서버 저장 계약을 사용하지만 Android에는 Apple 로그인을 아직 제공하지 않는다. 운동 기록은 계속 기기 SQLite에만 저장한다. Play Console 데이터 보안 답변은 인증 데이터와 전송 암호화·삭제 절차를 포함해 출시 빌드 기준으로 다시 작성한다.
+- 현재 제품은 Android에서 카카오 로그인 시 카카오 계정 식별자를 검증하고 서버에 내부 사용자 ID·provider subject 해시·세션 메타데이터를 저장한다. iOS의 Apple 로그인도 같은 서버 저장 계약을 사용하지만 Android에는 Apple 로그인을 아직 제공하지 않는다. 로그인 사용자의 완료·취소 운동 기록과 메모·운동 부위 snapshot은 로컬 SSOT의 단방향 백업으로 서버에 저장한다. Play Console 데이터 보안 답변은 인증·운동 기록 데이터와 전송 암호화·삭제 절차를 포함해 출시 빌드 기준으로 다시 작성한다.
 - Android가 사용자에게 요청하는 제품 권한은 운동 중 진행 알림을 위한 `POST_NOTIFICATIONS`이다. 사용자가 거부해도 운동 기록과 앱 기능은 계속 동작한다고 권한·심사 설명에 명시한다. Dev Client 의존성이 병합하는 `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`는 제품 빌드 Manifest에서 명시적으로 차단한다.
-- Google Play 데이터 보안은 운동 루틴·기록·시간이 아직 기기 안에서만 처리된다는 점과 인증 식별자·세션 메타데이터가 서버에서 처리된다는 점을 구분해 선언한다. 제출 전에 앱 동작, 개인정보 처리방침, 계정 삭제 경로와 데이터 보안 선언을 함께 갱신한다.
+- Google Play 데이터 보안은 루틴 설정과 다음 운동 상태는 기기 안에서만 처리하고 로그인 사용자의 완료·취소 운동 기록·시간·메모·운동 부위 snapshot과 인증 식별자·세션 메타데이터는 서버에서 처리한다는 점을 구분해 선언한다. 제출 전에 앱 동작, 개인정보 처리방침, 계정 삭제 경로와 데이터 보안 선언을 함께 갱신한다.
 - Google Play 건강 앱 선언은 운동 루틴과 운동을 기록하는 기능에 맞춰 `Activity and Fitness`를 선택한다. 의료기기, 진단, 치료, 재활, Health Connect·신체 센서 접근은 제공하지 않는다고 현재 구현과 약관 기준으로 유지한다.
 - Google Play 앱 콘텐츠는 운동 기능은 로그인 없이 접근 가능하지만 랭킹 탭은 카카오 로그인이 필요한 상태로 선언한다. Apple 로그인은 iOS 전용이므로 Android 심사 접근 수단에는 포함하지 않는다. 개인정보 처리방침은 `https://ehzero.github.io/loofit-legal/privacy/`, 고객지원은 `https://ehzero.github.io/loofit-legal/support/`를 사용하며, 로그인 기능을 포함한 빌드 제출 전 계정 삭제 요구사항과 심사 접근 절차를 검토한다.
 - 실제 listing 업로드와 production 제출은 명시적인 배포 요청 범위에서만 수행한다. 준비만 요청받았을 때는 메타데이터·스크린샷·AAB를 검토 가능한 상태로 만들고 원격 상태를 변경하지 않는다.

@@ -6,14 +6,14 @@
 - `infra`: AWS CDK stack, 네트워크, 권한, 데이터 저장소, 관측성
 - 앱 루트와 `modules`: 기존 Local-first 앱과 네이티브 운동 Core
 
-인프라 배포만으로 앱의 로컬 운동 기록은 전송되지 않는다. 앱 동기화와 개인정보 동의는 별도 제품 단계에서 구현한다.
+인프라 배포만으로 앱의 로컬 운동 기록은 전송되지 않는다. 사용자가 소셜 로그인에 성공한 뒤 앱의 단방향 동기화 worker가 명시된 trigger에서만 기록을 전송한다.
 
 ## 현재 프로덕션 구성
 
 - AWS Region: `ap-northeast-2`
 - CDK stacks:
   - `LoofitProductionData`: DynamoDB 사용자 데이터·랭킹 테이블
-  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 자체 인증, API/Lambda 로그와 경보
+  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 운동 기록 업로드·백업 조회, 자체 인증, API/Lambda 로그와 경보
 - DynamoDB는 삭제 방지 및 `RETAIN` 정책을 사용한다.
 - DynamoDB는 `PAY_PER_REQUEST`로 운영하며 테이블별 최대 처리량을 읽기 1,000, 쓰기 500 request unit/초로 제한한다.
 - 사용자 데이터 테이블 `loofit-production-user-data`는 `pk`·`sk` 복합 키, 35일 시점 복구(PITR), 세션 정리용 `expiresAt` TTL을 사용한다. `byUser` GSI는 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회한다.
@@ -22,7 +22,7 @@
 
 ## 자체 인증 기반
 
-현재 단계는 Kakao·Apple OIDC로 사용자를 확인하고 루핏 Access/Refresh Token을 발급한다. 앱의 랭킹 탭에서 로그인 UI와 세션 갱신을 연결했지만 로컬 데이터 동기화는 아직 연결하지 않는다. 상세 계약은 [`auth-contract.md`](./auth-contract.md)를 따른다.
+현재 단계는 Kakao·Apple OIDC로 사용자를 확인하고 루핏 Access/Refresh Token을 발급한다. 로그인한 사용자의 완료·취소 운동 기록은 로컬 SQLite를 SSOT로 유지하면서 DynamoDB에 단방향 백업한다. 인증은 [`auth-contract.md`](./auth-contract.md), 동기화는 [`workout-sync-contract.md`](./workout-sync-contract.md)를 따른다.
 
 - 인증 토큰용 KMS 키 `alias/loofit-production-auth-signing`
   - `RSA_2048`, `SIGN_VERIFY`, JWT 알고리즘 `RS256`
@@ -35,7 +35,19 @@
 - API Gateway JWT Authorizer
   - issuer: 프로덕션 API Gateway URL
   - audience: `loofit-api`
-  - `Authorization: Bearer <JWT>`에서 토큰을 읽고 `GET /v1/me`를 보호한다.
+  - `Authorization: Bearer <JWT>`에서 토큰을 읽고 `GET /v1/me`, `POST /v1/workouts/sync`, `GET /v1/workouts/backup`, `GET /v1/workouts/backup/records`를 보호한다.
+
+## 운동 기록 단방향 백업
+
+- `POST /v1/workouts/sync`는 JWT `sub`를 사용자 ID로 사용하고 요청 body의 사용자 식별자를 신뢰하지 않는다.
+- 첫 요청의 `datasetId`를 `USER#<userId>`·`BACKUP#WORKOUTS` item에 바인딩하며 이후 다른 dataset은 `409`로 거부한다.
+- 기록은 `USER#<userId>`·`WORKOUT#<syncId>` item에 전체 snapshot으로 저장한다. 삭제는 payload가 없는 versioned tombstone으로 교체한다.
+- 업로드 Lambda 권한은 사용자 데이터 테이블의 `dynamodb:GetItem`, `dynamodb:PutItem`, backup revision 갱신용 `dynamodb:UpdateItem`으로 제한한다. 백업 조회 Lambda는 `dynamodb:GetItem`, `dynamodb:Query`만 사용하며 두 Lambda 모두 KMS 서명·SSM·랭킹 테이블 권한을 갖지 않는다.
+- 요청은 최대 50개 operation·512KiB로 제한한다. 서버는 높은 revision만 적용하고 같은 revision은 멱등 성공으로 처리한다.
+- 로컬 변경과 outbox는 SQLite transaction으로 함께 commit한다. 앱은 로그인 성공, 운동 완료·취소, 기록 편집·삭제, 앱 시작·foreground와 외부 운동 명령 확인 후 동기화한다. 랭킹 탭 진입과 로그아웃 직전에는 별도 실행하지 않는다.
+- 업로드가 완료된 batch마다 dataset 상태의 `backupRevision`과 `updatedAt`을 갱신한다. 앱은 업로드 전에 서버 dataset을 확인하고 다른 dataset이면 자동 업로드를 중단한다.
+- `GET /v1/workouts/backup`은 dataset·revision·마지막 백업 시각을 반환하고 `GET /v1/workouts/backup/records`는 DynamoDB의 기록·tombstone을 최대 100개씩 일관 읽기로 반환한다.
+- 앱은 설정의 명시적 확인 후 모든 page와 전후 revision을 검증하고 SQLite 단일 transaction으로 병합한다. 로컬 기록 전체 교체, 자동 다중 기기 동기화, 다른 계정 dataset 병합은 수행하지 않는다.
 
 - 카카오 로그인
   - `POST /v1/auth/kakao/exchange`는 네이티브 Kakao SDK의 ID Token을 우선 지원하고 웹에서는 Authorization Code를 카카오 토큰 endpoint로 교환한다.
@@ -69,8 +81,8 @@ API Gateway는 JWT Authorizer를 생성할 때 issuer discovery endpoint를 실�
 
 아직 포함하지 않는 항목:
 
-- 앱의 계정·동기화 UI와 API
-- 서버 DynamoDB 접근 계층과 실제 동기화 item 계약
+- 자동 다중 기기 동기화와 서버 백업으로 로컬 전체 교체
+- 계정 전환 시 로컬 dataset 이전
 - 분석 이벤트 저장소
 - 랭킹 집계·동점 처리·부정 기록 방지
 - 광고와 인앱 결제
@@ -104,7 +116,7 @@ npm run infra:deploy
 
 `infra:deploy`는 IAM 권한 확대가 있으면 CDK 승인을 요구한다. 배포 계정 ID는 저장소에 고정하지 않으며 CDK가 현재 AWS CLI 자격에서 해석한다.
 
-배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
+배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `WorkoutSyncUrl`, `WorkoutBackupUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
 
 ## 운영 주의사항
 

@@ -18,6 +18,10 @@ const pipelineMocks = vi.hoisted(() => ({
   usesNativeWorkoutPipeline: vi.fn(),
 }));
 
+const workoutSyncMocks = vi.hoisted(() => ({
+  requestWorkoutSync: vi.fn(),
+}));
+
 vi.mock('@/src/db/repository', () => ({
   addBodyPart: vi.fn(),
   addEmptyRoutineDay: vi.fn(),
@@ -41,6 +45,10 @@ vi.mock('@/src/db/repository', () => ({
 }));
 
 vi.mock('@/src/widgets/pipeline', () => pipelineMocks);
+vi.mock(
+  '@/src/services/workout-sync/workout-sync-events',
+  () => workoutSyncMocks
+);
 
 import { useAppStore } from './app-store';
 
@@ -85,6 +93,7 @@ describe('app workout pipeline', () => {
       overviewStatus: 'refreshed',
       sessionId: 42,
     });
+    expect(workoutSyncMocks.requestWorkoutSync).not.toHaveBeenCalled();
   });
 
   it('guards completion with the active session id', async () => {
@@ -97,6 +106,7 @@ describe('app workout pipeline', () => {
       expectedSessionId: 42,
     });
     expect(repositoryMocks.completeActiveWorkout).not.toHaveBeenCalled();
+    expect(workoutSyncMocks.requestWorkoutSync).toHaveBeenCalledWith(1_500);
   });
 
   it('sends the selected workout edit scope with the active session id', async () => {
@@ -113,6 +123,7 @@ describe('app workout pipeline', () => {
       updateRoutine: true,
     });
     expect(repositoryMocks.changeActiveWorkout).not.toHaveBeenCalled();
+    expect(workoutSyncMocks.requestWorkoutSync).not.toHaveBeenCalled();
   });
 
   it('treats a committed command with deferred publication as applied and rereads the database', async () => {
