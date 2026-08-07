@@ -3,6 +3,7 @@ import { useFocusEffect } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Image,
   Pressable,
   RefreshControl,
@@ -25,6 +26,10 @@ import {
   type RankingAuthState,
   type SocialLoginProvider,
 } from '@/src/features/ranking/ranking-auth';
+import {
+  formatWeeklyLeaderboardPeriod,
+  getCurrentWeeklyLeaderboardPeriod,
+} from '@/src/features/ranking/weekly-period';
 import {
   getLoofitAccessToken,
   getStoredAuthSession,
@@ -54,19 +59,6 @@ const formatDuration = (seconds: number): string => {
   return minutes > 0 ? `${hours}시간 ${minutes}분` : `${hours}시간`;
 };
 
-const formatPeriod = (leaderboard: WeeklyLeaderboard): string => {
-  const formatter = new Intl.DateTimeFormat('ko-KR', {
-    month: 'long',
-    day: 'numeric',
-    timeZone: leaderboard.period.timeZone,
-  });
-  const startsAt = formatter.format(new Date(leaderboard.period.startsAt));
-  const endsAt = formatter.format(
-    new Date(Date.parse(leaderboard.period.endsAt) - 1)
-  );
-  return `${startsAt} ~ ${endsAt}`;
-};
-
 export default function RankingScreen() {
   const { colors, scheme } = useTheme();
   const { showToast } = useToast();
@@ -80,6 +72,9 @@ export default function RankingScreen() {
   const [leaderboard, setLeaderboard] = useState<WeeklyLeaderboard | null>(null);
   const [leaderboardLoadState, setLeaderboardLoadState] =
     useState<LeaderboardLoadState>('idle');
+  const periodLabel = formatWeeklyLeaderboardPeriod(
+    getCurrentWeeklyLeaderboardPeriod()
+  );
 
   const checkAuthentication = useCallback(async () => {
     return resolveRankingAuthState({
@@ -167,12 +162,13 @@ export default function RankingScreen() {
   );
 
   if (authState.status === 'checking') {
-    return <Screen title="랭킹" isLoading />;
+    return <RankingLoadingScreen periodLabel={periodLabel} />;
   }
 
   if (authState.status === 'unavailable') {
     return (
-      <Screen title="랭킹">
+      <Screen>
+        <RankingTitle periodLabel={periodLabel} />
         <Card gap={spacing.md} style={styles.centerCard}>
           <View style={[styles.iconCircle, { backgroundColor: colors.surface2 }]}>
             <Icon name="info" size={28} color={colors.tx3} />
@@ -198,7 +194,8 @@ export default function RankingScreen() {
 
   if (authState.status === 'signedOut') {
     return (
-      <Screen title="랭킹">
+      <Screen>
+        <RankingTitle periodLabel={periodLabel} />
         <Card variant="hero" style={styles.loginHero}>
           <RankingPreview />
           <View style={styles.heroCopy}>
@@ -277,12 +274,13 @@ export default function RankingScreen() {
   }
 
   if (leaderboardLoadState === 'loading' && !leaderboard) {
-    return <Screen title="랭킹" isLoading />;
+    return <RankingLoadingScreen periodLabel={periodLabel} />;
   }
 
   if (!leaderboard) {
     return (
-      <Screen title="랭킹">
+      <Screen>
+        <RankingTitle periodLabel={periodLabel} />
         {authState.warning ? (
           <Callout icon="info">{authState.warning}</Callout>
         ) : null}
@@ -321,12 +319,7 @@ export default function RankingScreen() {
             onRefresh={() => void loadLeaderboard(true)}
           />
         }>
-        <View style={styles.rankingTitleBlock}>
-          <AppText variant="footnote" tone="muted">
-            {formatPeriod(leaderboard)}
-          </AppText>
-          <AppText variant="heading">랭킹</AppText>
-        </View>
+        <RankingTitle periodLabel={periodLabel} />
 
         {hasLeaderboardNotice ? (
           <View style={styles.rankingNotices}>
@@ -400,6 +393,29 @@ export default function RankingScreen() {
           </AppText>
         </View>
       </ScrollView>
+    </Screen>
+  );
+}
+
+function RankingTitle({ periodLabel }: { periodLabel: string }) {
+  return (
+    <View style={styles.rankingTitleBlock}>
+      <AppText variant="footnote" tone="muted">
+        {periodLabel}
+      </AppText>
+      <AppText variant="heading">랭킹</AppText>
+    </View>
+  );
+}
+
+function RankingLoadingScreen({ periodLabel }: { periodLabel: string }) {
+  const { colors } = useTheme();
+  return (
+    <Screen>
+      <RankingTitle periodLabel={periodLabel} />
+      <View style={styles.rankingLoading}>
+        <ActivityIndicator color={colors.accent} />
+      </View>
     </Screen>
   );
 }
@@ -652,6 +668,11 @@ const styles = StyleSheet.create({
   },
   rankingTitleBlock: {
     gap: spacing.xxs,
+  },
+  rankingLoading: {
+    minHeight: 260,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   rankingNotices: {
     gap: spacing.sm,
