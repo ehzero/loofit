@@ -249,10 +249,10 @@
 
 ## App Store listing과 Fastlane
 
-- Fastlane은 App Store Connect의 한국어 제품 페이지 메타데이터, 스크린샷, 선택적 앱 미리보기 영상과 심사 제출을 관리한다. iOS 바이너리 빌드와 TestFlight 업로드는 EAS가 담당한다.
+- Fastlane은 App Store Connect의 한국어 제품 페이지 메타데이터, 스크린샷, 선택적 앱 미리보기 영상과 심사 제출을 관리한다. iOS 바이너리 빌드는 EAS가 담당하고 TestFlight 업로드는 EAS Submit을 기본으로 사용하되 제출 큐가 장시간 지연되면 같은 EAS IPA를 Fastlane으로 직접 업로드할 수 있다.
 - 원천 파일은 `fastlane/metadata`, `fastlane/screenshots`, `fastlane/app-previews`에 둔다. `fastlane/Deliverfile`은 실행 위치에 흔들리지 않도록 저장소 루트 기준 절대 경로를 사용한다.
 - `npm run store:metadata`는 메타데이터만, `npm run store:screenshots`는 스크린샷만, `npm run store:listing`은 두 항목을 함께 업로드한다. 이 세 lane은 바이너리 업로드와 심사 제출을 생략한다.
-- `APP_STORE_BUILD_NUMBER=<빌드 번호> npm run store:testflight`는 EAS가 업로드한 같은 버전·빌드의 처리 완료를 기다린 뒤 `fastlane/testflight/what_to_test.txt`를 반영하고 내부 테스터에게 배포한다. 바이너리는 다시 업로드하지 않는다.
+- `APP_STORE_BUILD_NUMBER=<빌드 번호> npm run store:testflight`는 같은 버전·빌드의 처리 완료를 기다린 뒤 `fastlane/testflight/what_to_test.txt`를 반영하고 내부 테스터에게 배포한다. `APP_STORE_IPA_PATH`를 함께 지정하면 해당 IPA를 Fastlane으로 직접 업로드하며, 생략하면 이미 업로드된 빌드를 기다린다.
 - `APP_STORE_BUILD_NUMBER=<빌드 번호> npm run store:review`는 진행 중인 같은 버전의 심사 제출을 취소할 수 있을 때 취소하고, 메타데이터를 갱신한 뒤 지정한 EAS 빌드를 선택해 다시 심사 제출한다. 바이너리를 업로드하거나 앱을 출시하지 않는다.
 - `APP_STORE_VERSION`은 메타데이터를 반영할 편집 가능한 App Store 버전을 명시한다. App Store에 출시된 `1.0.4`는 더 이상 메타데이터 업로드 대상으로 사용하지 않으며, 현재 업데이트 버전은 `package.json`과 같은 `1.1.0`으로 유지한다.
 - 배포 준비에는 직전 App Store 출시 이후의 사용자 체감 변경을 기준으로 한국어 패치노트를 작성하는 작업이 포함된다. 기능 추가·동작 변경·오류 수정은 사용자 관점에서 간결하게 설명하고 내부 구현, 리팩터링, 테스트 변경은 제외한다.

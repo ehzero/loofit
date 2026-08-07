@@ -106,22 +106,27 @@ end
 def testflight_delivery_options
   build_number = ENV["APP_STORE_BUILD_NUMBER"]
   version = ENV["APP_STORE_VERSION"]
+  ipa_path = ENV["APP_STORE_IPA_PATH"].to_s
   UI.user_error!("APP_STORE_BUILD_NUMBER is required") if build_number.to_s.empty?
   UI.user_error!("APP_STORE_VERSION is required") if version.to_s.empty?
+  UI.user_error!("APP_STORE_IPA_PATH does not exist") if !ipa_path.empty? && !File.file?(ipa_path)
 
   what_to_test_path = File.expand_path("testflight/what_to_test.txt", __dir__)
   UI.user_error!("Missing TestFlight What to Test at #{what_to_test_path}") unless File.file?(what_to_test_path)
 
-  {
+  options = {
     api_key: app_store_connect_key,
     app_identifier: ENV.fetch("FASTLANE_APP_IDENTIFIER", "com.loofit.app"),
     app_version: version,
     build_number: build_number,
-    distribute_only: true,
+    distribute_only: ipa_path.empty?,
     distribute_external: false,
     changelog: File.read(what_to_test_path, encoding: "UTF-8").strip,
     skip_waiting_for_build_processing: false
   }
+
+  options[:ipa] = ipa_path unless ipa_path.empty?
+  options
 end
 
 platform :ios do
@@ -142,7 +147,7 @@ platform :ios do
     deliver(**store_delivery_options)
   end
 
-  desc "Wait for an uploaded build, update What to Test, and distribute it to internal testers"
+  desc "Upload an optional IPA or wait for a build, update What to Test, and distribute it internally"
   lane :store_testflight do
     upload_to_testflight(**testflight_delivery_options)
   end
