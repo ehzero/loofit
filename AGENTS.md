@@ -252,8 +252,9 @@
 - Fastlane은 App Store Connect의 한국어 제품 페이지 메타데이터, 스크린샷, 선택적 앱 미리보기 영상과 심사 제출을 관리한다. iOS 바이너리 빌드와 TestFlight 업로드는 EAS가 담당한다.
 - 원천 파일은 `fastlane/metadata`, `fastlane/screenshots`, `fastlane/app-previews`에 둔다. `fastlane/Deliverfile`은 실행 위치에 흔들리지 않도록 저장소 루트 기준 절대 경로를 사용한다.
 - `npm run store:metadata`는 메타데이터만, `npm run store:screenshots`는 스크린샷만, `npm run store:listing`은 두 항목을 함께 업로드한다. 이 세 lane은 바이너리 업로드와 심사 제출을 생략한다.
+- `APP_STORE_BUILD_NUMBER=<빌드 번호> npm run store:testflight`는 EAS가 업로드한 같은 버전·빌드의 처리 완료를 기다린 뒤 `fastlane/metadata/testflight/what_to_test.txt`를 반영하고 내부 테스터에게 배포한다. 바이너리는 다시 업로드하지 않는다.
 - `APP_STORE_BUILD_NUMBER=<빌드 번호> npm run store:review`는 진행 중인 같은 버전의 심사 제출을 취소할 수 있을 때 취소하고, 메타데이터를 갱신한 뒤 지정한 EAS 빌드를 선택해 다시 심사 제출한다. 바이너리를 업로드하거나 앱을 출시하지 않는다.
-- `APP_STORE_VERSION`은 메타데이터를 반영할 편집 가능한 App Store 버전을 명시한다. App Store에 출시된 `1.0.3`은 더 이상 메타데이터 업로드 대상으로 사용하지 않으며, 다음 업데이트를 준비할 때 `package.json` 버전과 함께 다음 버전(현재 계획은 `1.0.4`)으로 맞춘다.
+- `APP_STORE_VERSION`은 메타데이터를 반영할 편집 가능한 App Store 버전을 명시한다. App Store에 출시된 `1.0.4`는 더 이상 메타데이터 업로드 대상으로 사용하지 않으며, 현재 업데이트 버전은 `package.json`과 같은 `1.1.0`으로 유지한다.
 - 배포 준비에는 직전 App Store 출시 이후의 사용자 체감 변경을 기준으로 한국어 패치노트를 작성하는 작업이 포함된다. 기능 추가·동작 변경·오류 수정은 사용자 관점에서 간결하게 설명하고 내부 구현, 리팩터링, 테스트 변경은 제외한다.
 - App Store `새로운 기능` 원천은 `fastlane/metadata/ko/release_notes.txt`이며 업로드 시 `APP_STORE_VERSION`이 가리키는 앱 버전에 귀속된다. 같은 버전의 초안은 배포 전까지 여러 번 수정할 수 있지만, 출시된 버전의 패치노트를 바꾸려 하지 않고 다음 버전의 내용으로 갱신한다.
 - `배포 준비`만 요청받으면 대상 버전과 패치노트를 작성·검토 가능한 상태로 준비하되 App Store Connect에 업로드하지 않는다. 실제 App Store 메타데이터 업로드는 명시적으로 요청받았을 때만 `store:metadata` 또는 `store:listing`으로 수행한다.
@@ -261,6 +262,8 @@
 - App Store Connect 인증 값은 Git에서 제외된 `fastlane/.env`에만 둔다. `.p8` 개인키는 저장소 밖에서 권한 `600`으로 보관하고 출력·로그·커밋에 포함하지 않는다. Team API 키는 `ASC_ISSUER_ID`가 필요하고 Individual API 키는 비워둔다.
 - 시스템 Ruby를 사용하지 않는다. 현재 로컬 검증은 Ruby 3.2.2로 수행했지만 Fastlane의 지원 종료 경고가 있으므로 다음 환경 갱신 시 Ruby 3.3 이상으로 올린다.
 - 앱 심사 정보는 성 `윤`, 이름 `태영`, 국제 형식 전화번호 `+82 10-3773-0967`, 이메일 `support@physiquehub.kr`를 사용한다. 랭킹 탭은 iOS에서 Kakao·Apple 로그인을 제공하므로 제출 전에 심사자가 접근할 수 있는 로그인 절차와 테스트 계정 필요 여부를 App Review Notes에 명시한다.
+- 핵심 운동 기능은 비로그인으로 검토할 수 있고 Apple 로그인은 심사자의 Apple 계정으로 즉시 가입·로그인할 수 있으므로 별도 루핏 데모 계정을 제출하지 않는다. App Review Notes에는 Apple 로그인 검토 경로, 카카오가 선택 사항이라는 점, 백업·랭킹·회원 탈퇴 확인 경로를 한국어와 영어로 명시한다.
+- 로그인 사용자의 인증 식별자와 운동 기록을 서버에서 처리하므로 App Store Connect의 앱 개인정보 보호 답변은 최신 개인정보 처리방침과 실제 서버 계약에 맞춰 제출 전에 갱신·게시한다.
 - App Store 저작권 표기는 권리 취득 연도와 소유자명인 `2026 Taeyoung Yun`을 사용한다.
 - Fastlane 2.237.0은 첫 버전에 심사 상세가 없을 때 미설정 심사 첨부파일을 조회해 `No data`로 실패한다. `Fastfile`은 첨부파일 경로를 명시한 경우에만 해당 리소스를 관리하며, 원격 첨부파일을 임의로 삭제하지 않는다.
 - `skip_docs`를 유지해 Fastlane 실행이 저장소의 `fastlane/README.md`를 자동 생성 문서로 덮어쓰지 않게 한다.
@@ -419,7 +422,7 @@ Google Play 내부 테스트 빌드와 제출:
 - `app.config.js`가 dynamic config라 EAS projectId는 자동 삽입되지 않았고, `extra.eas.projectId`에 수동으로 넣어둔 상태다.
 - iOS 암호화 수출 규정 프롬프트에서 EAS CLI가 한 번 크래시했으므로 `app.config.js`의 `ios.config.usesNonExemptEncryption: false`와 `app.json`의 `ios.infoPlist.ITSAppUsesNonExemptEncryption: false`를 유지한다.
 - 첫 `production` 빌드 시 EAS remote `buildNumber`는 `1`로 초기화되었다.
-- `1.0.3`은 App Store에 출시되어 있으며 다음 배포 준비 대상 버전은 `1.0.4`이다.
+- `1.0.4`는 App Store에 출시되어 있으며 현재 배포 대상 버전은 `1.1.0`이다.
 - iOS 빌드는 앱 타깃 `com.loofit.app`과 위젯 타깃 `com.loofit.app.widgets`의 credentials를 모두 설정해야 한다. 두 타깃은 Distribution Certificate를 공유할 수 있지만 Provisioning Profile은 각각 필요하다.
 
 Patch 관리:

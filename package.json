@@ -1,7 +1,7 @@
 {
   "name": "loofit",
   "main": "expo-router/entry",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "expo": {
     "autolinking": {
       "exclude": [
@@ -62,6 +62,7 @@
     "store:metadata": "bundle exec fastlane ios store_metadata",
     "store:screenshots": "bundle exec fastlane ios store_screenshots",
     "store:listing": "bundle exec fastlane ios store_listing",
+    "store:testflight": "bundle exec fastlane ios store_testflight",
     "store:review": "bundle exec fastlane ios store_review",
     "play:metadata": "bundle exec fastlane android play_metadata",
     "play:screenshots": "bundle exec fastlane android play_screenshots",

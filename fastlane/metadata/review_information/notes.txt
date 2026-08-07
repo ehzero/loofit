@@ -1,9 +1,23 @@
-회원가입, 로그인, 결제 없이 모든 기능을 검토할 수 있습니다. 운동 데이터는 기기의 로컬 데이터베이스에 저장되며 서버와 동기화하지 않습니다.
+루핏의 핵심 운동 기록 기능은 회원가입이나 로그인 없이 검토할 수 있습니다. 랭킹과 클라우드 백업만 소셜 로그인이 필요하며 유료 기능이나 결제는 없습니다.
 
-기본 검토 경로
+[비로그인 검토 경로]
 1. 첫 화면에서 2분할, 3분할, 4분할, PPL 중 하나를 선택해 루틴을 만듭니다.
-2. 홈에서 다음 운동을 시작한 뒤 종료하면 운동 시간과 부위가 기록됩니다.
+2. 홈에서 다음 운동을 시작한 뒤 종료하면 운동 시간과 부위가 로컬 데이터베이스에 기록됩니다.
 3. 기록 탭에서 완료·취소 기록을 확인하고 기록 상세에서 수정·삭제할 수 있습니다.
-4. 대시보드 탭에서 7일·30일·1년 히트맵과 운동 시간을 확인할 수 있습니다.
+4. 대시보드 탭에서 7일·30일·6개월 히트맵과 운동 시간을 확인할 수 있습니다.
+
+[로그인 기능 검토 경로]
+1. 하단의 랭킹 탭으로 이동합니다.
+2. 'Apple로 로그인'을 선택하고 App Review용 Apple 계정으로 시스템 인증을 완료합니다. 별도의 루핏 ID·비밀번호 입력이나 사전 회원가입 없이 루핏 계정이 자동 생성됩니다.
+3. 로그인 후 주간 익명 랭킹과 내 순위를 확인할 수 있습니다. 표시명은 매주 임의 생성되며 이메일과 이름은 요청하거나 저장하지 않습니다.
+4. 완료·취소 운동 기록은 로그인 후 서버에 자동 백업됩니다. 설정의 '클라우드 백업' 카드에서 상태를 확인할 수 있고, 다른 서버 백업 데이터가 있을 때만 기록 가져오기 버튼이 표시됩니다.
+5. 설정의 앱 정보 영역에서 로그아웃과 회원 탈퇴를 확인할 수 있습니다. 회원 탈퇴 시 소셜 재인증 후 서버 계정·백업·랭킹 데이터를 삭제하며 기기의 로컬 운동 기록과 루틴은 유지됩니다.
+
+카카오 로그인은 동일 기능을 제공하는 선택적 대체 로그인입니다. 위 Apple 로그인 경로만으로 로그인 기능 전체를 검토할 수 있으므로 별도의 카카오 계정은 필요하지 않습니다.
 
 홈 화면·잠금 화면 위젯에서는 다음 운동, 운동 상태와 히트맵을 확인할 수 있고, Live Activity에서는 운동 상태와 경과 시간을 확인할 수 있습니다.
+
+--- English ---
+Core workout tracking works without registration or sign-in. Only weekly ranking and cloud backup require social sign-in; there are no paid features.
+
+To review account features: open the Ranking tab, tap “Sign in with Apple,” and authenticate with an App Review Apple Account. A Loofit account is created automatically, so no app-specific username or password is required. Kakao is an optional alternative and is not required for review. After sign-in, Settings shows cloud-backup status, Sign Out, and Delete Account. Delete Account asks for provider reauthentication and removes the server account, backups, and ranking data while leaving local workout records on the device.
