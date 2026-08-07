@@ -11,17 +11,21 @@
 - Refresh Token 생성·해시 저장·일회성 회전
 - 만료 세션 TTL 정리 기반
 - 카카오 네이티브 SDK ID Token 및 REST Authorization Code 검증
+- Apple 네이티브 ID Token과 nonce 검증
 - KMS `RS256` Access Token 서명과 루핏 세션 발급
 - `POST /v1/auth/kakao/exchange`
+- `POST /v1/auth/apple/exchange`
 - `POST /v1/auth/refresh`
-- 앱 카카오 네이티브 로그인 모듈과 SecureStore 토큰 저장·자동 갱신
+- `POST /v1/auth/logout`
+- 앱 Kakao·Apple 네이티브 로그인 모듈과 SecureStore 토큰 저장·자동 갱신
+- 설정 화면의 현재 기기 로그아웃과 서버 세션 폐기
+- 랭킹 탭의 Kakao·Apple 로그인 유도 UI와 인증 상태 검증
 - JWT Authorizer로 보호하는 `GET /v1/me`
 
 현재 구현하지 않는 범위:
 
-- Apple authorization code 교환과 ID Token 검증
-- 앱 로그인 UI
-- 로그아웃·계정 전환·계정 연결·계정 병합·계정 삭제 API
+- Apple 웹 authorization code 교환과 Android·웹 로그인
+- 계정 전환·계정 연결·계정 병합·계정 삭제 API
 - 로컬 운동 기록 동기화
 
 ## 계정과 identity 정책
@@ -38,7 +42,7 @@
 
 ## provider 검증 계약
 
-로그인 handler는 카카오 네이티브 SDK가 발급한 ID Token을 직접 검증한다. 웹 REST 흐름을 사용할 때는 앱이 전달한 authorization code를 provider token endpoint에서 교환한 뒤 같은 방식으로 ID Token을 검증한다.
+로그인 handler는 Kakao 또는 Apple 네이티브 SDK가 발급한 ID Token을 직접 검증한다. Kakao 웹 REST 흐름을 사용할 때는 앱이 전달한 authorization code를 provider token endpoint에서 교환한 뒤 같은 방식으로 ID Token을 검증한다.
 
 - 서명과 `kid`
 - 정확한 `iss`
@@ -188,6 +192,27 @@ Content-Type: application/json
 
 오류는 `INVALID_REQUEST`, `INVALID_REDIRECT_URI`, `KAKAO_LOGIN_REJECTED`, `AUTH_TEMPORARILY_UNAVAILABLE`, `INTERNAL_ERROR` 코드로 균질화한다. 카카오 원본 오류나 토큰 값은 클라이언트에 노출하지 않는다.
 
+## Apple 로그인 API
+
+iOS 앱은 가운데 정렬된 Apple 공식 시스템 버튼을 사용하고 이메일·이름 scope를 요청하지 않는다. 버튼은 Apple 인증 시작에만 사용하며 앱은 로그인마다 32바이트 암호학적 nonce를 생성해 Apple 요청과 서버 요청에 같은 값을 사용한다.
+
+```http
+POST /v1/auth/apple/exchange
+Content-Type: application/json
+
+{
+  "idToken": "Apple AuthenticationServices가 발급한 ID Token",
+  "nonce": "로그인 요청에 사용한 일회성 nonce"
+}
+```
+
+- Apple JWKS로 `RS256` 서명을 검증한다.
+- issuer는 `https://appleid.apple.com`, audience는 iOS bundle ID `com.loofit.app`이어야 한다.
+- `exp`, `iat`, `sub`, `nonce`를 검증하고 `sub`만 내부 identity에 사용한다.
+- 이메일·이름·Apple ID Token 원문은 저장하거나 로그에 남기지 않는다.
+- 성공 응답은 카카오 로그인과 같은 루핏 Access Token·Refresh Token 계약을 사용한다.
+- 잘못된 토큰은 `401 APPLE_LOGIN_REJECTED`, 잘못된 요청은 `400 INVALID_REQUEST`로 균질화한다.
+
 ## Refresh Token API
 
 ```http
@@ -199,17 +224,42 @@ Content-Type: application/json
 }
 ```
 
-성공 응답은 `user`를 제외하고 카카오 로그인 성공 응답과 같은 새 Access Token·Refresh Token 쌍을 반환한다. 기존 Refresh Token은 조건부 update가 성공하는 즉시 사용할 수 없으며, 만료·폐기·재사용·형식 오류가 있는 토큰은 `401 REFRESH_TOKEN_REJECTED`로 균질화한다. 요청 JSON 자체가 잘못된 경우에는 `400 INVALID_REQUEST`를 반환한다.
+성공 응답은 `user`를 제외하고 소셜 로그인 성공 응답과 같은 새 Access Token·Refresh Token 쌍을 반환한다. 기존 Refresh Token은 조건부 update가 성공하는 즉시 사용할 수 없으며, 만료·폐기·재사용·형식 오류가 있는 토큰은 `401 REFRESH_TOKEN_REJECTED`로 균질화한다. 요청 JSON 자체가 잘못된 경우에는 `400 INVALID_REQUEST`를 반환한다.
 
 앱의 `src/services/auth/native-auth.ts`는 Access Token 만료 60초 전부터 이 API를 호출한다. 회전 토큰의 일회성 특성 때문에 같은 앱 프로세스의 동시 갱신은 하나의 요청으로 합친다. `401`이면 저장된 루핏 세션을 삭제하고 재로그인이 필요한 상태로 전환하며, 네트워크·서버 장애에서는 기존 저장값을 지우지 않는다.
 
+## 로그아웃 API
+
+```http
+POST /v1/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "<현재 Loofit refresh token>"
+}
+```
+
+서버는 토큰에서 `sessionId`를 파싱한 뒤 저장된 Refresh Token 해시가 정확히 일치하고 아직 폐기·만료되지 않은 세션에 `revokedAt`을 기록한다. 유효한 세션을 폐기했거나 토큰이 이미 만료·폐기·교체된 경우 모두 `204 No Content`를 반환해 세션 존재 여부를 노출하지 않는다. 요청 JSON 자체가 잘못된 경우에는 `400 INVALID_REQUEST`를 반환한다.
+
+앱은 서버 폐기를 시도한 뒤 SecureStore의 루핏 토큰 쌍을 삭제한다. 네트워크·서버 장애가 있어도 현재 기기의 로컬 로그아웃은 완료하며 SQLite 운동 기록과 루틴은 삭제하지 않는다. 이 동작은 provider 계정 연결 해제나 Kakao·Apple 자체 로그아웃을 수행하지 않는다. API Gateway JWT Authorizer가 Access Token 폐기 상태를 조회하지 않으므로 이미 발급된 Access Token은 최장 15분 동안 암호학적으로 유효하지만, 앱이 토큰을 즉시 삭제하고 폐기된 세션에서는 새 Access Token을 갱신할 수 없다.
+
 ## 앱 저장 계약
 
-- Kakao SDK가 발급한 ID Token은 로그인 교환 요청에만 사용하고 SecureStore에 저장하지 않는다.
+- Kakao·Apple SDK가 발급한 ID Token은 로그인 교환 요청에만 사용하고 SecureStore에 저장하지 않는다.
 - 루핏 `userId`, Access Token, Refresh Token과 각 만료 시각을 version 1 JSON 하나로 저장해 토큰 쌍이 부분 갱신되지 않게 한다.
 - iOS는 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` 접근성을 사용하고 Android는 SecureStore가 관리하는 암호화 저장소와 백업 제외 규칙을 사용한다.
-- 인증 모듈을 추가해도 로그인 UI나 자동 로그인 요청은 발생하지 않는다. UI가 명시적으로 `signInWithKakao()`를 호출해야 네트워크 요청을 시작한다.
+- 랭킹 탭의 provider CTA가 명시적으로 `signInWithKakao()` 또는 `signInWithApple()`을 호출할 때만 신규 로그인을 시작한다. 다른 운동 화면에 진입하는 것만으로 로그인 요청을 보내지 않는다.
+- 설정의 로그아웃은 저장 세션이 있을 때만 표시하고, 확인 후 서버 세션 폐기와 SecureStore 삭제를 수행한다.
 - 로컬 SQLite 운동 기록은 로그인 과정이나 토큰 갱신 과정에서 서버로 전송하지 않는다.
+
+## 랭킹 화면 인증 UX
+
+- 랭킹 탭 진입 시 SecureStore 세션을 읽고, 세션이 있으면 `getAccessToken()`으로 만료 60초 전 갱신을 수행한다.
+- 세션이 없거나 refresh가 `401`로 거부되면 지원되는 provider 로그인 유도 화면을 표시한다.
+- SecureStore 자체를 읽지 못하면 로그인 여부를 추측하지 않고 로그인 상태 확인 실패와 재시도를 표시한다.
+- 저장 세션이 있지만 네트워크 장애로 토큰을 갱신하지 못하면 세션을 삭제하지 않고 연결 경고와 함께 로그인 후 화면을 유지한다.
+- 로그인 유도 화면의 영업 문구는 provider 중립적으로 작성하고 실제 로그인 버튼만 현재 제공자를 표시한다. 최하단에는 현재 미수집 프로필 항목이나 향후 운동 기록 동기화 범위를 제한하는 문구를 표시하지 않는다.
+- 랭킹 조회·집계 API가 없는 현재 단계에서는 로그인 후 내 순위와 전체 랭킹을 `—`와 집계 전 빈 상태로 표시하며, 가짜 사용자·순위를 실제 데이터처럼 렌더링하지 않는다.
 
 ## 카카오 운영 설정
 
@@ -245,4 +295,4 @@ POST /v1/auth/refresh
 GET  /v1/me
 ```
 
-현재 카카오 exchange, refresh와 `/v1/me`가 구현되어 있다. `/v1/me`는 JWT Authorizer에 연결한 첫 end-to-end 보호 API다. 로그인과 refresh endpoint는 공개 route이되 별도 rate limit, 입력 검증, 자격 증명 검증, 오류 응답 균질화를 적용한다.
+현재 Kakao·Apple exchange, refresh, logout과 `/v1/me`가 구현되어 있다. `/v1/me`는 JWT Authorizer에 연결한 첫 end-to-end 보호 API다. 로그인과 refresh endpoint는 공개 route이되 별도 rate limit, 입력 검증, 자격 증명 검증, 오류 응답 균질화를 적용한다.

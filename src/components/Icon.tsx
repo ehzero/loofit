@@ -13,6 +13,7 @@ const ICONS = {
   home: feather('home'),
   records: feather('list'),
   dashboard: feather('bar-chart-2'),
+  ranking: feather('award'),
   settings: feather('settings'),
   chevronRight: feather('chevron-right'),
   chevronLeft: feather('chevron-left'),
@@ -29,6 +30,10 @@ const ICONS = {
   plus: feather('plus'),
   minus: feather('minus'),
   download: feather('download'),
+  checkCircle: feather('check-circle'),
+  lock: feather('lock'),
+  logOut: feather('log-out'),
+  users: feather('users'),
   widget: feather('grid'),
   dumbbell: mci('dumbbell'),
 } satisfies Record<string, IconSet>;

@@ -25,20 +25,31 @@ export type KakaoIdTokenProvider = {
   login(): Promise<{ idToken?: string | null }>;
 };
 
+export type AppleIdTokenProvider = {
+  login(): Promise<{ idToken?: string | null; nonce: string }>;
+};
+
 type FetchImplementation = typeof fetch;
 
 export type AuthServiceOptions = {
   apiBaseUrl: string;
   sessionStore: AuthSessionStore;
   kakao: KakaoIdTokenProvider;
+  apple?: AppleIdTokenProvider;
   fetchImplementation?: FetchImplementation;
   now?: () => Date;
   accessTokenRefreshLeewaySeconds?: number;
 };
 
-export type KakaoSignInResult = {
+export type SocialSignInResult = {
   session: AuthSession;
   isNewUser: boolean;
+};
+
+export type KakaoSignInResult = SocialSignInResult;
+
+export type SignOutResult = {
+  serverSessionRevoked: boolean;
 };
 
 export class AuthRequiredError extends Error {
@@ -176,6 +187,7 @@ export const createAuthService = (options: AuthServiceOptions) => {
   const refreshLeeway = options.accessTokenRefreshLeewaySeconds ?? 60;
   const apiBaseUrl = options.apiBaseUrl.replace(/\/$/, '');
   let refreshInFlight: Promise<AuthSession> | null = null;
+  let isSigningOut = false;
 
   if (apiBaseUrl.length === 0) {
     throw new Error('apiBaseUrl is required.');
@@ -235,6 +247,27 @@ export const createAuthService = (options: AuthServiceOptions) => {
     return refreshInFlight;
   };
 
+  const storeSocialSignInResponse = async (
+    response: unknown
+  ): Promise<SocialSignInResult> => {
+    if (
+      !isRecord(response) ||
+      !isRecord(response.user) ||
+      !isNonEmptyString(response.user.id) ||
+      typeof response.user.created !== 'boolean'
+    ) {
+      throw new AuthUnavailableError('The authentication response was invalid.');
+    }
+
+    const session = toSession(
+      parseTokenPair(response),
+      response.user.id,
+      Math.floor(now().getTime() / 1_000)
+    );
+    await options.sessionStore.set(session);
+    return { session, isNewUser: response.user.created };
+  };
+
   return {
     async signInWithKakao(): Promise<KakaoSignInResult> {
       const kakaoToken = await options.kakao.login();
@@ -247,29 +280,73 @@ export const createAuthService = (options: AuthServiceOptions) => {
       const response = await request('/v1/auth/kakao/exchange', {
         idToken: kakaoToken.idToken,
       });
+      return storeSocialSignInResponse(response);
+    },
+
+    async signInWithApple(): Promise<SocialSignInResult> {
+      if (!options.apple) {
+        throw new AuthUnavailableError(
+          'Apple native login is not available on this device.'
+        );
+      }
+      const appleToken = await options.apple.login();
       if (
-        !isRecord(response) ||
-        !isRecord(response.user) ||
-        !isNonEmptyString(response.user.id) ||
-        typeof response.user.created !== 'boolean'
+        !isNonEmptyString(appleToken.idToken) ||
+        !isNonEmptyString(appleToken.nonce)
       ) {
-        throw new AuthUnavailableError('The authentication response was invalid.');
+        throw new AuthUnavailableError(
+          'Apple OpenID Connect ID Token was not issued.'
+        );
       }
 
-      const session = toSession(
-        parseTokenPair(response),
-        response.user.id,
-        Math.floor(now().getTime() / 1_000)
-      );
-      await options.sessionStore.set(session);
-      return { session, isNewUser: response.user.created };
+      const response = await request('/v1/auth/apple/exchange', {
+        idToken: appleToken.idToken,
+        nonce: appleToken.nonce,
+      });
+      return storeSocialSignInResponse(response);
     },
 
     getCurrentSession(): Promise<AuthSession | null> {
       return options.sessionStore.get();
     },
 
+    async signOut(): Promise<SignOutResult> {
+      if (refreshInFlight !== null) {
+        try {
+          await refreshInFlight;
+        } catch {
+          // Continue with the latest session state available in SecureStore.
+        }
+      }
+
+      isSigningOut = true;
+      let serverSessionRevoked = false;
+      try {
+        const session = await options.sessionStore.get();
+        if (session === null) {
+          serverSessionRevoked = true;
+        } else {
+          try {
+            await request('/v1/auth/logout', {
+              refreshToken: session.refreshToken,
+            });
+            serverSessionRevoked = true;
+          } catch {
+            // Local logout must remain available during network or server failures.
+          }
+        }
+
+        await options.sessionStore.clear();
+        return { serverSessionRevoked };
+      } finally {
+        isSigningOut = false;
+      }
+    },
+
     async getAccessToken(): Promise<string> {
+      if (isSigningOut) {
+        throw new AuthRequiredError();
+      }
       const session = await options.sessionStore.get();
       if (session === null) {
         throw new AuthRequiredError();

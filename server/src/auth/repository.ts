@@ -349,6 +349,41 @@ export class AuthRepository {
     }
   }
 
+  async revokeSession(refreshToken: string): Promise<boolean> {
+    let sessionId: string;
+    try {
+      sessionId = parseRefreshToken(refreshToken).sessionId;
+    } catch {
+      return false;
+    }
+
+    const nowDate = this.now();
+    const now = nowDate.toISOString();
+    try {
+      await this.client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: sessionKey(sessionId),
+          UpdateExpression: 'SET revokedAt = :now, updatedAt = :now',
+          ConditionExpression:
+            'entityType = :sessionEntityType AND refreshTokenHash = :refreshTokenHash AND attribute_not_exists(revokedAt) AND expiresAt > :nowEpoch',
+          ExpressionAttributeValues: {
+            ':now': now,
+            ':nowEpoch': Math.floor(nowDate.getTime() / 1_000),
+            ':refreshTokenHash': hashRefreshToken(refreshToken),
+            ':sessionEntityType': AUTH_ENTITY_TYPES.session,
+          },
+        })
+      );
+      return true;
+    } catch (error: unknown) {
+      if (isAwsErrorNamed(error, 'ConditionalCheckFailedException')) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async listSessions(userId: string): Promise<AuthSession[]> {
     const response = await this.client.send(
       new QueryCommand({

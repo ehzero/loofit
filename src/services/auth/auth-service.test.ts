@@ -91,6 +91,45 @@ describe('auth service', () => {
     );
   });
 
+  it('exchanges an Apple ID Token and nonce for the same Loofit session format', async () => {
+    const memory = createMemorySessionStore();
+    const fetchImplementation = vi.fn(async () =>
+      response(200, {
+        ...tokenPair,
+        user: { id: 'apple-user-1', created: true },
+      })
+    );
+    const service = createAuthService({
+      apiBaseUrl: 'https://api.example.com',
+      sessionStore: memory.store,
+      kakao: { login: vi.fn() },
+      apple: {
+        login: vi.fn(async () => ({
+          idToken: 'apple-id-token',
+          nonce: '0123456789abcdef0123456789abcdef',
+        })),
+      },
+      fetchImplementation,
+      now: () => now,
+    });
+
+    await expect(service.signInWithApple()).resolves.toMatchObject({
+      isNewUser: true,
+      session: { userId: 'apple-user-1' },
+    });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      'https://api.example.com/v1/auth/apple/exchange',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          idToken: 'apple-id-token',
+          nonce: '0123456789abcdef0123456789abcdef',
+        }),
+      })
+    );
+    expect(memory.read()?.refreshToken).toBe('refresh-new');
+  });
+
   it('returns a valid access token without refreshing it', async () => {
     const memory = createMemorySessionStore({
       version: 1,
@@ -168,6 +207,63 @@ describe('auth service', () => {
     await expect(service.getAccessToken()).rejects.toBeInstanceOf(
       AuthRequiredError
     );
+    expect(memory.read()).toBeNull();
+  });
+
+  it('revokes the refresh session before clearing local credentials', async () => {
+    const currentSession: AuthSession = {
+      version: 1,
+      userId: 'user-1',
+      accessToken: 'access-current',
+      accessTokenExpiresAtEpochSeconds: nowEpochSeconds + 300,
+      refreshToken: 'refresh-current',
+      refreshTokenExpiresAtEpochSeconds: nowEpochSeconds + 2_592_000,
+    };
+    const memory = createMemorySessionStore(currentSession);
+    const fetchImplementation = vi.fn(async () => new Response(null, { status: 204 }));
+    const service = createAuthService({
+      apiBaseUrl: 'https://api.example.com',
+      sessionStore: memory.store,
+      kakao: { login: vi.fn() },
+      fetchImplementation,
+      now: () => now,
+    });
+
+    await expect(service.signOut()).resolves.toEqual({
+      serverSessionRevoked: true,
+    });
+    expect(fetchImplementation).toHaveBeenCalledWith(
+      'https://api.example.com/v1/auth/logout',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ refreshToken: 'refresh-current' }),
+      })
+    );
+    expect(memory.read()).toBeNull();
+  });
+
+  it('clears local credentials when the logout API is unavailable', async () => {
+    const memory = createMemorySessionStore({
+      version: 1,
+      userId: 'user-1',
+      accessToken: 'access-current',
+      accessTokenExpiresAtEpochSeconds: nowEpochSeconds + 300,
+      refreshToken: 'refresh-current',
+      refreshTokenExpiresAtEpochSeconds: nowEpochSeconds + 2_592_000,
+    });
+    const service = createAuthService({
+      apiBaseUrl: 'https://api.example.com',
+      sessionStore: memory.store,
+      kakao: { login: vi.fn() },
+      fetchImplementation: vi.fn(async () => {
+        throw new TypeError('offline');
+      }),
+      now: () => now,
+    });
+
+    await expect(service.signOut()).resolves.toEqual({
+      serverSessionRevoked: false,
+    });
     expect(memory.read()).toBeNull();
   });
 });

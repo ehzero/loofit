@@ -169,6 +169,41 @@ describe('auth repository', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
+  it('revokes the session only when the current refresh token matches', async () => {
+    const currentToken = createRefreshToken(SESSION_ID, CURRENT_SECRET);
+    const send = vi.fn().mockResolvedValueOnce({});
+
+    await expect(
+      createRepository(send).revokeSession(currentToken)
+    ).resolves.toBe(true);
+
+    const update = send.mock.calls[0]?.[0] as UpdateCommand;
+    expect(update).toBeInstanceOf(UpdateCommand);
+    expect(update.input.UpdateExpression).toContain('revokedAt = :now');
+    expect(update.input.ConditionExpression).toContain(
+      'refreshTokenHash = :refreshTokenHash'
+    );
+    expect(update.input.ExpressionAttributeValues).toMatchObject({
+      ':refreshTokenHash': hashRefreshToken(currentToken),
+      ':sessionEntityType': AUTH_ENTITY_TYPES.session,
+    });
+  });
+
+  it('treats malformed, expired, and already revoked sessions as not revoked', async () => {
+    const send = vi.fn().mockRejectedValueOnce(
+      Object.assign(new Error('conditional failure'), {
+        name: 'ConditionalCheckFailedException',
+      })
+    );
+    const repository = createRepository(send);
+
+    await expect(repository.revokeSession('malformed')).resolves.toBe(false);
+    await expect(
+      repository.revokeSession(createRefreshToken(SESSION_ID, CURRENT_SECRET))
+    ).resolves.toBe(false);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
   it('queries the byUser index for a user session list', async () => {
     const item = createAuthSessionItem({
       userId: USER_ID,

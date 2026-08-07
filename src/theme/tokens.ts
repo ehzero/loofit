@@ -44,6 +44,7 @@ export type TypeVariant =
   | 'body'
   | 'item'
   | 'cta'
+  | 'providerCta'
   | 'title'
   | 'heading'
   | 'display'
@@ -57,6 +58,7 @@ export const typeScale: Record<TypeVariant, TextStyle> = {
   body: { fontSize: 14, fontWeight: '600', lineHeight: 20 },
   item: { fontSize: 15, fontWeight: '700', lineHeight: 20 },
   cta: { fontSize: 17, fontWeight: '800', lineHeight: 22 },
+  providerCta: { fontSize: 17, fontWeight: '500', lineHeight: 22 },
   title: { fontSize: 18, fontWeight: '800', lineHeight: 24 },
   heading: { fontSize: 22, fontWeight: '800', letterSpacing: -0.3, lineHeight: 28 },
   display: { fontSize: 26, fontWeight: '800', letterSpacing: -0.5, lineHeight: 32 },
@@ -179,6 +181,12 @@ export const LIGHT_PALETTE: ThemePalette = {
 };
 
 export const DEFAULT_ACCENT = '#CFF56A';
+
+/** Fixed provider brand colors are intentionally independent from app themes. */
+export const providerColors = {
+  kakaoBackground: '#FEE500',
+  kakaoText: '#191919',
+} as const;
 
 export const ACCENT_OPTIONS = [
   '#CFF56A',

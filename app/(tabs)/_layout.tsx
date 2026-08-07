@@ -28,6 +28,10 @@ export default function TabLayout() {
         options={{ title: '기록', tabBarIcon: ({ color }) => icon('records', color) }}
       />
       <Tabs.Screen
+        name="ranking"
+        options={{ title: '랭킹', tabBarIcon: ({ color }) => icon('ranking', color) }}
+      />
+      <Tabs.Screen
         name="dashboard"
         options={{ title: '대시보드', tabBarIcon: ({ color }) => icon('dashboard', color) }}
       />

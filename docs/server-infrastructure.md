@@ -13,7 +13,7 @@
 - AWS Region: `ap-northeast-2`
 - CDK stacks:
   - `LoofitProductionData`: DynamoDB 사용자 데이터·랭킹 테이블
-  - `LoofitProductionService`: HTTP API, `/health`, 카카오 로그인·토큰 갱신, `/v1/me`, 자체 인증, API/Lambda 로그와 경보
+  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 자체 인증, API/Lambda 로그와 경보
 - DynamoDB는 삭제 방지 및 `RETAIN` 정책을 사용한다.
 - DynamoDB는 `PAY_PER_REQUEST`로 운영하며 테이블별 최대 처리량을 읽기 1,000, 쓰기 500 request unit/초로 제한한다.
 - 사용자 데이터 테이블 `loofit-production-user-data`는 `pk`·`sk` 복합 키, 35일 시점 복구(PITR), 세션 정리용 `expiresAt` TTL을 사용한다. `byUser` GSI는 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회한다.
@@ -22,7 +22,7 @@
 
 ## 자체 인증 기반
 
-현재 단계는 카카오 OIDC로 사용자를 확인하고 루핏 Access/Refresh Token을 발급한다. 앱 로그인 UI와 로컬 데이터 동기화는 아직 연결하지 않는다. 상세 계약은 [`auth-contract.md`](./auth-contract.md)를 따른다.
+현재 단계는 Kakao·Apple OIDC로 사용자를 확인하고 루핏 Access/Refresh Token을 발급한다. 앱의 랭킹 탭에서 로그인 UI와 세션 갱신을 연결했지만 로컬 데이터 동기화는 아직 연결하지 않는다. 상세 계약은 [`auth-contract.md`](./auth-contract.md)를 따른다.
 
 - 인증 토큰용 KMS 키 `alias/loofit-production-auth-signing`
   - `RSA_2048`, `SIGN_VERIFY`, JWT 알고리즘 `RS256`
@@ -31,7 +31,7 @@
 - 공개 issuer endpoint
   - `GET /.well-known/openid-configuration`: issuer와 JWKS 위치 공개
   - `GET /.well-known/jwks.json`: KMS 공개키를 표준 RSA JWK로 변환해 공개
-  - 공개키 Lambda는 `kms:GetPublicKey`만 가진다. 비밀키는 KMS 밖으로 나오지 않으며 카카오 exchange와 refresh Lambda에만 `kms:Sign`을 허용한다.
+  - 공개키 Lambda는 `kms:GetPublicKey`만 가진다. 비밀키는 KMS 밖으로 나오지 않으며 Kakao·Apple exchange와 refresh Lambda에만 `kms:Sign`을 허용한다.
 - API Gateway JWT Authorizer
   - issuer: 프로덕션 API Gateway URL
   - audience: `loofit-api`
@@ -43,14 +43,25 @@
   - 로그인 route는 공개지만 초당 5개, burst 10개로 별도 제한한다.
   - Kakao Native app key와 선택적인 REST API key·Client Secret·Redirect URI allowlist는 `/loofit/production/auth/kakao` SecureString에 저장한다.
   - Lambda는 사용자 테이블 read/write·transaction, 해당 parameter read, KMS sign만 허용받는다.
+- Apple 로그인
+  - `POST /v1/auth/apple/exchange`는 iOS AuthenticationServices가 발급한 ID Token과 앱의 32바이트 nonce를 검증한다.
+  - Apple JWKS의 `RS256` 서명, `iss=https://appleid.apple.com`, `aud=com.loofit.app`, 만료·발급 시각, `sub`, `nonce`를 확인하고 `sub`만 내부 identity로 사용한다.
+  - Apple exchange Lambda는 사용자 테이블 read/write·transaction과 KMS sign만 허용받고 별도 Apple private key나 비밀값은 사용하지 않는다.
+  - 로그인 route는 공개지만 초당 5개, burst 10개로 제한한다.
 - 토큰 갱신
   - `POST /v1/auth/refresh`는 현재 Refresh Token의 해시를 조건부 교체하고 새 토큰 쌍을 발급한다.
   - refresh Lambda는 사용자 테이블의 `UpdateItem`과 KMS `Sign`만 허용받는다.
   - 공개 route지만 로그인과 동일하게 초당 5개, burst 10개로 제한하며 만료·폐기·재사용 토큰을 동일한 `401`로 거부한다.
+- 로그아웃
+  - `POST /v1/auth/logout`은 현재 Refresh Token 해시가 일치하는 세션에 `revokedAt`을 기록한다.
+  - logout Lambda는 사용자 테이블의 `UpdateItem`만 허용받고, 유효하지 않거나 이미 폐기된 토큰도 `204`로 응답한다.
+  - 앱은 서버 폐기 실패와 관계없이 현재 기기의 SecureStore 토큰을 삭제하며 로컬 운동 기록은 유지한다.
 - 앱 네이티브 인증 모듈
   - `@react-native-seoul/kakao-login`으로 카카오톡 SSO와 카카오계정 fallback을 사용하고 Kakao ID Token을 exchange endpoint로 보낸다.
+  - 가운데 정렬된 `expo-apple-authentication` 공식 시스템 버튼과 `expo-crypto` nonce로 iOS Apple 로그인을 시작하며 이메일·이름 scope는 요청하지 않는다.
   - 루핏 토큰 쌍은 `expo-secure-store`에 하나의 versioned JSON으로 저장한다. 만료 60초 전 자동 갱신하고 동시 갱신 요청은 한 번으로 합친다.
-  - UI는 아직 없으며 Expo Go가 아니라 네이티브 Development Build에서 검증한다.
+  - 랭킹 탭의 비로그인 상태에서 Kakao·Apple 로그인 CTA를 제공하며 Expo Go가 아니라 네이티브 Development Build에서 검증한다.
+  - 저장 세션이 있으면 랭킹 진입 시 Access Token을 확인·갱신한다. 일시적 연결 실패는 저장 세션을 삭제하지 않고, refresh 거부만 재로그인 상태로 전환한다.
 
 API Gateway는 JWT Authorizer를 생성할 때 issuer discovery endpoint를 실제 호출한다. CDK에는 공개 issuer route와 default stage가 준비된 다음 authorizer를 생성하는 명시적 의존성이 있으며, 이 순서를 제거하면 신규 배포가 실패할 수 있다.
 
@@ -60,8 +71,6 @@ API Gateway는 JWT Authorizer를 생성할 때 issuer discovery endpoint를 실�
 
 - 앱의 계정·동기화 UI와 API
 - 서버 DynamoDB 접근 계층과 실제 동기화 item 계약
-- Apple 로그인
-- 로그아웃·세션 폐기 API
 - 분석 이벤트 저장소
 - 랭킹 집계·동점 처리·부정 기록 방지
 - 광고와 인앱 결제
@@ -95,7 +104,7 @@ npm run infra:deploy
 
 `infra:deploy`는 IAM 권한 확대가 있으면 CDK 승인을 요구한다. 배포 계정 ID는 저장소에 고정하지 않으며 CDK가 현재 AWS CLI 자격에서 해석한다.
 
-배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `RefreshUrl`, `MeUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
+배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
 
 ## 운영 주의사항
 
@@ -106,4 +115,4 @@ npm run infra:deploy
 - 인증 서명용 고객 관리 KMS 키에는 월 고정 키 보관 비용이 발생하고 로그인마다 KMS 서명 요청 1회가 추가된다.
 - API와 Lambda 로그는 30일 보관하며 요청 payload나 인증 토큰을 기록하지 않는다.
 - 현재 CloudWatch 경보에는 수신 대상이 없다. 운영 연락 채널이 정해지면 SNS topic과 구독을 추가한다.
-- Cognito 같은 관리형 인증 제공자와 사용자 디렉터리는 배포하지 않는다. 카카오 로그인·refresh route는 공개이고 `/v1/me`는 루핏 JWT로 보호한다. 세션 폐기·계정 삭제·Apple 로그인은 별도 단계에서 추가한다.
+- Cognito 같은 관리형 인증 제공자와 사용자 디렉터리는 배포하지 않는다. Kakao·Apple 로그인과 refresh·logout route는 공개이고 `/v1/me`는 루핏 JWT로 보호한다. 계정 삭제와 Google 로그인은 별도 단계에서 추가한다.

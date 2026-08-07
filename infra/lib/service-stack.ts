@@ -179,6 +179,7 @@ export class LoofitServiceStack extends Stack {
     kakaoExchangeFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: [
+          'dynamodb:ConditionCheckItem',
           'dynamodb:GetItem',
           'dynamodb:PutItem',
           'dynamodb:Query',
@@ -191,6 +192,81 @@ export class LoofitServiceStack extends Stack {
         ],
       })
     );
+
+    const appleExchangeLogGroup = new logs.LogGroup(
+      this,
+      'AppleExchangeLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-auth-apple-exchange`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const appleExchangeFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'AppleExchangeFunction',
+      {
+        functionName: `loofit-${config.environmentName}-auth-apple-exchange`,
+        description: 'Verifies Apple identity tokens and issues Loofit sessions',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/apple-exchange.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: appleExchangeLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          USER_DATA_BY_USER_INDEX_NAME:
+            config.dynamodb.userDataByUserIndexName,
+          APPLE_NATIVE_CLIENT_ID: config.auth.appleNativeClientId,
+          JWT_ISSUER: this.api.apiEndpoint,
+          JWT_AUDIENCE: config.auth.audience,
+          JWT_SIGNING_KEY_ID: signingKey.keyId,
+          JWT_KEY_ID: signingKey.keyId,
+          ACCESS_TOKEN_TTL_SECONDS: String(
+            config.auth.accessTokenTtlSeconds
+          ),
+          REFRESH_TOKEN_TTL_SECONDS: String(
+            config.auth.refreshTokenTtlSeconds
+          ),
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    appleExchangeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:ConditionCheckItem',
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:Query',
+          'dynamodb:TransactWriteItems',
+          'dynamodb:UpdateItem',
+        ],
+        resources: [
+          userDataTable.tableArn,
+          `${userDataTable.tableArn}/index/*`,
+        ],
+      })
+    );
+    signingKey.grant(appleExchangeFunction, 'kms:Sign');
 
     const refreshLogGroup = new logs.LogGroup(this, 'RefreshLogGroup', {
       logGroupName: `/aws/lambda/loofit-${config.environmentName}-auth-refresh`,
@@ -248,6 +324,53 @@ export class LoofitServiceStack extends Stack {
       })
     );
     signingKey.grant(refreshFunction, 'kms:Sign');
+
+    const logoutLogGroup = new logs.LogGroup(this, 'LogoutLogGroup', {
+      logGroupName: `/aws/lambda/loofit-${config.environmentName}-auth-logout`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const logoutFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'LogoutFunction',
+      {
+        functionName: `loofit-${config.environmentName}-auth-logout`,
+        description: 'Revokes the current Loofit refresh session',
+        entry: path.join(__dirname, '../../server/src/handlers/logout.ts'),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 128,
+        timeout: Duration.seconds(5),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: logoutLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          USER_DATA_BY_USER_INDEX_NAME:
+            config.dynamodb.userDataByUserIndexName,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    logoutFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:UpdateItem'],
+        resources: [userDataTable.tableArn],
+      })
+    );
+
     signingKey.grant(kakaoExchangeFunction, 'kms:Sign');
     kakaoExchangeFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -306,12 +429,30 @@ export class LoofitServiceStack extends Stack {
       ),
     });
 
+    const appleExchangeRoutes = this.api.addRoutes({
+      path: '/v1/auth/apple/exchange',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'AppleExchangeIntegration',
+        appleExchangeFunction
+      ),
+    });
+
     const refreshRoutes = this.api.addRoutes({
       path: '/v1/auth/refresh',
       methods: [apigwv2.HttpMethod.POST],
       integration: new integrations.HttpLambdaIntegration(
         'RefreshIntegration',
         refreshFunction
+      ),
+    });
+
+    const logoutRoutes = this.api.addRoutes({
+      path: '/v1/auth/logout',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'LogoutIntegration',
+        logoutFunction
       ),
     });
 
@@ -367,7 +508,17 @@ export class LoofitServiceStack extends Stack {
         ThrottlingBurstLimit: config.api.authThrottleBurstLimit,
         ThrottlingRateLimit: config.api.authThrottleRateLimit,
       },
+      'POST /v1/auth/apple/exchange': {
+        DetailedMetricsEnabled: true,
+        ThrottlingBurstLimit: config.api.authThrottleBurstLimit,
+        ThrottlingRateLimit: config.api.authThrottleRateLimit,
+      },
       'POST /v1/auth/refresh': {
+        DetailedMetricsEnabled: true,
+        ThrottlingBurstLimit: config.api.authThrottleBurstLimit,
+        ThrottlingRateLimit: config.api.authThrottleRateLimit,
+      },
+      'POST /v1/auth/logout': {
         DetailedMetricsEnabled: true,
         ThrottlingBurstLimit: config.api.authThrottleBurstLimit,
         ThrottlingRateLimit: config.api.authThrottleRateLimit,
@@ -376,7 +527,9 @@ export class LoofitServiceStack extends Stack {
     defaultStage.node.addDependency(
       ...issuerRoutes,
       ...kakaoExchangeRoutes,
-      ...refreshRoutes
+      ...appleExchangeRoutes,
+      ...refreshRoutes,
+      ...logoutRoutes
     );
 
     const jwtAuthorizer = new apigwv2.CfnAuthorizer(this, 'JwtAuthorizer', {
@@ -439,11 +592,33 @@ export class LoofitServiceStack extends Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
+    new cloudwatch.Alarm(this, 'AppleExchangeErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-auth-apple-exchange-errors`,
+      alarmDescription:
+        'Apple exchange Lambda returned at least one unhandled error in five minutes.',
+      metric: appleExchangeFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
     new cloudwatch.Alarm(this, 'RefreshErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-auth-refresh-errors`,
       alarmDescription:
         'Refresh Lambda returned at least one unhandled error in five minutes.',
       metric: refreshFunction.metricErrors({ period: Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, 'LogoutErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-auth-logout-errors`,
+      alarmDescription:
+        'Logout Lambda returned at least one unhandled error in five minutes.',
+      metric: logoutFunction.metricErrors({ period: Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
@@ -477,8 +652,14 @@ export class LoofitServiceStack extends Stack {
     new CfnOutput(this, 'KakaoExchangeUrl', {
       value: `${this.api.apiEndpoint}/v1/auth/kakao/exchange`,
     });
+    new CfnOutput(this, 'AppleExchangeUrl', {
+      value: `${this.api.apiEndpoint}/v1/auth/apple/exchange`,
+    });
     new CfnOutput(this, 'RefreshUrl', {
       value: `${this.api.apiEndpoint}/v1/auth/refresh`,
+    });
+    new CfnOutput(this, 'LogoutUrl', {
+      value: `${this.api.apiEndpoint}/v1/auth/logout`,
     });
     new CfnOutput(this, 'MeUrl', {
       value: `${this.api.apiEndpoint}/v1/me`,
@@ -504,9 +685,9 @@ export class LoofitServiceStack extends Stack {
       value: signingKey.keyArn,
     });
     new CfnOutput(this, 'AuthenticationProvider', {
-      value: 'kakao-oidc-with-self-hosted-jwt',
+      value: 'social-oidc-with-self-hosted-jwt',
       description:
-        'Kakao OIDC login with KMS-signed Loofit tokens and a JWT authorizer',
+        'Kakao and Apple login with KMS-signed Loofit tokens and a JWT authorizer',
     });
   }
 }

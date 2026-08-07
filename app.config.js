@@ -106,6 +106,7 @@ module.exports = ({ config }) => {
       '@react-native-seoul/kakao-login',
       { kakaoAppKey: auth.kakaoNativeAppKey },
     ],
+    'expo-apple-authentication',
     [
       'expo-build-properties',
       {
@@ -130,8 +131,10 @@ module.exports = ({ config }) => {
     version: packageJson.version,
     ios: {
       ...(appJson.expo.ios ?? {}),
+      usesAppleSignIn: true,
       infoPlist: {
         ...(appJson.expo.ios?.infoPlist ?? {}),
+        CFBundleAllowMixedLocalizations: true,
         LoofitWidgetsEnabled: widgetsEnabled,
       },
       config: {

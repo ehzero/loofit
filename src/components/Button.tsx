@@ -1,12 +1,18 @@
 import type { ReactNode } from 'react';
-import { Pressable, StyleSheet, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/src/theme/ThemeProvider';
-import { radius, spacing } from '@/src/theme/tokens';
+import { providerColors, radius, spacing } from '@/src/theme/tokens';
 
 import { AppText } from './AppText';
 
-type ButtonVariant = 'accent' | 'neutral' | 'ghost' | 'danger' | 'dangerSolid';
+type ButtonVariant =
+  | 'accent'
+  | 'neutral'
+  | 'ghost'
+  | 'danger'
+  | 'dangerSolid'
+  | 'kakao';
 
 type ButtonProps = {
   onPress?: () => void;
@@ -14,6 +20,7 @@ type ButtonProps = {
   disabled?: boolean;
   size?: 'md' | 'lg';
   style?: ViewStyle;
+  leadingIcon?: ReactNode;
   children: ReactNode;
 };
 
@@ -23,23 +30,42 @@ export function Button({
   disabled,
   size = 'lg',
   style,
+  leadingIcon,
   children,
 }: ButtonProps) {
   const { colors } = useTheme();
+  const isProvider = variant === 'kakao';
 
   const background =
     variant === 'accent'
       ? colors.accent
-      : variant === 'neutral'
-        ? colors.surface2
-        : variant === 'dangerSolid'
-          ? colors.dangerSolid
-          : 'transparent';
+      : variant === 'kakao'
+        ? providerColors.kakaoBackground
+        : variant === 'neutral'
+          ? colors.surface2
+          : variant === 'dangerSolid'
+            ? colors.dangerSolid
+            : 'transparent';
   const tone =
     variant === 'accent' ? 'accentContrast' : variant === 'danger' ? 'danger' : 'secondary';
   const borderColor = variant === 'ghost' ? colors.border2 : 'transparent';
   // dangerSolid needs fixed white for contrast on the solid red.
-  const labelStyle = variant === 'dangerSolid' ? { color: '#FFFFFF' } : null;
+  const labelStyle =
+    variant === 'dangerSolid'
+      ? { color: '#FFFFFF' }
+      : variant === 'kakao'
+        ? { color: providerColors.kakaoText }
+        : null;
+
+  const label = (
+    <AppText
+      variant={isProvider ? 'providerCta' : size === 'lg' ? 'cta' : 'body'}
+      weight={isProvider ? undefined : '800'}
+      tone={tone}
+      style={labelStyle}>
+      {children}
+    </AppText>
+  );
 
   return (
     <Pressable
@@ -49,14 +75,16 @@ export function Button({
       style={({ pressed }) => [
         styles.base,
         size === 'lg' ? styles.lg : styles.md,
+        isProvider ? styles.provider : null,
         { backgroundColor: background, borderColor, borderWidth: variant === 'ghost' ? 1 : 0 },
         disabled ? styles.disabled : null,
         pressed && !disabled ? styles.pressed : null,
         style,
       ]}>
-      <AppText variant={size === 'lg' ? 'cta' : 'body'} weight="800" tone={tone} style={labelStyle}>
-        {children}
-      </AppText>
+      <View style={styles.content}>
+        {leadingIcon}
+        {label}
+      </View>
     </Pressable>
   );
 }
@@ -77,6 +105,18 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
     paddingHorizontal: spacing.md,
     minHeight: 44,
+  },
+  provider: {
+    height: 44,
+    minHeight: 44,
+    borderRadius: radius.md,
+    paddingVertical: 0,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xxs,
   },
   disabled: {
     opacity: 0.4,

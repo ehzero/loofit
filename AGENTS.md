@@ -52,11 +52,13 @@
 - 운동 종료 후에는 기록, 히트맵, 다음 운동 반영을 통해 저장 완료를 명확히 확인할 수 있어야 한다.
 - 기록 목록은 왼쪽 스와이프로 삭제 액션을 제공한다. 한 번에 한 행만 활성화하고 다른 영역을 탭하면 닫으며, 다른 행을 활성화하면 기존 행을 자동으로 닫는다. 스와이프 중 이동하는 기록 행은 화면 content padding 경계에서 잘리지 않아야 하지만 삭제 액션의 오른쪽 경계는 닫힌 행의 원래 너비를 넘지 않는다. 실제 삭제 전에는 되돌릴 수 없음을 확인한다.
 - 대시보드의 30일 히트맵은 오늘을 포함한 정확히 30일만 표시한다. 요일 열은 일요일 시작 순서로 고정하고, 범위 시작일 이전 날짜 셀은 만들지 않는다.
+- 하단 탭의 `랭킹`은 인증이 필요한 유일한 현재 화면이다. 저장된 루핏 세션이 없거나 Refresh Token이 거부되면 소셜 로그인 유도 화면을 표시하고, 로그인 취소·provider 거부·일시적 서버 장애는 서로 구분되는 재시도 문구로 안내한다.
+- 랭킹 로그인 유도 화면은 `이번 주의 꾸준함`, `내 순위 한눈에`, `매주 새로운 동기`를 중심으로 로그인 가치를 적극적으로 안내한다. 영업 문구는 향후 Kakao 외 Apple·Google 등 로그인 제공자가 추가되어도 유지할 수 있도록 provider 중립적으로 작성하고, 로그인 버튼 문구는 `Apple로 로그인`, `카카오로 로그인` 형식으로 통일한다. 두 소셜 로그인 버튼은 44pt 높이·12pt 모서리를 공유하고 심볼과 레이블을 하나의 그룹으로 가운데 배치한다. Apple은 시스템이 관리하는 공식 버튼 타이포그래피와 심볼 크기를 사용하고, 카카오 버튼은 Apple의 시각적 크기에 맞춘 17pt·500 weight 시스템 글꼴, 16pt 공식 로그인 말풍선 심볼, 4pt 심볼 간격을 사용한다. 최하단에는 현재 미수집 항목이나 향후 서버 동기화 범위를 제한하는 문구를 표시하지 않는다. 로그인한 뒤에도 랭킹 집계 API가 구현되기 전에는 가짜 순위나 예시 사용자를 실제 데이터처럼 표시하지 않고 집계 전 상태를 보여준다.
 - 위젯은 빠른 확인과 시작/종료에 집중하고, 루틴 선택·설정·기록 수정 같은 복잡한 조작은 앱에서 수행한다.
 - 네이티브 스플래시 화면은 앱 설정을 읽기 전 표시되므로 기기 시스템의 라이트·다크 모드에 맞는 앱 팔레트를 사용한다. 저장된 앱 테마와 액센트 컬러는 앱 초기화 이후 적용한다.
 - 한국어 단일 출시 기간에는 iOS 앱·Widget Extension과 Android 앱·위젯의 기본·지원 언어를 한국어로 선언하고, 위젯과 Live Activity·Android 고정 알림의 시스템 동적 타이머도 한국어 로케일을 사용한다. 다국어 출시로 전환할 때 번들 지원 언어와 타이머 로케일 정책을 함께 확장한다.
 
-## MVP 범위
+## 초기 로컬 MVP 범위
 
 포함:
 
@@ -83,12 +85,20 @@
 - 구독 결제
 - 운동 일시정지
 
+## 현재 고도화 범위
+
+- 하단 랭킹 탭과 비로그인 Kakao·Apple 로그인 유도
+- Kakao·Apple OIDC와 루핏 Access/Refresh Token 기반 자체 인증
+- SecureStore 세션 저장과 랭킹 진입 시 Access Token 갱신
+
+아직 랭킹 조회·집계 API와 로컬 운동 기록 동기화는 포함하지 않는다.
+
 ## 구현 기준
 
 - React Native + Expo + TypeScript + Expo Router 기반이다.
 - 패키지 매니저는 `npm`을 사용한다.
 - SQLite를 영속 데이터의 원천으로 사용하고, Zustand는 현재 세션과 화면 상태 캐시로 사용한다.
-- 로그인과 백엔드 동기화 없이 Local-first로 동작한다.
+- 운동 기능은 로그인 여부와 관계없이 SQLite 기반 Local-first로 동작한다. 현재 네트워크 인증은 랭킹 탭에서 사용자가 Kakao 또는 Apple 로그인을 명시적으로 시작하거나 저장된 세션을 갱신할 때만 실행한다.
 - 앱 버전의 단일 원천은 루트 `package.json`의 `version`이다. `app.config.js`가 Expo 버전에 반영하고 앱 UI는 `expo-constants`로 주입된 버전을 표시한다.
 - 날짜 계산과 히트맵 귀속은 기기 로컬 시간 기준으로 처리한다.
 - 위젯, Live Activity, Android 고정 알림은 Expo Go가 아니라 각 플랫폼 Development Build 기준으로 검증한다.
@@ -168,18 +178,21 @@
 - 서버 영속 저장소는 DynamoDB 온디맨드를 사용한다. 사용자 원본 데이터는 `loofit-production-user-data`에 저장하고 35일 PITR을 유지하며, 재생성 가능한 랭킹은 `loofit-production-leaderboard`와 `byScore` GSI에 저장하고 TTL로 정리한다.
 - DynamoDB는 AWS 소유 키 기반 기본 서버 측 암호화를 사용하며, 현재 서버 데이터 계층을 위해 VPC·NAT Gateway·고객 관리 KMS 키·Secrets Manager 비밀값을 추가하지 않는다. 자체 인증 토큰 서명을 위한 비대칭 KMS 키는 데이터 암호화 키와 분리한다.
 - Cognito를 포함한 관리형 인증 제공자나 사용자 디렉터리는 배포하지 않는다. 자체 인증 기반은 `RSA_2048`·`SIGN_VERIFY` KMS 키와 `RS256`, 공개 issuer metadata·JWKS, API Gateway JWT Authorizer로 구성한다. 서명 키는 `RETAIN`하며 비대칭 키는 자동 회전할 수 없으므로 교체 시 신·구 공개키 병행 기간을 둔다.
-- 공개 issuer Lambda에는 `kms:GetPublicKey`만 허용한다. 카카오 exchange Lambda에는 `kms:Sign`, 사용자 테이블 read/write·transaction, `/loofit/production/auth/kakao` SecureString의 `ssm:GetParameter`를 허용한다. refresh Lambda에는 `kms:Sign`과 사용자 테이블 `UpdateItem`만 허용한다. 다른 서버 런타임에 서명 권한을 확대하지 않는다.
+- 공개 issuer Lambda에는 `kms:GetPublicKey`만 허용한다. 카카오 exchange Lambda에는 `kms:Sign`, 사용자 테이블 read/write·transaction, `/loofit/production/auth/kakao` SecureString의 `ssm:GetParameter`를 허용한다. Apple exchange Lambda에는 `kms:Sign`과 사용자 테이블 read/write·transaction만 허용하며 Apple private key나 별도 비밀값을 두지 않는다. refresh Lambda에는 `kms:Sign`과 사용자 테이블 `UpdateItem`만 허용한다. 다른 서버 런타임에 서명 권한을 확대하지 않는다.
 - API Gateway는 JWT Authorizer 생성 시 issuer discovery endpoint에 접속해 검증한다. CloudFormation에서 authorizer가 `/.well-known/*` route와 default stage 이후 생성되도록 둔 명시적 의존성을 제거하지 않는다.
 - 현재 JWT issuer는 프로덕션 API Gateway execute-api URL이고 audience는 `loofit-api`다. 커스텀 도메인 없이 이 issuer로 토큰을 발급할 수 있다. 향후 issuer를 바꾸면 기존 Access Token이 새 Authorizer에서 거절되므로 Refresh Token 재발급 또는 구·신 issuer 병행 기간을 둔다.
 - 자체 인증 계정은 `(provider, provider subject)`로 유일하게 식별한다. 같은 카카오 또는 Apple identity의 중복 가입은 금지하지만 서로 다른 provider 간 자동 연결·자동 병합·이메일 기반 중복 제거는 하지 않아 동일 사용자의 provider별 별도 계정을 허용한다.
 - provider subject 원문과 provider token은 저장하지 않는다. identity key에는 `SHA-256(provider + NUL + subject)`의 base64url 값을 사용하며 provider token은 검증 직후 폐기하고 로그에도 남기지 않는다.
 - 카카오 로그인은 `POST /v1/auth/kakao/exchange`에서 네이티브 Kakao SDK가 발급한 ID Token을 우선 검증하고, 웹 REST 흐름에서는 Authorization Code를 교환한다. 두 경로 모두 OIDC ID Token의 `RS256` 서명, `iss`, `aud`, `exp`, `iat`, `sub`를 검증하며 REST code 흐름은 `nonce`도 검증한다. 카카오 REST 요청 계약에는 PKCE가 없으므로 웹 callback은 앱이 `state`를 검증한다.
+- Apple 로그인은 가운데 정렬된 iOS `expo-apple-authentication` 공식 시스템 버튼과 `POST /v1/auth/apple/exchange`를 사용한다. 앱은 `expo-crypto`로 32바이트 nonce를 생성하고 Apple 요청과 exchange 요청에 같은 값을 전달한다. 서버는 Apple JWKS의 `RS256` 서명, `iss=https://appleid.apple.com`, `aud=com.loofit.app`, `exp`, `iat`, `sub`, `nonce`를 검증하고 `sub`만 identity 생성에 사용한다. 이메일·이름 scope는 요청하지 않는다.
 - 카카오 설정은 `/loofit/production/auth/kakao` SecureString의 `nativeClientId`와 선택적인 `rest.clientId`, `rest.clientSecret`, `rest.redirectUris` JSON으로 관리하고 CDK나 Git에 값을 포함하지 않는다. REST Redirect URI는 allowlist와 정확히 일치해야 한다.
 - 인증 사용자·identity·세션은 `loofit-production-user-data` 단일 테이블에 저장한다. `byUser` GSI의 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회하고, 세션 `expiresAt`은 DynamoDB TTL로 정리한다.
 - Refresh Token은 `lrt1.<sessionId>.<32-byte secret>` 형식으로 발급하되 전체 토큰의 SHA-256 해시만 저장한다. 갱신은 기존 해시·미폐기 상태·만료 시각을 조건으로 한 원자적 update로 한 요청만 성공시킨다.
-- 앱 자체 인증 코드는 `src/services/auth`에 둔다. Kakao provider token은 교환 요청 후 저장하지 않고 루핏 Access/Refresh Token 쌍만 `expo-secure-store`의 단일 versioned JSON으로 저장한다. Access Token 만료 60초 전 갱신하며 프로세스 내 동시 refresh 요청을 하나로 합친다.
+- 설정의 로그아웃은 현재 Refresh Token과 일치하는 서버 세션을 폐기한 뒤 SecureStore의 루핏 토큰 쌍을 삭제한다. 서버 연결 실패 시에도 이 기기의 토큰은 삭제하되 SQLite 운동 기록과 루틴은 유지한다. provider 계정 연결 해제나 Kakao·Apple 자체 로그아웃은 수행하지 않는다.
+- 앱 자체 인증 코드는 `src/services/auth`에 둔다. Kakao·Apple provider token은 교환 요청 후 저장하지 않고 루핏 Access/Refresh Token 쌍만 `expo-secure-store`의 단일 versioned JSON으로 저장한다. Access Token 만료 60초 전 갱신하며 프로세스 내 동시 refresh 요청을 하나로 합친다.
+- 랭킹 인증 화면의 상태 판정과 사용자 오류 문구는 `src/features/ranking/ranking-auth.ts`에 둔다. 저장 세션이 없거나 refresh가 `401`로 거부되면 로그인 유도 상태, 일시적 네트워크 실패면 저장 세션을 유지한 경고 상태로 처리한다.
 - 인증 저장·로그인 계약과 API 경계는 `docs/auth-contract.md`를 단일 기준으로 사용하고 서버 구현은 `server/src/auth`와 `server/src/handlers`에 둔다.
-- `GET /v1/me`는 API Gateway JWT Authorizer로 보호한다. `POST /v1/auth/kakao/exchange`와 `POST /v1/auth/refresh`는 공개 route이되 초당 5개·burst 10개 제한, 입력·자격 증명 검증, 오류 응답 균질화를 적용한다.
+- `GET /v1/me`는 API Gateway JWT Authorizer로 보호한다. `POST /v1/auth/kakao/exchange`, `POST /v1/auth/apple/exchange`, `POST /v1/auth/refresh`, `POST /v1/auth/logout`은 공개 route이되 초당 5개·burst 10개 제한, 입력·자격 증명 검증, 오류 응답 균질화를 적용한다. logout은 현재 Refresh Token 해시가 일치하는 세션만 폐기하며 유효하지 않거나 이미 폐기된 토큰도 `204`로 균질화한다.
 - AWS 배포는 현재 선택된 AWS CLI 자격의 계정을 사용하고 계정 ID를 소스에 고정하지 않는다. 리전은 `ap-northeast-2`로 고정한다.
 - 앱은 인증 모듈 추가와 관계없이 기존 Local-first 운동 동작을 유지한다. 사용자가 로그인 액션을 시작하기 전에는 인증 요청을 보내지 않으며 로그인·토큰 갱신은 로컬 운동 기록을 전송하지 않는다.
 - `npm run server:check`, `npm run infra:check`, `npm run infra:synth`, `npm run infra:diff`, `npm run infra:deploy`를 서버·인프라 검증과 배포 명령으로 사용한다.
@@ -229,7 +242,7 @@
 - TestFlight의 `테스트할 내용`은 App Store 패치노트와 달리 빌드별 정보다. TestFlight 배포를 요청받으면 해당 빌드에서 확인할 사용자 체감 변경을 별도로 정리하고, App Store용 `release_notes.txt`를 자동 업로드한 것으로 간주하지 않는다.
 - App Store Connect 인증 값은 Git에서 제외된 `fastlane/.env`에만 둔다. `.p8` 개인키는 저장소 밖에서 권한 `600`으로 보관하고 출력·로그·커밋에 포함하지 않는다. Team API 키는 `ASC_ISSUER_ID`가 필요하고 Individual API 키는 비워둔다.
 - 시스템 Ruby를 사용하지 않는다. 현재 로컬 검증은 Ruby 3.2.2로 수행했지만 Fastlane의 지원 종료 경고가 있으므로 다음 환경 갱신 시 Ruby 3.3 이상으로 올린다.
-- 앱 심사 정보는 성 `윤`, 이름 `태영`, 국제 형식 전화번호 `+82 10-3773-0967`, 이메일 `support@physiquehub.kr`를 사용한다. 로그인과 데모 계정은 필요 없으며 관련 필드를 비워둔다.
+- 앱 심사 정보는 성 `윤`, 이름 `태영`, 국제 형식 전화번호 `+82 10-3773-0967`, 이메일 `support@physiquehub.kr`를 사용한다. 랭킹 탭은 iOS에서 Kakao·Apple 로그인을 제공하므로 제출 전에 심사자가 접근할 수 있는 로그인 절차와 테스트 계정 필요 여부를 App Review Notes에 명시한다.
 - App Store 저작권 표기는 권리 취득 연도와 소유자명인 `2026 Taeyoung Yun`을 사용한다.
 - Fastlane 2.237.0은 첫 버전에 심사 상세가 없을 때 미설정 심사 첨부파일을 조회해 `No data`로 실패한다. `Fastfile`은 첨부파일 경로를 명시한 경우에만 해당 리소스를 관리하며, 원격 첨부파일을 임의로 삭제하지 않는다.
 - `skip_docs`를 유지해 Fastlane 실행이 저장소의 `fastlane/README.md`를 자동 생성 문서로 덮어쓰지 않게 한다.
@@ -244,11 +257,11 @@
 - Google Play 서비스 계정 키 경로는 Git에서 제외된 `fastlane/.env`의 `PLAY_STORE_JSON_KEY`에만 둔다. JSON 키는 저장소 밖에서 보관하고 출력·로그·커밋에 포함하지 않는다.
 - Android 첫 배포는 EAS production AAB를 Google Play 내부 테스트에 먼저 제출한다. 앱의 전체 흐름, 12개 위젯, 알림 권한 허용·거부, 진행 중 알림의 경과 시간·종료, 재부팅·자정·시간대 변경 후 복구를 실기기에서 확인한 뒤 같은 release 계열을 production으로 승격한다.
 - Android 잠금화면 위젯은 기기 제조사와 런처 지원 여부가 다르므로 지원 기기에서는 keyguard 배치를 검증하고, 미지원 기기에서는 홈 화면 위젯과 진행 중 알림을 기준으로 검증한다.
-- 현재 제품은 로그인·백엔드·광고·분석 SDK 없이 기록을 기기 SQLite에만 저장한다. Play Console 데이터 보안 답변은 출시 빌드 의존성과 동작을 다시 확인한 뒤 `수집 없음`, `공유 없음`을 기준으로 작성한다.
+- 현재 제품은 Android에서 카카오 로그인 시 카카오 계정 식별자를 검증하고 서버에 내부 사용자 ID·provider subject 해시·세션 메타데이터를 저장한다. iOS의 Apple 로그인도 같은 서버 저장 계약을 사용하지만 Android에는 Apple 로그인을 아직 제공하지 않는다. 운동 기록은 계속 기기 SQLite에만 저장한다. Play Console 데이터 보안 답변은 인증 데이터와 전송 암호화·삭제 절차를 포함해 출시 빌드 기준으로 다시 작성한다.
 - Android가 사용자에게 요청하는 제품 권한은 운동 중 진행 알림을 위한 `POST_NOTIFICATIONS`이다. 사용자가 거부해도 운동 기록과 앱 기능은 계속 동작한다고 권한·심사 설명에 명시한다. Dev Client 의존성이 병합하는 `SYSTEM_ALERT_WINDOW`, `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`는 제품 빌드 Manifest에서 명시적으로 차단한다.
-- Google Play 데이터 보안은 운동 루틴·기록·시간을 기기 안에서만 처리하고 외부로 전송하지 않는 현재 구현을 기준으로 `수집하지 않음`, `공유하지 않음`으로 선언한다. SDK나 네트워크 동작이 추가되면 제출 전에 앱 동작, 개인정보 처리방침, 데이터 보안 선언을 함께 갱신한다.
+- Google Play 데이터 보안은 운동 루틴·기록·시간이 아직 기기 안에서만 처리된다는 점과 인증 식별자·세션 메타데이터가 서버에서 처리된다는 점을 구분해 선언한다. 제출 전에 앱 동작, 개인정보 처리방침, 계정 삭제 경로와 데이터 보안 선언을 함께 갱신한다.
 - Google Play 건강 앱 선언은 운동 루틴과 운동을 기록하는 기능에 맞춰 `Activity and Fitness`를 선택한다. 의료기기, 진단, 치료, 재활, Health Connect·신체 센서 접근은 제공하지 않는다고 현재 구현과 약관 기준으로 유지한다.
-- Google Play 앱 콘텐츠는 현재 제품 기준으로 광고 없음, 로그인·회원가입·제한 콘텐츠 없음, 앱 전체에 별도 심사 계정 없이 접근 가능으로 선언한다. 개인정보 처리방침은 `https://ehzero.github.io/loofit-legal/privacy/`, 고객지원은 `https://ehzero.github.io/loofit-legal/support/`를 사용한다.
+- Google Play 앱 콘텐츠는 운동 기능은 로그인 없이 접근 가능하지만 랭킹 탭은 카카오 로그인이 필요한 상태로 선언한다. Apple 로그인은 iOS 전용이므로 Android 심사 접근 수단에는 포함하지 않는다. 개인정보 처리방침은 `https://ehzero.github.io/loofit-legal/privacy/`, 고객지원은 `https://ehzero.github.io/loofit-legal/support/`를 사용하며, 로그인 기능을 포함한 빌드 제출 전 계정 삭제 요구사항과 심사 접근 절차를 검토한다.
 - 실제 listing 업로드와 production 제출은 명시적인 배포 요청 범위에서만 수행한다. 준비만 요청받았을 때는 메타데이터·스크린샷·AAB를 검토 가능한 상태로 만들고 원격 상태를 변경하지 않는다.
 
 GitHub Actions CI는 Node 22에서 생성 계약 drift, TypeScript, Vitest, 스타일 토큰을 검사한다. macOS 26 job은 full-widget prebuild와 Pods 설치 후 Widget Extension 의존성 격리 및 Release 최적화를 확인하고 앱 빌드와 native Core 테스트를 실행한 다음, app-only clean prebuild에 위젯·App Group 잔여물이 없는지와 앱 빌드를 검증한다. Ubuntu Android job은 Android prebuild 후 Kotlin 공유 명령 계약 테스트와 Release App Bundle 빌드를 검증한다.

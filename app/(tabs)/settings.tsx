@@ -1,4 +1,4 @@
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
@@ -17,6 +17,10 @@ import {
   fetchAvailableAppUpdate,
   type AppUpdateInfo,
 } from '@/src/services/app-update';
+import {
+  getStoredAuthSession,
+  signOut,
+} from '@/src/services/auth/native-auth';
 import {
   isActionSuccessful,
   shouldDismissAfterAction,
@@ -50,6 +54,7 @@ export default function SettingsScreen() {
   const resetDevData = useAppStore((state) => state.resetDevData);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
+  const [isSignedIn, setIsSignedIn] = useState(false);
   const openContactEmail = useCallback(async () => {
     const subject = encodeURIComponent(`[${BRAND.displayName}] 문의`);
 
@@ -121,6 +126,26 @@ export default function SettingsScreen() {
     };
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      void getStoredAuthSession()
+        .then((session) => {
+          if (active) {
+            setIsSignedIn(session !== null);
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setIsSignedIn(false);
+          }
+        });
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
+
   return (
     <>
       <Screen title="설정">
@@ -128,6 +153,41 @@ export default function SettingsScreen() {
           <ListRow title="루틴 설정" chevron divider onPress={() => router.push('/routine')} />
           <ListRow title="위젯 둘러보기" chevron onPress={() => router.push('/widgets')} />
         </Card>
+
+        {isSignedIn ? (
+          <Card padding={0} gap={0} style={styles.group}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="로그아웃"
+              onPress={() =>
+                setConfirm({
+                  title: '로그아웃할까요?',
+                  description:
+                    '현재 기기에서 로그아웃해요. 운동 기록과 루틴은 삭제되지 않아요.',
+                  confirmLabel: '로그아웃',
+                  onConfirm: async () => {
+                    try {
+                      const result = await signOut();
+                      setIsSignedIn(false);
+                      showToast(
+                        result.serverSessionRevoked
+                          ? '로그아웃했어요'
+                          : '이 기기에서 로그아웃했어요'
+                      );
+                      return true;
+                    } catch {
+                      showToast('로그아웃하지 못했어요. 다시 시도해 주세요');
+                      return false;
+                    }
+                  },
+                })
+              }
+              style={styles.actionRow}>
+              <AppText variant="item">로그아웃</AppText>
+              <Icon name="logOut" size={18} color={colors.tx3} />
+            </Pressable>
+          </Card>
+        ) : null}
 
         <Card padding={spacing.md} gap={spacing.md}>
           <View style={styles.subBlock}>
@@ -222,7 +282,7 @@ export default function SettingsScreen() {
                 },
               })
             }
-            style={styles.resetRow}>
+            style={styles.actionRow}>
             <AppText variant="item" tone="danger">
               로컬 데이터 초기화
             </AppText>
@@ -316,7 +376,7 @@ const styles = StyleSheet.create({
   updatePressed: {
     opacity: 0.85,
   },
-  resetRow: {
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

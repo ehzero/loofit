@@ -137,6 +137,21 @@ describe('Loofit production infrastructure', () => {
     });
     template.hasResourceProperties('AWS::Lambda::Function', {
       Architectures: ['arm64'],
+      FunctionName: 'loofit-production-auth-apple-exchange',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          ACCESS_TOKEN_TTL_SECONDS: '900',
+          APPLE_NATIVE_CLIENT_ID: 'com.loofit.app',
+          JWT_AUDIENCE: 'loofit-api',
+          REFRESH_TOKEN_TTL_SECONDS: '2592000',
+          USER_DATA_BY_USER_INDEX_NAME: 'byUser',
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
       FunctionName: 'loofit-production-me',
       Runtime: 'nodejs22.x',
       TracingConfig: { Mode: 'Active' },
@@ -151,6 +166,17 @@ describe('Loofit production infrastructure', () => {
           ACCESS_TOKEN_TTL_SECONDS: '900',
           JWT_AUDIENCE: 'loofit-api',
           REFRESH_TOKEN_TTL_SECONDS: '2592000',
+          USER_DATA_BY_USER_INDEX_NAME: 'byUser',
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-auth-logout',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
           USER_DATA_BY_USER_INDEX_NAME: 'byUser',
         }),
       },
@@ -210,7 +236,15 @@ describe('Loofit production infrastructure', () => {
     });
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       AuthorizationType: 'NONE',
+      RouteKey: 'POST /v1/auth/apple/exchange',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'NONE',
       RouteKey: 'POST /v1/auth/refresh',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'NONE',
+      RouteKey: 'POST /v1/auth/logout',
     });
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       AuthorizationType: 'JWT',
@@ -244,12 +278,22 @@ describe('Loofit production infrastructure', () => {
         ThrottlingRateLimit: 50,
       },
       RouteSettings: {
+        'POST /v1/auth/apple/exchange': {
+          DetailedMetricsEnabled: true,
+          ThrottlingBurstLimit: 10,
+          ThrottlingRateLimit: 5,
+        },
         'POST /v1/auth/kakao/exchange': {
           DetailedMetricsEnabled: true,
           ThrottlingBurstLimit: 10,
           ThrottlingRateLimit: 5,
         },
         'POST /v1/auth/refresh': {
+          DetailedMetricsEnabled: true,
+          ThrottlingBurstLimit: 10,
+          ThrottlingRateLimit: 5,
+        },
+        'POST /v1/auth/logout': {
           DetailedMetricsEnabled: true,
           ThrottlingBurstLimit: 10,
           ThrottlingRateLimit: 5,
@@ -261,7 +305,9 @@ describe('Loofit production infrastructure', () => {
     )[0];
     expect(defaultStage?.DependsOn).toEqual(
       expect.arrayContaining([
+        expect.stringContaining('POSTv1authappleexchange'),
         expect.stringContaining('POSTv1authkakaoexchange'),
+        expect.stringContaining('POSTv1authlogout'),
         expect.stringContaining('POSTv1authrefresh'),
       ])
     );
@@ -270,11 +316,13 @@ describe('Loofit production infrastructure', () => {
     expect(Object.keys(outputs)).toEqual(
       expect.arrayContaining([
         'ApiUrl',
+        'AppleExchangeUrl',
         'AuthenticationProvider',
         'HealthUrl',
         'JwksUrl',
         'KakaoConfigParameterName',
         'KakaoExchangeUrl',
+        'LogoutUrl',
         'JwtAudience',
         'JwtAuthorizerId',
         'JwtIssuer',
@@ -289,6 +337,7 @@ describe('Loofit production infrastructure', () => {
     const templateJson = JSON.stringify(template.toJSON());
     expect(templateJson).toContain('kms:Sign');
     expect(templateJson).toContain('ssm:GetParameter');
+    expect(templateJson).toContain('dynamodb:ConditionCheckItem');
     expect(templateJson).toContain('dynamodb:TransactWriteItems');
   });
 });

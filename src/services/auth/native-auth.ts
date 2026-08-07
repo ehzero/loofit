@@ -1,4 +1,6 @@
 import { login as loginWithKakaoSdk } from '@react-native-seoul/kakao-login';
+import * as AppleAuthentication from 'expo-apple-authentication';
+import * as Crypto from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 
@@ -22,6 +24,11 @@ const sessionStore = createSerializedAuthSessionStore({
   clear: () => SecureStore.deleteItemAsync(AUTH_SESSION_KEY, secureStoreOptions),
 });
 
+const createAppleNonce = async (): Promise<string> => {
+  const bytes = await Crypto.getRandomBytesAsync(32);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+};
+
 export const nativeAuth = createAuthService({
   apiBaseUrl: authConfig.apiBaseUrl,
   sessionStore,
@@ -36,9 +43,34 @@ export const nativeAuth = createAuthService({
       return { idToken: token.idToken };
     },
   },
+  apple: {
+    async login() {
+      if (
+        Platform.OS !== 'ios' ||
+        !(await AppleAuthentication.isAvailableAsync())
+      ) {
+        throw new AuthUnavailableError(
+          'Apple native login is available only on supported Apple devices.'
+        );
+      }
+      const nonce = await createAppleNonce();
+      const credential = await AppleAuthentication.signInAsync({
+        nonce,
+        requestedScopes: [],
+      });
+      return { idToken: credential.identityToken, nonce };
+    },
+  },
 });
 
 export const signInWithKakao = () => nativeAuth.signInWithKakao();
+
+export const signInWithApple = () => nativeAuth.signInWithApple();
+
+export const isAppleSignInAvailable = async () =>
+  Platform.OS === 'ios' && AppleAuthentication.isAvailableAsync();
+
+export const signOut = () => nativeAuth.signOut();
 
 export const getLoofitAccessToken = () => nativeAuth.getAccessToken();
 

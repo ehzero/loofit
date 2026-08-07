@@ -24,6 +24,7 @@ export const productionConfig = {
     accessTokenTtlSeconds: 900,
     refreshTokenTtlSeconds: 2_592_000,
     kakaoConfigParameterName: '/loofit/production/auth/kakao',
+    appleNativeClientId: 'com.loofit.app',
   },
 } as const;
 
