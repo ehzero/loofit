@@ -10,12 +10,17 @@
 - 동일 identity의 중복 가입 방지
 - Refresh Token 생성·해시 저장·일회성 회전
 - 만료 세션 TTL 정리 기반
+- 카카오 네이티브 SDK ID Token 및 REST Authorization Code 검증
+- KMS `RS256` Access Token 서명과 루핏 세션 발급
+- `POST /v1/auth/kakao/exchange`
+- `POST /v1/auth/refresh`
+- 앱 카카오 네이티브 로그인 모듈과 SecureStore 토큰 저장·자동 갱신
+- JWT Authorizer로 보호하는 `GET /v1/me`
 
 현재 구현하지 않는 범위:
 
-- 카카오·Apple authorization code 교환과 ID Token 검증
-- Access Token 발급 API와 KMS `Sign`
-- 앱 로그인 UI와 SecureStore 저장
+- Apple authorization code 교환과 ID Token 검증
+- 앱 로그인 UI
 - 로그아웃·계정 전환·계정 연결·계정 병합·계정 삭제 API
 - 로컬 운동 기록 동기화
 
@@ -33,14 +38,18 @@
 
 ## provider 검증 계약
 
-향후 로그인 handler는 앱이 전달한 authorization code를 provider token endpoint에서 교환하고 다음을 검증해야 한다.
+로그인 handler는 카카오 네이티브 SDK가 발급한 ID Token을 직접 검증한다. 웹 REST 흐름을 사용할 때는 앱이 전달한 authorization code를 provider token endpoint에서 교환한 뒤 같은 방식으로 ID Token을 검증한다.
 
 - 서명과 `kid`
 - 정확한 `iss`
 - 루핏 앱의 client ID와 일치하는 `aud`
 - `exp`, `iat`
-- 로그인 시작 시 발급한 일회성 `nonce`와 `state`
-- PKCE `code_verifier`
+- 로그인 시작 시 앱이 생성한 일회성 `nonce`
+- provider가 지원하는 경우 PKCE `code_verifier`
+
+`state`는 앱이 로그인 시작 전에 생성·보관하고 카카오 redirect callback에서 일치 여부를 확인한 뒤에만 서버 exchange API를 호출한다. 서버는 authorization 요청을 시작한 주체가 아니므로 `state`를 대신 검증하지 않는다.
+
+카카오 REST 토큰 API의 현재 공식 요청 계약에는 `code_verifier`가 없으므로 카카오 흐름에는 PKCE 값을 전송하지 않는다. 카카오 로그인 요청에는 `state`와 OIDC `nonce`를 사용하고, token 교환에는 AWS Parameter Store에 보관한 REST API key와 Client Secret을 사용한다.
 
 검증이 끝나면 provider ID Token의 `sub`만 identity 생성·조회에 사용한다. authorization code, access token, refresh token, ID Token 원문은 DynamoDB나 애플리케이션 로그에 저장하지 않는다.
 
@@ -68,6 +77,8 @@
 | `jti` | Access Token 고유 ID |
 
 Access Token에는 이메일, provider access token, 운동 기록, 광고 식별자를 넣지 않는다.
+
+현재 Access Token 유효기간은 15분이다.
 
 ### Refresh Token
 
@@ -122,7 +133,108 @@ GSI는 향후 계정 삭제 시 귀속 identity와 세션을 조회하고, 사�
 - 로그인하지 않은 사용자는 기존 Local-first 운동 기능을 계속 사용할 수 있어야 한다.
 - 분석·광고 SDK와 인증 데이터의 결합은 별도 동의·스토어 고지 검토 전에는 하지 않는다.
 
-## 향후 API 경계
+## 카카오 로그인 API
+
+### 요청: 네이티브 앱 권장 경로
+
+Kakao SDK의 `loginWithKakaoTalk()` 또는 fallback인 `loginWithKakaoAccount()`가 반환한 `OAuthToken.idToken`을 전송한다.
+
+```http
+POST /v1/auth/kakao/exchange
+Content-Type: application/json
+
+{
+  "idToken": "Kakao SDK가 발급한 OIDC ID Token"
+}
+```
+
+- ID Token의 audience는 Kakao Native app key와 일치해야 한다.
+- 카카오톡 SSO와 카카오 계정 fallback 모두 Kakao SDK가 토큰 교환을 끝낸 뒤 같은 요청을 사용한다.
+- provider token 원문은 검증 직후 폐기하고 루핏 토큰만 앱에 저장한다.
+
+### 요청: 웹 REST 선택 경로
+
+```http
+POST /v1/auth/kakao/exchange
+Content-Type: application/json
+
+{
+  "code": "카카오 authorization code",
+  "redirectUri": "카카오 로그인 요청에 사용한 URI",
+  "nonce": "로그인 요청에 사용한 일회성 nonce"
+}
+```
+
+- `redirectUri`는 Parameter Store allowlist와 정확히 일치해야 한다.
+- OIDC가 활성화되지 않아 카카오가 ID Token을 발급하지 않으면 로그인을 거부한다.
+- 카카오 ID Token의 `iss`, `aud`, `exp`, `iat`, `nonce`, `sub`, `kid`, `RS256` 서명을 검증한다.
+- 카카오 Access Token·Refresh Token·ID Token 원문은 응답, DB, 로그에 남기지 않는다.
+
+### 성공 응답
+
+```json
+{
+  "tokenType": "Bearer",
+  "accessToken": "<Loofit JWT>",
+  "expiresIn": 900,
+  "refreshToken": "<opaque Loofit refresh token>",
+  "refreshTokenExpiresIn": 2592000,
+  "user": {
+    "id": "<Loofit userId>",
+    "created": true
+  }
+}
+```
+
+오류는 `INVALID_REQUEST`, `INVALID_REDIRECT_URI`, `KAKAO_LOGIN_REJECTED`, `AUTH_TEMPORARILY_UNAVAILABLE`, `INTERNAL_ERROR` 코드로 균질화한다. 카카오 원본 오류나 토큰 값은 클라이언트에 노출하지 않는다.
+
+## Refresh Token API
+
+```http
+POST /v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "<현재 Loofit refresh token>"
+}
+```
+
+성공 응답은 `user`를 제외하고 카카오 로그인 성공 응답과 같은 새 Access Token·Refresh Token 쌍을 반환한다. 기존 Refresh Token은 조건부 update가 성공하는 즉시 사용할 수 없으며, 만료·폐기·재사용·형식 오류가 있는 토큰은 `401 REFRESH_TOKEN_REJECTED`로 균질화한다. 요청 JSON 자체가 잘못된 경우에는 `400 INVALID_REQUEST`를 반환한다.
+
+앱의 `src/services/auth/native-auth.ts`는 Access Token 만료 60초 전부터 이 API를 호출한다. 회전 토큰의 일회성 특성 때문에 같은 앱 프로세스의 동시 갱신은 하나의 요청으로 합친다. `401`이면 저장된 루핏 세션을 삭제하고 재로그인이 필요한 상태로 전환하며, 네트워크·서버 장애에서는 기존 저장값을 지우지 않는다.
+
+## 앱 저장 계약
+
+- Kakao SDK가 발급한 ID Token은 로그인 교환 요청에만 사용하고 SecureStore에 저장하지 않는다.
+- 루핏 `userId`, Access Token, Refresh Token과 각 만료 시각을 version 1 JSON 하나로 저장해 토큰 쌍이 부분 갱신되지 않게 한다.
+- iOS는 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` 접근성을 사용하고 Android는 SecureStore가 관리하는 암호화 저장소와 백업 제외 규칙을 사용한다.
+- 인증 모듈을 추가해도 로그인 UI나 자동 로그인 요청은 발생하지 않는다. UI가 명시적으로 `signInWithKakao()`를 호출해야 네트워크 요청을 시작한다.
+- 로컬 SQLite 운동 기록은 로그인 과정이나 토큰 갱신 과정에서 서버로 전송하지 않는다.
+
+## 카카오 운영 설정
+
+카카오 Developers 앱에는 Kakao Login과 OpenID Connect를 활성화하고, 사용할 Redirect URI와 REST API Client Secret을 설정한다. 개인정보 동의 항목은 현재 필요하지 않으며 ID Token의 `sub`만 사용한다.
+
+네이티브 앱만 연결하는 현재 우선 경로에는 Native app key만 필요하다. 웹 REST 흐름을 추가할 때만 REST API key, Client Secret, Redirect URI를 함께 설정한다.
+
+AWS Systems Manager Parameter Store의 `/loofit/production/auth/kakao` SecureString 값은 다음 JSON 계약을 사용한다.
+
+```json
+{
+  "nativeClientId": "<Kakao Native app key>",
+  "rest": {
+    "clientId": "<Kakao REST API key>",
+    "clientSecret": "<Kakao Client Secret>",
+    "redirectUris": ["<exact redirect URI>"]
+  }
+}
+```
+
+`rest` 객체는 선택 사항이다. 현재 네이티브 앱 연결만 할 때는 `{"nativeClientId":"<Kakao Native app key>"}`만 저장한다.
+
+CDK는 이 SecureString을 만들거나 값을 소스에 포함하지 않는다. 카카오 exchange Lambda만 해당 parameter의 `ssm:GetParameter`와 인증 KMS 키의 `kms:Sign`, 사용자 테이블 접근 권한을 가진다. 공개 issuer Lambda는 계속 `kms:GetPublicKey`만 가진다.
+
+## API 경계
 
 최소 로그인 API는 다음 순서로 추가한다.
 
@@ -133,4 +245,4 @@ POST /v1/auth/refresh
 GET  /v1/me
 ```
 
-`/v1/me`만 현재 JWT Authorizer에 연결해 첫 end-to-end 보호 API로 사용한다. 로그인과 refresh endpoint는 공개 route이되 rate limit, 입력 검증, provider 검증, 오류 응답 균질화를 적용한다.
+현재 카카오 exchange, refresh와 `/v1/me`가 구현되어 있다. `/v1/me`는 JWT Authorizer에 연결한 첫 end-to-end 보호 API다. 로그인과 refresh endpoint는 공개 route이되 별도 rate limit, 입력 검증, 자격 증명 검증, 오류 응답 균질화를 적용한다.

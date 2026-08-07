@@ -86,10 +86,15 @@ describe('Loofit production infrastructure', () => {
     );
   });
 
-  it('creates a self-hosted JWT foundation without granting token signing', () => {
+  it('creates Kakao login with least-privilege KMS signing and JWT protection', () => {
     const app = new cdk.App();
+    const dataStack = new LoofitDataStack(app, 'ServiceDataTest', {
+      config: productionConfig,
+      env: { account: '000000000000', region: productionConfig.region },
+    });
     const stack = new LoofitServiceStack(app, 'ServiceTest', {
       config: productionConfig,
+      userDataTable: dataStack.userDataTable,
       env: { account: '000000000000', region: productionConfig.region },
     });
     const template = Template.fromStack(stack);
@@ -117,6 +122,41 @@ describe('Loofit production infrastructure', () => {
     });
     template.hasResourceProperties('AWS::Lambda::Function', {
       Architectures: ['arm64'],
+      FunctionName: 'loofit-production-auth-kakao-exchange',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          ACCESS_TOKEN_TTL_SECONDS: '900',
+          KAKAO_CONFIG_PARAMETER_NAME: '/loofit/production/auth/kakao',
+          JWT_AUDIENCE: 'loofit-api',
+          REFRESH_TOKEN_TTL_SECONDS: '2592000',
+          USER_DATA_BY_USER_INDEX_NAME: 'byUser',
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-me',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-auth-refresh',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          ACCESS_TOKEN_TTL_SECONDS: '900',
+          JWT_AUDIENCE: 'loofit-api',
+          REFRESH_TOKEN_TTL_SECONDS: '2592000',
+          USER_DATA_BY_USER_INDEX_NAME: 'byUser',
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
       FunctionName: 'loofit-production-auth-issuer',
       Runtime: 'nodejs22.x',
       TracingConfig: { Mode: 'Active' },
@@ -138,6 +178,21 @@ describe('Loofit production infrastructure', () => {
         Version: '2012-10-17',
       },
     });
+    template.hasResourceProperties('AWS::IAM::Policy', {
+      PolicyDocument: {
+        Statement: Match.arrayWith([
+          Match.objectLike({
+            Action: 'kms:Sign',
+            Effect: 'Allow',
+          }),
+          Match.objectLike({
+            Action: 'ssm:GetParameter',
+            Effect: 'Allow',
+          }),
+        ]),
+        Version: '2012-10-17',
+      },
+    });
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       RouteKey: 'GET /health',
     });
@@ -148,6 +203,19 @@ describe('Loofit production infrastructure', () => {
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       AuthorizationType: 'NONE',
       RouteKey: 'GET /.well-known/jwks.json',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'NONE',
+      RouteKey: 'POST /v1/auth/kakao/exchange',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'NONE',
+      RouteKey: 'POST /v1/auth/refresh',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'JWT',
+      AuthorizerId: Match.anyValue(),
+      RouteKey: 'GET /v1/me',
     });
     template.hasResourceProperties('AWS::ApiGatewayV2::Authorizer', {
       AuthorizerType: 'JWT',
@@ -175,7 +243,28 @@ describe('Loofit production infrastructure', () => {
         ThrottlingBurstLimit: 100,
         ThrottlingRateLimit: 50,
       },
+      RouteSettings: {
+        'POST /v1/auth/kakao/exchange': {
+          DetailedMetricsEnabled: true,
+          ThrottlingBurstLimit: 10,
+          ThrottlingRateLimit: 5,
+        },
+        'POST /v1/auth/refresh': {
+          DetailedMetricsEnabled: true,
+          ThrottlingBurstLimit: 10,
+          ThrottlingRateLimit: 5,
+        },
+      },
     });
+    const defaultStage = Object.values(
+      template.findResources('AWS::ApiGatewayV2::Stage')
+    )[0];
+    expect(defaultStage?.DependsOn).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('POSTv1authkakaoexchange'),
+        expect.stringContaining('POSTv1authrefresh'),
+      ])
+    );
 
     const outputs = template.findOutputs('*');
     expect(Object.keys(outputs)).toEqual(
@@ -184,15 +273,22 @@ describe('Loofit production infrastructure', () => {
         'AuthenticationProvider',
         'HealthUrl',
         'JwksUrl',
+        'KakaoConfigParameterName',
+        'KakaoExchangeUrl',
         'JwtAudience',
         'JwtAuthorizerId',
         'JwtIssuer',
+        'MeUrl',
+        'RefreshUrl',
         'SigningKeyArn',
       ])
     );
     expect(Object.keys(outputs)).not.toEqual(
       expect.arrayContaining(['UserPoolId', 'UserPoolClientId'])
     );
-    expect(JSON.stringify(template.toJSON())).not.toContain('kms:Sign');
+    const templateJson = JSON.stringify(template.toJSON());
+    expect(templateJson).toContain('kms:Sign');
+    expect(templateJson).toContain('ssm:GetParameter');
+    expect(templateJson).toContain('dynamodb:TransactWriteItems');
   });
 });

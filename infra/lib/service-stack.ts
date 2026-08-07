@@ -10,6 +10,8 @@ import {
 import * as apigwv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
@@ -20,6 +22,7 @@ import type { ProductionConfig } from './config';
 
 export type LoofitServiceStackProps = StackProps & {
   config: ProductionConfig;
+  userDataTable: dynamodb.ITable;
 };
 
 export class LoofitServiceStack extends Stack {
@@ -28,7 +31,7 @@ export class LoofitServiceStack extends Stack {
   constructor(scope: Construct, id: string, props: LoofitServiceStackProps) {
     super(scope, id, props);
 
-    const { config } = props;
+    const { config, userDataTable } = props;
 
     const healthLogGroup = new logs.LogGroup(this, 'HealthLogGroup', {
       logGroupName: `/aws/lambda/loofit-${config.environmentName}-health`,
@@ -115,10 +118,201 @@ export class LoofitServiceStack extends Stack {
 
     signingKey.grant(issuerFunction, 'kms:GetPublicKey');
 
+    const kakaoExchangeLogGroup = new logs.LogGroup(
+      this,
+      'KakaoExchangeLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-auth-kakao-exchange`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const kakaoExchangeFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'KakaoExchangeFunction',
+      {
+        functionName: `loofit-${config.environmentName}-auth-kakao-exchange`,
+        description:
+          'Exchanges Kakao authorization codes and issues Loofit user sessions',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/kakao-exchange.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: kakaoExchangeLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          USER_DATA_BY_USER_INDEX_NAME:
+            config.dynamodb.userDataByUserIndexName,
+          KAKAO_CONFIG_PARAMETER_NAME: config.auth.kakaoConfigParameterName,
+          JWT_ISSUER: this.api.apiEndpoint,
+          JWT_AUDIENCE: config.auth.audience,
+          JWT_SIGNING_KEY_ID: signingKey.keyId,
+          JWT_KEY_ID: signingKey.keyId,
+          ACCESS_TOKEN_TTL_SECONDS: String(
+            config.auth.accessTokenTtlSeconds
+          ),
+          REFRESH_TOKEN_TTL_SECONDS: String(
+            config.auth.refreshTokenTtlSeconds
+          ),
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    kakaoExchangeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:Query',
+          'dynamodb:TransactWriteItems',
+          'dynamodb:UpdateItem',
+        ],
+        resources: [
+          userDataTable.tableArn,
+          `${userDataTable.tableArn}/index/*`,
+        ],
+      })
+    );
+
+    const refreshLogGroup = new logs.LogGroup(this, 'RefreshLogGroup', {
+      logGroupName: `/aws/lambda/loofit-${config.environmentName}-auth-refresh`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const refreshFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'RefreshFunction',
+      {
+        functionName: `loofit-${config.environmentName}-auth-refresh`,
+        description: 'Rotates Loofit refresh tokens and issues access tokens',
+        entry: path.join(__dirname, '../../server/src/handlers/refresh.ts'),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: refreshLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          USER_DATA_BY_USER_INDEX_NAME:
+            config.dynamodb.userDataByUserIndexName,
+          JWT_ISSUER: this.api.apiEndpoint,
+          JWT_AUDIENCE: config.auth.audience,
+          JWT_SIGNING_KEY_ID: signingKey.keyId,
+          JWT_KEY_ID: signingKey.keyId,
+          ACCESS_TOKEN_TTL_SECONDS: String(
+            config.auth.accessTokenTtlSeconds
+          ),
+          REFRESH_TOKEN_TTL_SECONDS: String(
+            config.auth.refreshTokenTtlSeconds
+          ),
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    refreshFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:UpdateItem'],
+        resources: [userDataTable.tableArn],
+      })
+    );
+    signingKey.grant(refreshFunction, 'kms:Sign');
+    signingKey.grant(kakaoExchangeFunction, 'kms:Sign');
+    kakaoExchangeFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          this.formatArn({
+            service: 'ssm',
+            resource: 'parameter',
+            resourceName: config.auth.kakaoConfigParameterName.replace(/^\//, ''),
+          }),
+        ],
+      })
+    );
+
+    const meLogGroup = new logs.LogGroup(this, 'MeLogGroup', {
+      logGroupName: `/aws/lambda/loofit-${config.environmentName}-me`,
+      retention: logs.RetentionDays.ONE_MONTH,
+      removalPolicy: RemovalPolicy.DESTROY,
+    });
+    const meFunction = new lambdaNodejs.NodejsFunction(this, 'MeFunction', {
+      functionName: `loofit-${config.environmentName}-me`,
+      description: 'Returns the current Loofit user and session identifiers',
+      entry: path.join(__dirname, '../../server/src/handlers/me.ts'),
+      handler: 'handler',
+      depsLockFilePath: path.join(__dirname, '../../server/package-lock.json'),
+      runtime: lambda.Runtime.NODEJS_22_X,
+      architecture: lambda.Architecture.ARM_64,
+      memorySize: 128,
+      timeout: Duration.seconds(5),
+      tracing: lambda.Tracing.ACTIVE,
+      logGroup: meLogGroup,
+      environment: {
+        NODE_OPTIONS: '--enable-source-maps',
+      },
+      bundling: {
+        target: 'node22',
+        format: lambdaNodejs.OutputFormat.CJS,
+        minify: true,
+        sourceMap: true,
+        sourcesContent: false,
+      },
+    });
+
     this.api.addRoutes({
       path: '/health',
       methods: [apigwv2.HttpMethod.GET],
       integration: new integrations.HttpLambdaIntegration('HealthIntegration', healthFunction),
+    });
+
+    const kakaoExchangeRoutes = this.api.addRoutes({
+      path: '/v1/auth/kakao/exchange',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'KakaoExchangeIntegration',
+        kakaoExchangeFunction
+      ),
+    });
+
+    const refreshRoutes = this.api.addRoutes({
+      path: '/v1/auth/refresh',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'RefreshIntegration',
+        refreshFunction
+      ),
     });
 
     const issuerIntegration = new integrations.HttpLambdaIntegration(
@@ -167,7 +361,23 @@ export class LoofitServiceStack extends Stack {
         throttlingRateLimit: config.api.throttleRateLimit,
       },
     });
-    defaultStage.node.addDependency(...issuerRoutes);
+    defaultStage.addOverride('Properties.RouteSettings', {
+      'POST /v1/auth/kakao/exchange': {
+        DetailedMetricsEnabled: true,
+        ThrottlingBurstLimit: config.api.authThrottleBurstLimit,
+        ThrottlingRateLimit: config.api.authThrottleRateLimit,
+      },
+      'POST /v1/auth/refresh': {
+        DetailedMetricsEnabled: true,
+        ThrottlingBurstLimit: config.api.authThrottleBurstLimit,
+        ThrottlingRateLimit: config.api.authThrottleRateLimit,
+      },
+    });
+    defaultStage.node.addDependency(
+      ...issuerRoutes,
+      ...kakaoExchangeRoutes,
+      ...refreshRoutes
+    );
 
     const jwtAuthorizer = new apigwv2.CfnAuthorizer(this, 'JwtAuthorizer', {
       apiId: this.api.apiId,
@@ -180,6 +390,24 @@ export class LoofitServiceStack extends Stack {
       },
     });
     jwtAuthorizer.node.addDependency(defaultStage, ...issuerRoutes);
+
+    const meRoutes = this.api.addRoutes({
+      path: '/v1/me',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'MeIntegration',
+        meFunction
+      ),
+    });
+    for (const route of meRoutes) {
+      const cfnRoute = route.node.defaultChild;
+      if (!(cfnRoute instanceof apigwv2.CfnRoute)) {
+        throw new Error('Expected /v1/me to synthesize an HTTP API route.');
+      }
+      cfnRoute.authorizationType = 'JWT';
+      cfnRoute.authorizerId = jwtAuthorizer.ref;
+      cfnRoute.addResourceDependency(jwtAuthorizer);
+    }
 
     new cloudwatch.Alarm(this, 'HealthErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-health-errors`,
@@ -194,6 +422,28 @@ export class LoofitServiceStack extends Stack {
       alarmName: `loofit-${config.environmentName}-auth-issuer-errors`,
       alarmDescription: 'JWT issuer Lambda returned at least one error in five minutes.',
       metric: issuerFunction.metricErrors({ period: Duration.minutes(5) }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, 'KakaoExchangeErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-auth-kakao-exchange-errors`,
+      alarmDescription:
+        'Kakao exchange Lambda returned at least one unhandled error in five minutes.',
+      metric: kakaoExchangeFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    new cloudwatch.Alarm(this, 'RefreshErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-auth-refresh-errors`,
+      alarmDescription:
+        'Refresh Lambda returned at least one unhandled error in five minutes.',
+      metric: refreshFunction.metricErrors({ period: Duration.minutes(5) }),
       threshold: 1,
       evaluationPeriods: 1,
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
@@ -224,6 +474,20 @@ export class LoofitServiceStack extends Stack {
     new CfnOutput(this, 'HealthUrl', {
       value: `${this.api.apiEndpoint}/health`,
     });
+    new CfnOutput(this, 'KakaoExchangeUrl', {
+      value: `${this.api.apiEndpoint}/v1/auth/kakao/exchange`,
+    });
+    new CfnOutput(this, 'RefreshUrl', {
+      value: `${this.api.apiEndpoint}/v1/auth/refresh`,
+    });
+    new CfnOutput(this, 'MeUrl', {
+      value: `${this.api.apiEndpoint}/v1/me`,
+    });
+    new CfnOutput(this, 'KakaoConfigParameterName', {
+      value: config.auth.kakaoConfigParameterName,
+      description:
+        'Existing SecureString parameter read by the Kakao exchange Lambda',
+    });
     new CfnOutput(this, 'JwtIssuer', {
       value: this.api.apiEndpoint,
     });
@@ -240,8 +504,9 @@ export class LoofitServiceStack extends Stack {
       value: signingKey.keyArn,
     });
     new CfnOutput(this, 'AuthenticationProvider', {
-      value: 'self-hosted-jwt-foundation',
-      description: 'KMS signing key, public JWKS, and an unattached JWT authorizer',
+      value: 'kakao-oidc-with-self-hosted-jwt',
+      description:
+        'Kakao OIDC login with KMS-signed Loofit tokens and a JWT authorizer',
     });
   }
 }

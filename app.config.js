@@ -1,6 +1,7 @@
 const appJson = require('./app.json');
 const packageJson = require('./package.json');
 const brand = require('./src/config/brand.json');
+const auth = require('./src/config/auth.json');
 
 const widgetsPlugin = [
   'expo-widgets',
@@ -99,6 +100,24 @@ const widgetsPlugin = [
 module.exports = ({ config }) => {
   const widgetsEnabled = process.env.LOOFIT_APP_ONLY !== '1';
   const plugins = [...(appJson.expo.plugins ?? [])];
+
+  plugins.push(
+    [
+      '@react-native-seoul/kakao-login',
+      { kakaoAppKey: auth.kakaoNativeAppKey },
+    ],
+    [
+      'expo-build-properties',
+      {
+        android: {
+          extraMavenRepos: [
+            'https://devrepo.kakao.com/nexus/content/groups/public/',
+          ],
+        },
+      },
+    ],
+    ['expo-secure-store', { configureAndroidBackup: true }]
+  );
 
   if (widgetsEnabled) {
     plugins.push(widgetsPlugin);
