@@ -22,7 +22,7 @@ APP_STORE_BUILD_NUMBER=<build> npm run store:testflight
 APP_STORE_BUILD_NUMBER=<build> npm run store:review
 ```
 
-The metadata, screenshot, and listing lanes skip binary upload and never submit the app for review. EAS uploads the binary. After Apple finishes processing it, `store:testflight` waits for the selected build, applies `testflight/what_to_test.txt`, and distributes it to internal testers. `store:review` selects that build, refreshes metadata, and submits it for App Review. `APP_STORE_VERSION` and `APP_STORE_BUILD_NUMBER` are required so automation cannot update or submit an unintended version. Screenshot lanes also stop before contacting App Store Connect when no PNG or JPEG files exist.
+The metadata, screenshot, and listing lanes skip binary upload and never submit the app for review. They use Fastlane's non-interactive confirmation mode so CI and agent runs do not stop at the generated HTML preview. EAS uploads the binary. After Apple finishes processing it, `store:testflight` waits for the selected build, applies `testflight/what_to_test.txt`, and distributes it to internal testers. `store:review` selects that build, refreshes metadata, and submits it for App Review. `APP_STORE_VERSION` and `APP_STORE_BUILD_NUMBER` are required so automation cannot update or submit an unintended version. Screenshot lanes also stop before contacting App Store Connect when no PNG or JPEG files exist.
 
 The Korean listing manages only values confirmed by the product and repository. `support@physiquehub.kr` is used in the public description and App Review contact. The primary category is Health & Fitness (Fastlane value: `HEALTH_AND_FITNESS`); a secondary category is intentionally omitted.
 
