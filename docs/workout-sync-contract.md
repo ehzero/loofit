@@ -46,6 +46,8 @@ SQLite trigger가 모든 TypeScript·Swift·Kotlin 쓰기 경로에 동일한 �
 - 서버에 다른 `datasetId`가 이미 연결된 사용자: 업로드 전에 백업 metadata를 확인해 자동 업로드를 중단하고 설정에 복원 진입점을 표시
 - 같은 사용자의 다른 dataset 복원: 명시적 병합이 완료되면 로컬 dataset을 서버 dataset으로 변경하고 로컬에만 있는 기록을 outbox로 업로드
 - 다른 사용자 계정: 로컬에서 차단하고 자동 이전·병합하지 않음
+- 회원 탈퇴: 서버 backup·기록·tombstone을 모두 삭제하지만 로컬 dataset의 기존 사용자 바인딩은 유지
+- 탈퇴 후 재가입: 새 내부 사용자로 취급하고 기존 dataset을 자동 이전하거나 업로드하지 않음
 
 ## 실행 시점
 
@@ -81,7 +83,7 @@ Content-Type: application/json
 
 서버는 저장된 `syncVersion`보다 큰 요청만 적용한다. 같은 version은 멱등 성공, 더 낮은 version은 현재 server version과 함께 conflict로 반환한다. 앱은 로컬 payload를 유지한 채 server version보다 큰 새 revision으로 올려 다시 보내므로 로컬 SSOT가 최종 승자가 된다.
 
-`DELETE`는 운동 payload를 제거하고 `syncId`, version, 삭제 시각만 있는 tombstone으로 교체한다. tombstone은 오래된 요청의 부활을 막기 위해 초기에는 TTL 없이 유지한다. 계정 삭제가 구현되면 현재 기록과 tombstone을 모두 삭제해야 한다.
+`DELETE`는 운동 payload를 제거하고 `syncId`, version, 삭제 시각만 있는 tombstone으로 교체한다. tombstone은 오래된 요청의 부활을 막기 위해 TTL 없이 유지한다. 회원 탈퇴 worker는 현재 기록과 tombstone을 모두 삭제한다.
 
 업로드 batch를 모두 처리한 뒤 dataset 상태의 `backupRevision`을 증가시키고 `updatedAt`을 갱신한다. 복원은 다운로드 전후 revision이 같을 때만 적용한다.
 
@@ -110,6 +112,7 @@ metadata는 백업 존재 여부, `datasetId`, `backupRevision`, 마지막 백�
 ## 오류와 관측성
 
 - `401`: 인증 세션을 다시 확인하고 로그인되지 않은 상태에서는 재시도하지 않는다.
+- 탈퇴 처리 중인 사용자의 기존 Access Token으로 보낸 쓰기는 profile의 `ACTIVE` 조건 검사에서 거부한다.
 - `409 WORKOUT_SYNC_DATASET_MISMATCH`: 자동 재시도하지 않는다.
 - 요청 데이터 `4xx`: outbox를 유지하되 자동 재시도하지 않는다.
 - `429`, 네트워크 오류, `5xx`: foreground 지수 backoff로 재시도한다.

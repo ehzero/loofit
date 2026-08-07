@@ -1,5 +1,7 @@
 import type { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb';
-import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
+
+import { AUTH_ENTITY_TYPES, userProfileKey } from '../auth/model';
 
 import {
   WORKOUT_SYNC_ENTITY_TYPES,
@@ -34,11 +36,20 @@ export class WorkoutSyncDataIntegrityError extends Error {
   }
 }
 
+export class WorkoutSyncAccountInactiveError extends Error {
+  constructor() {
+    super('The workout backup account is inactive.');
+    this.name = 'WorkoutSyncAccountInactiveError';
+  }
+}
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
 const isConditionalFailure = (error: unknown): boolean =>
-  isRecord(error) && error.name === 'ConditionalCheckFailedException';
+  isRecord(error) &&
+  (error.name === 'ConditionalCheckFailedException' ||
+    error.name === 'TransactionCanceledException');
 
 export class WorkoutSyncRepository {
   private readonly client: DocumentClient;
@@ -69,22 +80,39 @@ export class WorkoutSyncRepository {
   private async touchDataset(userId: string, datasetId: string): Promise<void> {
     try {
       await this.client.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: workoutSyncStateKey(userId),
-          UpdateExpression:
-            'SET updatedAt = :updatedAt ADD backupRevision :revisionIncrement',
-          ConditionExpression: 'datasetId = :datasetId',
-          ExpressionAttributeValues: {
-            ':updatedAt': this.now().toISOString(),
-            ':revisionIncrement': 1,
-            ':datasetId': datasetId,
-          },
+        new TransactWriteCommand({
+          TransactItems: [
+            this.activeUserCondition(userId),
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: workoutSyncStateKey(userId),
+                UpdateExpression:
+                  'SET updatedAt = :updatedAt ADD backupRevision :revisionIncrement',
+                ConditionExpression: 'datasetId = :datasetId',
+                ExpressionAttributeValues: {
+                  ':updatedAt': this.now().toISOString(),
+                  ':revisionIncrement': 1,
+                  ':datasetId': datasetId,
+                },
+              },
+            },
+          ],
         })
       );
     } catch (error: unknown) {
       if (isConditionalFailure(error)) {
-        throw new WorkoutSyncDatasetMismatchError();
+        const state = await this.client.send(
+          new GetCommand({
+            TableName: this.tableName,
+            Key: workoutSyncStateKey(userId),
+            ConsistentRead: true,
+          })
+        );
+        if (state.Item) {
+          this.assertMatchingDataset(state.Item, datasetId);
+        }
+        throw new WorkoutSyncAccountInactiveError();
       }
       throw error;
     }
@@ -106,11 +134,18 @@ export class WorkoutSyncRepository {
     try {
       const now = this.now().toISOString();
       await this.client.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: createWorkoutSyncStateItem(userId, datasetId, now),
-          ConditionExpression:
-            'attribute_not_exists(pk) AND attribute_not_exists(sk)',
+        new TransactWriteCommand({
+          TransactItems: [
+            this.activeUserCondition(userId),
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: createWorkoutSyncStateItem(userId, datasetId, now),
+                ConditionExpression:
+                  'attribute_not_exists(pk) AND attribute_not_exists(sk)',
+              },
+            },
+          ],
         })
       );
     } catch (error: unknown) {
@@ -125,9 +160,7 @@ export class WorkoutSyncRepository {
         })
       );
       if (!winner.Item) {
-        throw new WorkoutSyncDataIntegrityError(
-          'Workout sync state disappeared after a concurrent bind.'
-        );
+        throw new WorkoutSyncAccountInactiveError();
       }
       this.assertMatchingDataset(winner.Item, datasetId);
     }
@@ -159,14 +192,21 @@ export class WorkoutSyncRepository {
 
     try {
       await this.client.send(
-        new PutCommand({
-          TableName: this.tableName,
-          Item: item,
-          ConditionExpression:
-            'attribute_not_exists(syncVersion) OR syncVersion < :incomingVersion',
-          ExpressionAttributeValues: {
-            ':incomingVersion': operation.version,
-          },
+        new TransactWriteCommand({
+          TransactItems: [
+            this.activeUserCondition(userId),
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: item,
+                ConditionExpression:
+                  'attribute_not_exists(syncVersion) OR syncVersion < :incomingVersion',
+                ExpressionAttributeValues: {
+                  ':incomingVersion': operation.version,
+                },
+              },
+            },
+          ],
         })
       );
       return {
@@ -189,9 +229,7 @@ export class WorkoutSyncRepository {
     );
     const serverVersion = existing.Item?.syncVersion;
     if (!Number.isSafeInteger(serverVersion) || serverVersion < operation.version) {
-      throw new WorkoutSyncDataIntegrityError(
-        'Conditional workout write failed without a newer stored version.'
-      );
+      throw new WorkoutSyncAccountInactiveError();
     }
     return serverVersion === operation.version
       ? {
@@ -205,5 +243,21 @@ export class WorkoutSyncRepository {
           status: 'CONFLICT',
           serverVersion,
         };
+  }
+
+  private activeUserCondition(userId: string) {
+    return {
+      ConditionCheck: {
+        TableName: this.tableName,
+        Key: userProfileKey(userId),
+        ConditionExpression:
+          'entityType = :userEntityType AND #status = :active',
+        ExpressionAttributeNames: { '#status': 'status' },
+        ExpressionAttributeValues: {
+          ':userEntityType': AUTH_ENTITY_TYPES.userProfile,
+          ':active': 'ACTIVE',
+        },
+      },
+    };
   }
 }

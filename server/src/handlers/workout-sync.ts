@@ -13,6 +13,7 @@ import type {
   WorkoutSyncResult,
 } from '../workout-sync/model';
 import {
+  WorkoutSyncAccountInactiveError,
   WorkoutSyncDatasetMismatchError,
   WorkoutSyncRepository,
 } from '../workout-sync/repository';
@@ -244,6 +245,9 @@ export const createWorkoutSyncHandler = (
           'WORKOUT_SYNC_DATASET_MISMATCH',
           'Workout backup belongs to another local dataset.'
         );
+      }
+      if (error instanceof WorkoutSyncAccountInactiveError) {
+        return errorResponse(401, 'ACCOUNT_INACTIVE', 'Account is inactive.');
       }
 
       dependencies.reportUnexpectedError?.(error, requestId);

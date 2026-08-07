@@ -57,7 +57,7 @@ describe('Loofit production infrastructure', () => {
       Properties: Match.objectLike({
         BillingMode: 'PAY_PER_REQUEST',
         DeletionProtectionEnabled: true,
-        GlobalSecondaryIndexes: [
+        GlobalSecondaryIndexes: Match.arrayWith([
           Match.objectLike({
             IndexName: 'byScore',
             KeySchema: [
@@ -65,7 +65,14 @@ describe('Loofit production infrastructure', () => {
               { AttributeName: 'score', KeyType: 'RANGE' },
             ],
           }),
-        ],
+          Match.objectLike({
+            IndexName: 'byUser',
+            KeySchema: [
+              { AttributeName: 'userId', KeyType: 'HASH' },
+              { AttributeName: 'period', KeyType: 'RANGE' },
+            ],
+          }),
+        ]),
         TableName: 'loofit-production-leaderboard',
         TimeToLiveSpecification: {
           AttributeName: 'expiresAt',
@@ -78,6 +85,7 @@ describe('Loofit production infrastructure', () => {
     expect(Object.keys(outputs)).toEqual(
       expect.arrayContaining([
         'LeaderboardTableArn',
+        'LeaderboardByUserIndexName',
         'LeaderboardTableName',
         'UserDataTableArn',
         'UserDataByUserIndexName',
@@ -95,6 +103,7 @@ describe('Loofit production infrastructure', () => {
     const stack = new LoofitServiceStack(app, 'ServiceTest', {
       config: productionConfig,
       userDataTable: dataStack.userDataTable,
+      leaderboardTable: dataStack.leaderboardTable,
       env: { account: '000000000000', region: productionConfig.region },
     });
     const template = Template.fromStack(stack);
@@ -155,6 +164,39 @@ describe('Loofit production infrastructure', () => {
       FunctionName: 'loofit-production-me',
       Runtime: 'nodejs22.x',
       TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          USER_DATA_BY_USER_INDEX_NAME: 'byUser',
+          USER_DATA_TABLE_NAME: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-account-deletion',
+      Runtime: 'nodejs22.x',
+      Timeout: 20,
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          ACCOUNT_DELETION_QUEUE_URL: Match.anyValue(),
+          APPLE_CONFIG_PARAMETER_NAME: '/loofit/production/auth/apple',
+          KAKAO_CONFIG_PARAMETER_NAME: '/loofit/production/auth/kakao',
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-account-deletion-worker',
+      Runtime: 'nodejs22.x',
+      Timeout: 60,
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          LEADERBOARD_BY_USER_INDEX_NAME: 'byUser',
+          LEADERBOARD_TABLE_NAME: Match.anyValue(),
+        }),
+      },
     });
     template.hasResourceProperties('AWS::Lambda::Function', {
       Architectures: ['arm64'],
@@ -276,6 +318,11 @@ describe('Loofit production infrastructure', () => {
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
       AuthorizationType: 'JWT',
       AuthorizerId: Match.anyValue(),
+      RouteKey: 'POST /v1/account/deletion',
+    });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'JWT',
+      AuthorizerId: Match.anyValue(),
       RouteKey: 'POST /v1/workouts/sync',
     });
     template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
@@ -296,6 +343,21 @@ describe('Loofit production infrastructure', () => {
         Issuer: Match.anyValue(),
       },
       Name: 'loofit-production-jwt',
+    });
+    template.resourceCountIs('AWS::SQS::Queue', 2);
+    template.hasResourceProperties('AWS::SQS::Queue', {
+      QueueName: 'loofit-production-account-deletion',
+      MessageRetentionPeriod: 86400,
+      VisibilityTimeout: 120,
+      RedrivePolicy: Match.objectLike({ maxReceiveCount: 5 }),
+    });
+    template.hasResourceProperties('AWS::SQS::Queue', {
+      QueueName: 'loofit-production-account-deletion-dlq',
+      MessageRetentionPeriod: 1209600,
+    });
+    template.hasResourceProperties('AWS::Lambda::EventSourceMapping', {
+      BatchSize: 1,
+      FunctionResponseTypes: ['ReportBatchItemFailures'],
     });
     const authorizer = Object.values(
       template.findResources('AWS::ApiGatewayV2::Authorizer')
@@ -353,6 +415,8 @@ describe('Loofit production infrastructure', () => {
     expect(Object.keys(outputs)).toEqual(
       expect.arrayContaining([
         'ApiUrl',
+        'AccountDeletionUrl',
+        'AppleConfigParameterName',
         'AppleExchangeUrl',
         'AuthenticationProvider',
         'HealthUrl',
@@ -381,5 +445,7 @@ describe('Loofit production infrastructure', () => {
     expect(templateJson).toContain('dynamodb:PutItem');
     expect(templateJson).toContain('dynamodb:Query');
     expect(templateJson).toContain('dynamodb:TransactWriteItems');
+    expect(templateJson).toContain('dynamodb:BatchWriteItem');
+    expect(templateJson).toContain('sqs:SendMessage');
   });
 });

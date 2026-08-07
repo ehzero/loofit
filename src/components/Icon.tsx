@@ -33,6 +33,7 @@ const ICONS = {
   checkCircle: feather('check-circle'),
   lock: feather('lock'),
   logOut: feather('log-out'),
+  userMinus: feather('user-x'),
   users: feather('users'),
   widget: feather('grid'),
   dumbbell: mci('dumbbell'),

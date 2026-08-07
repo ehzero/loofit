@@ -19,7 +19,10 @@ import {
   type AppleAuthenticationInput,
   type AppleIdentity,
 } from '../auth/apple';
-import { AuthRepository } from '../auth/repository';
+import {
+  AccountDeletionInProgressError,
+  AuthRepository,
+} from '../auth/repository';
 
 type AppleExchangeHandlerDependencies = {
   authenticate: (input: AppleAuthenticationInput) => Promise<AppleIdentity>;
@@ -147,6 +150,13 @@ export const createAppleExchangeHandler = (
           401,
           'APPLE_LOGIN_REJECTED',
           'Apple login could not be verified.'
+        );
+      }
+      if (error instanceof AccountDeletionInProgressError) {
+        return errorResponse(
+          409,
+          'ACCOUNT_DELETION_IN_PROGRESS',
+          'Account deletion is in progress.'
         );
       }
 

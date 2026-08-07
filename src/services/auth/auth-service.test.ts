@@ -242,6 +242,94 @@ describe('auth service', () => {
     expect(memory.read()).toBeNull();
   });
 
+  it('reauthenticates with Kakao before accepting account deletion', async () => {
+    const currentSession: AuthSession = {
+      version: 1,
+      userId: 'user-1',
+      accessToken: 'access-current',
+      accessTokenExpiresAtEpochSeconds: nowEpochSeconds + 300,
+      refreshToken: 'refresh-current',
+      refreshTokenExpiresAtEpochSeconds: nowEpochSeconds + 2_592_000,
+    };
+    const memory = createMemorySessionStore(currentSession);
+    const kakaoLogin = vi.fn(async () => ({
+      idToken: 'kakao-id-token',
+      accessToken: 'kakao-access-token',
+    }));
+    const fetchImplementation = vi
+      .fn()
+      .mockResolvedValueOnce(response(200, { provider: 'KAKAO' }))
+      .mockResolvedValueOnce(response(202, { status: 'PROCESSING' }));
+    const service = createAuthService({
+      apiBaseUrl: 'https://api.example.com',
+      sessionStore: memory.store,
+      kakao: { login: kakaoLogin },
+      fetchImplementation,
+      now: () => now,
+    });
+
+    await expect(service.deleteAccount()).resolves.toEqual({
+      status: 'PROCESSING',
+    });
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      1,
+      'https://api.example.com/v1/me',
+      expect.objectContaining({
+        method: 'GET',
+        headers: { authorization: 'Bearer access-current' },
+      })
+    );
+    expect(fetchImplementation).toHaveBeenNthCalledWith(
+      2,
+      'https://api.example.com/v1/account/deletion',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          provider: 'KAKAO',
+          idToken: 'kakao-id-token',
+          accessToken: 'kakao-access-token',
+        }),
+      })
+    );
+    expect(memory.read()).toBeNull();
+  });
+
+  it('keeps the Loofit session when account deletion is not accepted', async () => {
+    const currentSession: AuthSession = {
+      version: 1,
+      userId: 'user-1',
+      accessToken: 'access-current',
+      accessTokenExpiresAtEpochSeconds: nowEpochSeconds + 300,
+      refreshToken: 'refresh-current',
+      refreshTokenExpiresAtEpochSeconds: nowEpochSeconds + 2_592_000,
+    };
+    const memory = createMemorySessionStore(currentSession);
+    const service = createAuthService({
+      apiBaseUrl: 'https://api.example.com',
+      sessionStore: memory.store,
+      kakao: {
+        login: vi.fn(async () => ({
+          idToken: 'kakao-id-token',
+          accessToken: 'kakao-access-token',
+        })),
+      },
+      fetchImplementation: vi
+        .fn()
+        .mockResolvedValueOnce(response(200, { provider: 'KAKAO' }))
+        .mockResolvedValueOnce(
+          response(503, {
+            error: { code: 'AUTH_PROVIDER_UNAVAILABLE' },
+          })
+        ),
+      now: () => now,
+    });
+
+    await expect(service.deleteAccount()).rejects.toMatchObject({
+      code: 'AUTH_PROVIDER_UNAVAILABLE',
+    });
+    expect(memory.read()).toEqual(currentSession);
+  });
+
   it('clears local credentials when the logout API is unavailable', async () => {
     const memory = createMemorySessionStore({
       version: 1,

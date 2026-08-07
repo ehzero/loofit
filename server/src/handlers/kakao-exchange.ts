@@ -26,7 +26,10 @@ import {
   type KakaoAuthenticationInput,
   type KakaoIdentity,
 } from '../auth/kakao';
-import { AuthRepository } from '../auth/repository';
+import {
+  AccountDeletionInProgressError,
+  AuthRepository,
+} from '../auth/repository';
 
 type KakaoExchangeHandlerDependencies = {
   authenticate: (input: KakaoAuthenticationInput) => Promise<KakaoIdentity>;
@@ -191,6 +194,13 @@ export const createKakaoExchangeHandler = (
           503,
           'AUTH_TEMPORARILY_UNAVAILABLE',
           'Authentication is temporarily unavailable.'
+        );
+      }
+      if (error instanceof AccountDeletionInProgressError) {
+        return errorResponse(
+          409,
+          'ACCOUNT_DELETION_IN_PROGRESS',
+          'Account deletion is in progress.'
         );
       }
 

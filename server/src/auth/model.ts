@@ -9,7 +9,7 @@ export const AUTH_ENTITY_TYPES = {
   session: 'AUTH_SESSION',
 } as const;
 
-export type AuthUserStatus = 'ACTIVE';
+export type AuthUserStatus = 'ACTIVE' | 'DELETING';
 
 export type AuthUserProfileItem = {
   pk: string;
@@ -19,6 +19,8 @@ export type AuthUserProfileItem = {
   status: AuthUserStatus;
   createdAt: string;
   updatedAt: string;
+  deletionRequestId?: string;
+  deletionRequestedAt?: string;
 };
 
 export type AuthIdentityItem = {
@@ -52,7 +54,12 @@ export type AuthSessionItem = {
 
 export type AuthUser = Pick<
   AuthUserProfileItem,
-  'userId' | 'status' | 'createdAt' | 'updatedAt'
+  | 'userId'
+  | 'status'
+  | 'createdAt'
+  | 'updatedAt'
+  | 'deletionRequestId'
+  | 'deletionRequestedAt'
 >;
 
 export type AuthIdentity = Pick<

@@ -27,6 +27,7 @@ const dataStack = new LoofitDataStack(app, `${productionConfig.stackPrefix}Data`
 const serviceStack = new LoofitServiceStack(app, `${productionConfig.stackPrefix}Service`, {
   config: productionConfig,
   userDataTable: dataStack.userDataTable,
+  leaderboardTable: dataStack.leaderboardTable,
   env: environment,
   description: 'Loofit production HTTP API, self-hosted JWT, Lambda, and observability foundation',
   terminationProtection: true,

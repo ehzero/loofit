@@ -14,7 +14,11 @@ import {
   createRefreshToken,
   hashRefreshToken,
 } from './model';
-import { AuthRepository, RefreshTokenRejectedError } from './repository';
+import {
+  AccountDeletionInProgressError,
+  AuthRepository,
+  RefreshTokenRejectedError,
+} from './repository';
 
 const NOW = new Date('2026-08-07T00:00:00.000Z');
 const USER_ID = '11111111-1111-4111-8111-111111111111';
@@ -70,6 +74,25 @@ describe('auth repository', () => {
     expect(send).toHaveBeenCalledTimes(2);
   });
 
+  it('rejects login while the existing account is being deleted', async () => {
+    const createdAt = NOW.toISOString();
+    const identity = createAuthIdentityItem('KAKAO', SUBJECT, USER_ID, createdAt);
+    const user = {
+      ...createAuthUserProfileItem(USER_ID, createdAt),
+      status: 'DELETING',
+      deletionRequestId: 'request-1',
+      deletionRequestedAt: createdAt,
+    };
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({ Item: identity })
+      .mockResolvedValueOnce({ Item: user });
+
+    await expect(
+      createRepository(send).findOrCreateUser('KAKAO', SUBJECT)
+    ).rejects.toBeInstanceOf(AccountDeletionInProgressError);
+  });
+
   it('uses the concurrent winner when two requests create the same identity', async () => {
     const createdAt = NOW.toISOString();
     const identity = createAuthIdentityItem('KAKAO', SUBJECT, USER_ID, createdAt);
@@ -118,18 +141,32 @@ describe('auth repository', () => {
     expect(JSON.stringify(storedSession)).not.toContain(CURRENT_SECRET);
   });
 
+  it('rejects session creation when the active user condition fails', async () => {
+    const send = vi.fn().mockRejectedValueOnce(
+      Object.assign(new Error('inactive account'), {
+        name: 'TransactionCanceledException',
+      })
+    );
+
+    await expect(
+      createRepository(send).createSession(USER_ID, 2_592_000)
+    ).rejects.toBeInstanceOf(AccountDeletionInProgressError);
+  });
+
   it('rotates a refresh token with an atomic hash and expiry condition', async () => {
     const currentToken = createRefreshToken(SESSION_ID, CURRENT_SECRET);
     const nextToken = createRefreshToken(SESSION_ID, NEXT_SECRET);
-    const rotatedItem = createAuthSessionItem({
+    const currentItem = createAuthSessionItem({
       userId: USER_ID,
       sessionId: SESSION_ID,
-      refreshTokenHash: hashRefreshToken(nextToken),
+      refreshTokenHash: hashRefreshToken(currentToken),
       now: NOW.toISOString(),
       expiresAt: 1_788_652_800,
     });
-    rotatedItem.rotationCounter = 1;
-    const send = vi.fn().mockResolvedValueOnce({ Attributes: rotatedItem });
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({ Item: currentItem })
+      .mockResolvedValueOnce({});
 
     const result = await createRepository(send, NEXT_SECRET).rotateRefreshToken(
       currentToken,
@@ -137,36 +174,51 @@ describe('auth repository', () => {
     );
 
     expect(result.refreshToken).toBe(nextToken);
-    const update = send.mock.calls[0]?.[0] as UpdateCommand;
-    expect(update).toBeInstanceOf(UpdateCommand);
-    expect(update.input.ConditionExpression).toContain(
+    const transaction = send.mock.calls[1]?.[0] as TransactWriteCommand;
+    expect(transaction).toBeInstanceOf(TransactWriteCommand);
+    const update = transaction.input.TransactItems?.[1]?.Update;
+    expect(update?.ConditionExpression).toContain(
       'refreshTokenHash = :currentHash'
     );
-    expect(update.input.ConditionExpression).toContain('expiresAt > :nowEpoch');
-    expect(update.input.ExpressionAttributeValues).toMatchObject({
+    expect(update?.ConditionExpression).toContain('expiresAt > :nowEpoch');
+    expect(update?.ExpressionAttributeValues).toMatchObject({
       ':currentHash': hashRefreshToken(currentToken),
       ':nextHash': hashRefreshToken(nextToken),
     });
+    expect(
+      transaction.input.TransactItems?.[0]?.ConditionCheck?.ConditionExpression
+    ).toContain('#status = :active');
   });
 
   it('maps replay and malformed refresh credentials to a domain rejection', async () => {
-    const send = vi.fn().mockRejectedValueOnce(
-      Object.assign(new Error('conditional failure'), {
-        name: 'ConditionalCheckFailedException',
-      })
-    );
+    const currentToken = createRefreshToken(SESSION_ID, CURRENT_SECRET);
+    const currentItem = createAuthSessionItem({
+      userId: USER_ID,
+      sessionId: SESSION_ID,
+      refreshTokenHash: hashRefreshToken(currentToken),
+      now: NOW.toISOString(),
+      expiresAt: 1_788_652_800,
+    });
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({ Item: currentItem })
+      .mockRejectedValueOnce(
+        Object.assign(new Error('conditional failure'), {
+          name: 'TransactionCanceledException',
+        })
+      );
     const repository = createRepository(send, NEXT_SECRET);
 
     await expect(
       repository.rotateRefreshToken(
-        createRefreshToken(SESSION_ID, CURRENT_SECRET),
+        currentToken,
         2_592_000
       )
     ).rejects.toBeInstanceOf(RefreshTokenRejectedError);
     await expect(
       repository.rotateRefreshToken('malformed', 2_592_000)
     ).rejects.toBeInstanceOf(RefreshTokenRejectedError);
-    expect(send).toHaveBeenCalledTimes(1);
+    expect(send).toHaveBeenCalledTimes(2);
   });
 
   it('revokes the session only when the current refresh token matches', async () => {

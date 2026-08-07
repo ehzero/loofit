@@ -22,11 +22,18 @@ export type SecretValueStore = {
 };
 
 export type KakaoIdTokenProvider = {
-  login(): Promise<{ idToken?: string | null }>;
+  login(): Promise<{
+    idToken?: string | null;
+    accessToken?: string | null;
+  }>;
 };
 
 export type AppleIdTokenProvider = {
-  login(): Promise<{ idToken?: string | null; nonce: string }>;
+  login(): Promise<{
+    idToken?: string | null;
+    nonce: string;
+    authorizationCode?: string | null;
+  }>;
 };
 
 type FetchImplementation = typeof fetch;
@@ -50,6 +57,12 @@ export type KakaoSignInResult = SocialSignInResult;
 
 export type SignOutResult = {
   serverSessionRevoked: boolean;
+};
+
+export type AccountProvider = 'KAKAO' | 'APPLE';
+
+export type DeleteAccountResult = {
+  status: 'PROCESSING';
 };
 
 export class AuthRequiredError extends Error {
@@ -215,6 +228,35 @@ export const createAuthService = (options: AuthServiceOptions) => {
     return responseBody;
   };
 
+  const authorizedRequest = async (
+    path: string,
+    accessToken: string,
+    init: { method: 'GET' | 'POST'; body?: unknown }
+  ): Promise<unknown> => {
+    let response: Response;
+    try {
+      response = await fetchImplementation(`${apiBaseUrl}${path}`, {
+        method: init.method,
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          ...(init.body === undefined
+            ? {}
+            : { 'content-type': 'application/json' }),
+        },
+        ...(init.body === undefined
+          ? {}
+          : { body: JSON.stringify(init.body) }),
+      });
+    } catch {
+      throw new AuthUnavailableError();
+    }
+    const responseBody = await parseJson(response);
+    if (!response.ok) {
+      throw new AuthApiError(response.status, parseErrorCode(responseBody));
+    }
+    return responseBody;
+  };
+
   const refresh = (current: AuthSession): Promise<AuthSession> => {
     if (refreshInFlight !== null) {
       return refreshInFlight;
@@ -245,6 +287,24 @@ export const createAuthService = (options: AuthServiceOptions) => {
     });
 
     return refreshInFlight;
+  };
+
+  const getValidAccessToken = async (): Promise<string> => {
+    if (isSigningOut) {
+      throw new AuthRequiredError();
+    }
+    const session = await options.sessionStore.get();
+    if (session === null) {
+      throw new AuthRequiredError();
+    }
+    const nowEpochSeconds = Math.floor(now().getTime() / 1_000);
+    if (
+      session.accessTokenExpiresAtEpochSeconds - nowEpochSeconds >
+      refreshLeeway
+    ) {
+      return session.accessToken;
+    }
+    return (await refresh(session)).accessToken;
   };
 
   const storeSocialSignInResponse = async (
@@ -343,24 +403,76 @@ export const createAuthService = (options: AuthServiceOptions) => {
       }
     },
 
-    async getAccessToken(): Promise<string> {
-      if (isSigningOut) {
-        throw new AuthRequiredError();
-      }
-      const session = await options.sessionStore.get();
-      if (session === null) {
-        throw new AuthRequiredError();
-      }
-
-      const nowEpochSeconds = Math.floor(now().getTime() / 1_000);
+    async deleteAccount(): Promise<DeleteAccountResult> {
+      const accessToken = await getValidAccessToken();
+      const accountResponse = await authorizedRequest('/v1/me', accessToken, {
+        method: 'GET',
+      });
       if (
-        session.accessTokenExpiresAtEpochSeconds - nowEpochSeconds >
-        refreshLeeway
+        !isRecord(accountResponse) ||
+        (accountResponse.provider !== 'KAKAO' &&
+          accountResponse.provider !== 'APPLE')
       ) {
-        return session.accessToken;
+        throw new AuthUnavailableError('The account response was invalid.');
+      }
+      const provider: AccountProvider = accountResponse.provider;
+      let proof: Record<string, string>;
+      if (provider === 'KAKAO') {
+        const credential = await options.kakao.login();
+        if (
+          !isNonEmptyString(credential.idToken) ||
+          !isNonEmptyString(credential.accessToken)
+        ) {
+          throw new AuthUnavailableError(
+            'Kakao reauthentication credential was not issued.'
+          );
+        }
+        proof = {
+          provider,
+          idToken: credential.idToken,
+          accessToken: credential.accessToken,
+        };
+      } else {
+        if (!options.apple) {
+          throw new AuthUnavailableError(
+            'Apple reauthentication is not available on this device.'
+          );
+        }
+        const credential = await options.apple.login();
+        if (
+          !isNonEmptyString(credential.idToken) ||
+          !isNonEmptyString(credential.nonce) ||
+          !isNonEmptyString(credential.authorizationCode)
+        ) {
+          throw new AuthUnavailableError(
+            'Apple reauthentication credential was not issued.'
+          );
+        }
+        proof = {
+          provider,
+          idToken: credential.idToken,
+          nonce: credential.nonce,
+          authorizationCode: credential.authorizationCode,
+        };
       }
 
-      return (await refresh(session)).accessToken;
+      const deletionResponse = await authorizedRequest(
+        '/v1/account/deletion',
+        accessToken,
+        { method: 'POST', body: proof }
+      );
+      if (
+        !isRecord(deletionResponse) ||
+        deletionResponse.status !== 'PROCESSING'
+      ) {
+        throw new AuthUnavailableError(
+          'The account deletion response was invalid.'
+        );
+      }
+      await options.sessionStore.clear();
+      return { status: 'PROCESSING' };
     },
+
+    getAccessToken: getValidAccessToken,
   };
 };

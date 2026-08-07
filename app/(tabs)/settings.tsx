@@ -18,9 +18,11 @@ import {
   type AppUpdateInfo,
 } from '@/src/services/app-update';
 import {
+  deleteAccount,
   getStoredAuthSession,
   signOut,
 } from '@/src/services/auth/native-auth';
+import { AuthApiError } from '@/src/services/auth/auth-service';
 import {
   getWorkoutBackupStatus,
   restoreWorkoutBackup,
@@ -77,7 +79,7 @@ const backupStatusDescription = (status: WorkoutBackupStatus | null): string => 
     return '백업 상태를 확인하고 있어요.';
   }
   if (status.kind === 'accountMismatch') {
-    return '다른 계정에 연결된 로컬 기록은 백업하거나 가져올 수 없어요.';
+    return '이전 계정에 연결된 로컬 기록은 새 계정으로 자동 이전하지 않아요.';
   }
   if (status.kind === 'restoreAvailable') {
     return status.localRecordCount > 0
@@ -389,44 +391,95 @@ export default function SettingsScreen() {
             }
           />
           {isSignedIn ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="로그아웃"
-              onPress={() =>
-                setConfirm({
-                  title: '로그아웃할까요?',
-                  description:
-                    '현재 기기에서 로그아웃해요. 운동 기록과 루틴은 삭제되지 않아요.',
-                  confirmLabel: '로그아웃',
-                  onConfirm: async () => {
-                    try {
-                      const result = await signOut();
-                      setIsSignedIn(false);
-                      setBackupStatus(null);
-                      setHasBackupStatusError(false);
-                      showToast(
-                        result.serverSessionRevoked
-                          ? '로그아웃했어요'
-                          : '이 기기에서 로그아웃했어요'
-                      );
-                      return true;
-                    } catch {
-                      showToast('로그아웃하지 못했어요. 다시 시도해 주세요');
-                      return false;
-                    }
+            <>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="로그아웃"
+                onPress={() =>
+                  setConfirm({
+                    title: '로그아웃할까요?',
+                    description:
+                      '현재 기기에서 로그아웃해요. 운동 기록과 루틴은 삭제되지 않아요.',
+                    confirmLabel: '로그아웃',
+                    onConfirm: async () => {
+                      try {
+                        const result = await signOut();
+                        setIsSignedIn(false);
+                        setBackupStatus(null);
+                        setHasBackupStatusError(false);
+                        showToast(
+                          result.serverSessionRevoked
+                            ? '로그아웃했어요'
+                            : '이 기기에서 로그아웃했어요'
+                        );
+                        return true;
+                      } catch {
+                        showToast('로그아웃하지 못했어요. 다시 시도해 주세요');
+                        return false;
+                      }
+                    },
+                  })
+                }
+                style={[
+                  styles.actionRow,
+                  {
+                    borderBottomColor: colors.line,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
                   },
-                })
-              }
-              style={[
-                styles.actionRow,
-                {
-                  borderBottomColor: colors.line,
-                  borderBottomWidth: StyleSheet.hairlineWidth,
-                },
-              ]}>
-              <AppText variant="item">로그아웃</AppText>
-              <Icon name="logOut" size={18} color={colors.tx3} />
-            </Pressable>
+                ]}>
+                <AppText variant="item">로그아웃</AppText>
+                <Icon name="logOut" size={18} color={colors.tx3} />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="회원 탈퇴"
+                onPress={() =>
+                  setConfirm({
+                    title: '회원 탈퇴할까요?',
+                    description:
+                      '루핏 계정과 서버 백업, 랭킹 데이터가 영구 삭제되고 소셜 계정 연결이 해제돼요. 현재 기기의 운동 기록과 루틴은 유지되며, 삭제한 서버 데이터는 복구할 수 없어요.',
+                    confirmLabel: '회원 탈퇴',
+                    danger: true,
+                    onConfirm: async () => {
+                      try {
+                        await deleteAccount();
+                        setIsSignedIn(false);
+                        setBackupStatus(null);
+                        setHasBackupStatusError(false);
+                        showToast('회원 탈퇴 요청이 접수됐어요');
+                        return true;
+                      } catch (error) {
+                        if (
+                          error instanceof AuthApiError &&
+                          error.code === 'ACCOUNT_REAUTHENTICATION_REJECTED'
+                        ) {
+                          showToast('소셜 계정 본인 확인에 실패했어요');
+                        } else if (
+                          error instanceof AuthApiError &&
+                          error.code === 'AUTH_PROVIDER_UNAVAILABLE'
+                        ) {
+                          showToast('소셜 로그인 연결이 원활하지 않아요');
+                        } else {
+                          showToast('회원 탈퇴를 완료하지 못했어요. 다시 시도해 주세요');
+                        }
+                        return false;
+                      }
+                    },
+                  })
+                }
+                style={[
+                  styles.actionRow,
+                  {
+                    borderBottomColor: colors.line,
+                    borderBottomWidth: StyleSheet.hairlineWidth,
+                  },
+                ]}>
+                <AppText variant="item" tone="danger">
+                  회원 탈퇴
+                </AppText>
+                <Icon name="userMinus" size={18} color={colors.danger} />
+              </Pressable>
+            </>
           ) : null}
           <Pressable
             onPress={() =>

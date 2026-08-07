@@ -24,7 +24,7 @@ All lanes skip binary upload and never submit the app for review. `APP_STORE_VER
 
 The Korean listing manages only values confirmed by the product and repository. `support@physiquehub.kr` is used in the public description and App Review contact. The primary category is Health & Fitness (Fastlane value: `HEALTH_AND_FITNESS`); a secondary category is intentionally omitted.
 
-The privacy-policy, customer-support, and marketing URLs use the public GitHub Pages site at `https://ehzero.github.io/loofit-legal/`. App Store Connect has no separate localized terms-of-service URL field, so the terms URL is managed by the app's brand configuration. Copyright remains absent until an exact value is confirmed. No demo credentials are provided because the app has no login.
+The privacy-policy, customer-support, marketing, terms, and account-deletion URLs use the public GitHub Pages site at `https://ehzero.github.io/loofit-legal/`. App Store Connect has no separate localized terms-of-service URL field, so the terms URL is managed by the app's brand configuration. Review notes must explain the Kakao and Apple login paths and whether the reviewer can use provider-owned credentials; do not claim that the app has no login.
 
 ## Directory policy
 

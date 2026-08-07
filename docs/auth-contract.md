@@ -25,11 +25,14 @@
 - JWT Authorizer로 보호하는 `POST /v1/workouts/sync`
 - JWT Authorizer로 보호하는 `GET /v1/workouts/backup`과 paginated records 조회
 - 설정에서 사용자 확인 후 서버 운동 기록 병합 복원
+- JWT Authorizer로 보호하는 `POST /v1/account/deletion`
+- 소셜 재인증·연결 해제 후 서버 계정·세션·운동 백업·랭킹 비동기 삭제
+- 설정 화면의 회원 탈퇴와 탈퇴 완료 후 SecureStore 세션 삭제
 
 현재 구현하지 않는 범위:
 
 - Apple 웹 authorization code 교환과 Android·웹 로그인
-- 계정 전환·계정 연결·계정 병합·계정 삭제 API
+- 계정 전환·계정 연결·계정 병합
 - 자동 다중 기기 동기화와 서버 백업으로 로컬 전체 교체
 
 ## 계정과 identity 정책
@@ -43,6 +46,10 @@
 - 향후 계정 연결을 추가하더라도 현재 로그인 사용자에게 재인증된 미사용 identity를 붙이는 경우만 허용한다. 이미 다른 사용자에 귀속된 identity는 자동 병합하지 않는다.
 
 내부 `userId`는 UUID로 생성하고 이후 provider가 바뀌더라도 서버 데이터 소유권의 기준으로 사용한다.
+
+사용자 상태는 `ACTIVE` 또는 `DELETING`이다. 회원 탈퇴가 접수되면 먼저 `DELETING`으로
+전환하여 신규 세션 생성, Refresh Token 회전과 운동 기록 업로드를 막는다. 이전 Access Token이
+남아 있더라도 쓰기 transaction은 `PROFILE.status = ACTIVE`를 조건으로 검사한다.
 
 ## provider 검증 계약
 
@@ -121,7 +128,7 @@ Access Token에는 이메일, provider access token, 운동 기록, 광고 식�
 | identity | `USER#<userId>` | `IDENTITY#<PROVIDER>#<subjectHash>` |
 | 세션 | `USER#<userId>` | `SESSION#<sessionId>` |
 
-GSI는 향후 계정 삭제 시 귀속 identity와 세션을 조회하고, 사용자의 활성 세션을 관리하기 위한 역방향 조회에 사용한다.
+GSI는 계정 삭제 시 귀속 identity와 세션을 조회하고, 사용자의 활성 세션을 관리하기 위한 역방향 조회에 사용한다.
 
 세션 item의 `expiresAt`은 Unix epoch seconds이며 DynamoDB TTL의 원천이다. TTL 삭제는 즉시성을 보장하지 않으므로 API는 모든 갱신에서 `expiresAt`을 직접 검사해야 한다.
 
@@ -247,6 +254,58 @@ Content-Type: application/json
 
 앱은 서버 폐기를 시도한 뒤 SecureStore의 루핏 토큰 쌍을 삭제한다. 네트워크·서버 장애가 있어도 현재 기기의 로컬 로그아웃은 완료하며 SQLite 운동 기록과 루틴은 삭제하지 않는다. 이 동작은 provider 계정 연결 해제나 Kakao·Apple 자체 로그아웃을 수행하지 않는다. API Gateway JWT Authorizer가 Access Token 폐기 상태를 조회하지 않으므로 이미 발급된 Access Token은 최장 15분 동안 암호학적으로 유효하지만, 앱이 토큰을 즉시 삭제하고 폐기된 세션에서는 새 Access Token을 갱신할 수 없다.
 
+## 회원 탈퇴 API
+
+```http
+POST /v1/account/deletion
+Authorization: Bearer <Loofit Access Token>
+Content-Type: application/json
+```
+
+카카오 계정은 탈퇴 직전에 네이티브 SDK로 다시 로그인해 받은 ID Token과 Access Token을 보낸다.
+
+```json
+{
+  "provider": "KAKAO",
+  "idToken": "<Kakao ID Token>",
+  "accessToken": "<Kakao Access Token>"
+}
+```
+
+Apple 계정은 새 nonce로 재인증해 받은 ID Token과 일회성 authorization code를 보낸다.
+
+```json
+{
+  "provider": "APPLE",
+  "idToken": "<Apple ID Token>",
+  "nonce": "<reauthentication nonce>",
+  "authorizationCode": "<Apple authorization code>"
+}
+```
+
+서버는 Access Token의 사용자와 `/v1/me`에 저장된 단일 provider identity를 기준으로 요청 provider를
+확인한다. 재인증 identity의 subject 해시가 저장된 identity와 정확히 같을 때만 탈퇴를 시작한다.
+카카오는 Access Token으로 연결 해제 API를 호출한다. Apple은 authorization code를 서버에서 교환해
+subject를 다시 확인하고 Apple refresh token을 즉시 revoke한다. provider 토큰 원문은 저장하거나
+로그에 남기지 않는다.
+
+탈퇴 순서:
+
+1. 사용자 상태를 `ACTIVE`에서 `DELETING`으로 조건부 전환한다.
+2. 소셜 provider 재인증과 연결 해제·토큰 revoke를 완료한다.
+3. SQS에 삭제 request를 발행하고 `202 { "status": "PROCESSING" }`을 반환한다.
+4. worker가 운동 백업·tombstone, 랭킹, identity와 모든 세션을 삭제한다.
+5. 마지막으로 `PROFILE`을 삭제한다.
+
+provider 또는 queue 호출이 실패하면 request ID가 일치하는 `DELETING` 상태만 `ACTIVE`로 되돌려
+이용자가 재시도할 수 있게 한다. worker는 request ID를 확인하고 멱등하게 동작하며 실패 메시지는
+최대 5회 뒤 DLQ로 이동한다. 이미 처리 중인 동일 사용자 요청은 `202`를 반환한다.
+
+앱은 서버가 `202`를 반환한 뒤에만 SecureStore의 루핏 토큰을 삭제한다. 네트워크·재인증·provider
+오류에서는 로그인 상태를 보존한다. 회원 탈퇴는 SQLite 운동 기록과 루틴을 삭제하지 않으며,
+재가입은 새 내부 사용자로 처리한다. 기존 로컬 dataset은 삭제된 사용자에 계속 바인딩하므로 새
+계정으로 자동 업로드하거나 이전하지 않는다.
+
 ## 앱 저장 계약
 
 - Kakao·Apple SDK가 발급한 ID Token은 로그인 교환 요청에만 사용하고 SecureStore에 저장하지 않는다.
@@ -254,6 +313,7 @@ Content-Type: application/json
 - iOS는 `WHEN_UNLOCKED_THIS_DEVICE_ONLY` 접근성을 사용하고 Android는 SecureStore가 관리하는 암호화 저장소와 백업 제외 규칙을 사용한다.
 - 랭킹 탭의 provider CTA가 명시적으로 `signInWithKakao()` 또는 `signInWithApple()`을 호출할 때만 신규 로그인을 시작한다. 로그인 성공 후 운동 기록 백업을 비동기로 시작하되 로그인 성공 자체를 백업 완료까지 지연하지 않는다.
 - 설정의 로그아웃은 저장 세션이 있을 때만 표시하고, 확인 후 서버 세션 폐기와 SecureStore 삭제를 수행한다.
+- 설정의 회원 탈퇴는 삭제 범위와 로컬 기록 유지 여부를 먼저 고지하고 provider 재인증 후 서버 요청을 수행한다.
 - 로컬 SQLite 운동 기록은 로그인 성공 직후와 이후 계약된 mutation·foreground trigger에서만 서버로 전송한다. 토큰 갱신 자체는 동기화를 시작하지 않는다.
 
 ## 랭킹 화면 인증 UX
@@ -288,6 +348,21 @@ AWS Systems Manager Parameter Store의 `/loofit/production/auth/kakao` SecureStr
 
 CDK는 이 SecureString을 만들거나 값을 소스에 포함하지 않는다. 카카오 exchange Lambda만 해당 parameter의 `ssm:GetParameter`와 인증 KMS 키의 `kms:Sign`, 사용자 테이블 접근 권한을 가진다. 공개 issuer Lambda는 계속 `kms:GetPublicKey`만 가진다.
 
+Apple 로그인 자체는 ID Token 검증만 하므로 Apple private key가 필요하지 않다. 다만 Apple 회원
+탈퇴는 authorization code 교환과 토큰 revoke가 필요하므로 `/loofit/production/auth/apple`
+SecureString을 다음 JSON으로 운영자가 미리 등록해야 한다.
+
+```json
+{
+  "teamId": "<Apple Developer Team ID>",
+  "keyId": "<Sign in with Apple Key ID>",
+  "privateKey": "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+}
+```
+
+`privateKey`는 Sign in with Apple이 활성화된 PKCS#8 `.p8` 키다. 소스·CloudFormation output·로그에
+포함하지 않는다. 계정 삭제 Lambda만 Kakao·Apple parameter를 읽고 삭제 queue에 메시지를 보낼 수 있다.
+
 ## API 경계
 
 최소 로그인 API는 다음 순서로 추가한다.
@@ -297,6 +372,9 @@ POST /v1/auth/kakao/exchange
 POST /v1/auth/apple/exchange
 POST /v1/auth/refresh
 GET  /v1/me
+POST /v1/account/deletion
 ```
 
-현재 Kakao·Apple exchange, refresh, logout과 `/v1/me`가 구현되어 있다. `/v1/me`는 JWT Authorizer에 연결한 첫 end-to-end 보호 API다. 로그인과 refresh endpoint는 공개 route이되 별도 rate limit, 입력 검증, 자격 증명 검증, 오류 응답 균질화를 적용한다.
+현재 Kakao·Apple exchange, refresh, logout, `/v1/me`, 회원 탈퇴가 구현되어 있다. `/v1/me`와
+회원 탈퇴는 JWT Authorizer로 보호한다. 로그인과 refresh endpoint는 공개 route이되 별도 rate limit,
+입력 검증, 자격 증명 검증, 오류 응답 균질화를 적용한다.

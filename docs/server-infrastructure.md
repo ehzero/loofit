@@ -13,11 +13,11 @@
 - AWS Region: `ap-northeast-2`
 - CDK stacks:
   - `LoofitProductionData`: DynamoDB 사용자 데이터·랭킹 테이블
-  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 운동 기록 업로드·백업 조회, 자체 인증, API/Lambda 로그와 경보
+  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 운동 기록 업로드·백업 조회, 회원 탈퇴 API·삭제 queue/worker, 자체 인증, API/Lambda 로그와 경보
 - DynamoDB는 삭제 방지 및 `RETAIN` 정책을 사용한다.
 - DynamoDB는 `PAY_PER_REQUEST`로 운영하며 테이블별 최대 처리량을 읽기 1,000, 쓰기 500 request unit/초로 제한한다.
 - 사용자 데이터 테이블 `loofit-production-user-data`는 `pk`·`sk` 복합 키, 35일 시점 복구(PITR), 세션 정리용 `expiresAt` TTL을 사용한다. `byUser` GSI는 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회한다.
-- 랭킹 테이블 `loofit-production-leaderboard`는 `period`·`userId` 복합 키, `byScore` GSI, `expiresAt` TTL을 사용한다. 랭킹은 원본 기록에서 다시 만들 수 있는 파생 데이터이므로 PITR은 사용하지 않는다.
+- 랭킹 테이블 `loofit-production-leaderboard`는 `period`·`userId` 복합 키, `byScore` GSI, 계정 삭제 역조회용 `byUser` GSI, `expiresAt` TTL을 사용한다. 랭킹은 원본 기록에서 다시 만들 수 있는 파생 데이터이므로 PITR은 사용하지 않는다.
 - 두 테이블은 DynamoDB 기본 서버 측 암호화(AWS 소유 키)를 사용한다. 전용 VPC, NAT Gateway, 데이터 암호화용 고객 관리 KMS 키, DB 비밀값은 만들지 않는다.
 
 ## 자체 인증 기반
@@ -35,7 +35,7 @@
 - API Gateway JWT Authorizer
   - issuer: 프로덕션 API Gateway URL
   - audience: `loofit-api`
-  - `Authorization: Bearer <JWT>`에서 토큰을 읽고 `GET /v1/me`, `POST /v1/workouts/sync`, `GET /v1/workouts/backup`, `GET /v1/workouts/backup/records`를 보호한다.
+  - `Authorization: Bearer <JWT>`에서 토큰을 읽고 `GET /v1/me`, `POST /v1/account/deletion`, `POST /v1/workouts/sync`, `GET /v1/workouts/backup`, `GET /v1/workouts/backup/records`를 보호한다.
 
 ## 운동 기록 단방향 백업
 
@@ -68,6 +68,14 @@
   - `POST /v1/auth/logout`은 현재 Refresh Token 해시가 일치하는 세션에 `revokedAt`을 기록한다.
   - logout Lambda는 사용자 테이블의 `UpdateItem`만 허용받고, 유효하지 않거나 이미 폐기된 토큰도 `204`로 응답한다.
   - 앱은 서버 폐기 실패와 관계없이 현재 기기의 SecureStore 토큰을 삭제하며 로컬 운동 기록은 유지한다.
+- 회원 탈퇴
+  - `POST /v1/account/deletion`은 JWT 사용자와 저장 provider를 확인하고 카카오·Apple 재인증을 요구한다.
+  - 사용자 상태를 먼저 `DELETING`으로 바꿔 신규 로그인·refresh·운동 기록 업로드를 차단한다.
+  - 카카오는 연결 해제 API를 호출하고 Apple은 authorization code 교환 후 refresh token을 revoke한다.
+  - 요청을 `loofit-production-account-deletion` SQS에 발행하고 `202 PROCESSING`을 반환한다. queue는 1일 보관, 2분 visibility timeout, 최대 5회 실패 후 14일 보관 DLQ를 사용한다.
+  - worker는 운동 백업·tombstone, 랭킹, identity, 세션을 삭제한 뒤 profile을 마지막에 삭제한다. 사용자 테이블의 PITR 사본에는 최대 35일 남을 수 있다.
+  - Apple revoke용 `/loofit/production/auth/apple` SecureString에는 Team ID, Key ID와 Sign in with Apple `.p8` private key를 저장한다. CDK는 secret 값을 생성하거나 출력하지 않는다.
+  - 앱은 `202`를 받은 뒤에만 SecureStore 토큰을 지우고 로컬 운동 기록과 루틴은 유지한다.
 - 앱 네이티브 인증 모듈
   - `@react-native-seoul/kakao-login`으로 카카오톡 SSO와 카카오계정 fallback을 사용하고 Kakao ID Token을 exchange endpoint로 보낸다.
   - 가운데 정렬된 `expo-apple-authentication` 공식 시스템 버튼과 `expo-crypto` nonce로 iOS Apple 로그인을 시작하며 이메일·이름 scope는 요청하지 않는다.
@@ -116,7 +124,7 @@ npm run infra:deploy
 
 `infra:deploy`는 IAM 권한 확대가 있으면 CDK 승인을 요구한다. 배포 계정 ID는 저장소에 고정하지 않으며 CDK가 현재 AWS CLI 자격에서 해석한다.
 
-배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `WorkoutSyncUrl`, `WorkoutBackupUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
+배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `AccountDeletionUrl`, `WorkoutSyncUrl`, `WorkoutBackupUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
 
 ## 운영 주의사항
 
@@ -127,4 +135,4 @@ npm run infra:deploy
 - 인증 서명용 고객 관리 KMS 키에는 월 고정 키 보관 비용이 발생하고 로그인마다 KMS 서명 요청 1회가 추가된다.
 - API와 Lambda 로그는 30일 보관하며 요청 payload나 인증 토큰을 기록하지 않는다.
 - 현재 CloudWatch 경보에는 수신 대상이 없다. 운영 연락 채널이 정해지면 SNS topic과 구독을 추가한다.
-- Cognito 같은 관리형 인증 제공자와 사용자 디렉터리는 배포하지 않는다. Kakao·Apple 로그인과 refresh·logout route는 공개이고 `/v1/me`는 루핏 JWT로 보호한다. 계정 삭제와 Google 로그인은 별도 단계에서 추가한다.
+- Cognito 같은 관리형 인증 제공자와 사용자 디렉터리는 배포하지 않는다. Kakao·Apple 로그인과 refresh·logout route는 공개이고 `/v1/me`와 회원 탈퇴는 루핏 JWT로 보호한다. Google 로그인은 별도 단계에서 추가한다.

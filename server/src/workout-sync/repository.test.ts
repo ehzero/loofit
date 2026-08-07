@@ -1,4 +1,4 @@
-import { GetCommand, PutCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { GetCommand, TransactWriteCommand } from '@aws-sdk/lib-dynamodb';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -61,24 +61,30 @@ describe('workout sync repository', () => {
     ]);
 
     expect(send.mock.calls[0]?.[0]).toBeInstanceOf(GetCommand);
-    const statePut = send.mock.calls[1]?.[0] as PutCommand;
-    expect(statePut.input.Item).toMatchObject({
+    const statePut = send.mock.calls[1]?.[0] as TransactWriteCommand;
+    expect(statePut.input.TransactItems?.[1]?.Put?.Item).toMatchObject({
       entityType: WORKOUT_SYNC_ENTITY_TYPES.state,
       datasetId: DATASET_ID,
     });
-    const workoutPut = send.mock.calls[2]?.[0] as PutCommand;
-    expect(workoutPut.input.Item).toMatchObject({
+    const workoutPut = send.mock.calls[2]?.[0] as TransactWriteCommand;
+    expect(workoutPut.input.TransactItems?.[1]?.Put?.Item).toMatchObject({
       entityType: WORKOUT_SYNC_ENTITY_TYPES.record,
       syncId: SYNC_ID,
       syncVersion: 1,
       record: operation.record,
     });
-    expect(workoutPut.input.ConditionExpression).toContain(
+    expect(
+      workoutPut.input.TransactItems?.[1]?.Put?.ConditionExpression
+    ).toContain(
       'syncVersion < :incomingVersion'
     );
-    const stateUpdate = send.mock.calls[3]?.[0] as UpdateCommand;
-    expect(stateUpdate.input.UpdateExpression).toContain('backupRevision');
-    expect(stateUpdate.input.ConditionExpression).toBe('datasetId = :datasetId');
+    const stateUpdate = send.mock.calls[3]?.[0] as TransactWriteCommand;
+    expect(
+      stateUpdate.input.TransactItems?.[1]?.Update?.UpdateExpression
+    ).toContain('backupRevision');
+    expect(
+      stateUpdate.input.TransactItems?.[1]?.Update?.ConditionExpression
+    ).toBe('datasetId = :datasetId');
   });
 
   it('treats the same stored version as an idempotent retry', async () => {

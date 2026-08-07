@@ -41,7 +41,7 @@ export const nativeAuth = createAuthService({
         );
       }
       const token = await loginWithKakaoSdk();
-      return { idToken: token.idToken };
+      return { idToken: token.idToken, accessToken: token.accessToken };
     },
   },
   apple: {
@@ -59,7 +59,11 @@ export const nativeAuth = createAuthService({
         nonce,
         requestedScopes: [],
       });
-      return { idToken: credential.identityToken, nonce };
+      return {
+        idToken: credential.identityToken,
+        nonce,
+        authorizationCode: credential.authorizationCode,
+      };
     },
   },
 });
@@ -80,6 +84,8 @@ export const isAppleSignInAvailable = async () =>
   Platform.OS === 'ios' && AppleAuthentication.isAvailableAsync();
 
 export const signOut = () => nativeAuth.signOut();
+
+export const deleteAccount = () => nativeAuth.deleteAccount();
 
 export const getLoofitAccessToken = () => nativeAuth.getAccessToken();
 

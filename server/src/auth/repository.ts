@@ -70,6 +70,18 @@ export class RefreshTokenRejectedError extends Error {
   }
 }
 
+export class AccountDeletionInProgressError extends Error {
+  constructor() {
+    super('Account deletion is in progress.');
+    this.name = 'AccountDeletionInProgressError';
+  }
+}
+
+export type AuthAccount = {
+  user: AuthUser;
+  identities: AuthIdentity[];
+};
+
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null;
 
@@ -78,7 +90,7 @@ const toUser = (item: unknown): AuthUser => {
     !isRecord(item) ||
     item.entityType !== AUTH_ENTITY_TYPES.userProfile ||
     typeof item.userId !== 'string' ||
-    item.status !== 'ACTIVE' ||
+    (item.status !== 'ACTIVE' && item.status !== 'DELETING') ||
     typeof item.createdAt !== 'string' ||
     typeof item.updatedAt !== 'string'
   ) {
@@ -89,6 +101,12 @@ const toUser = (item: unknown): AuthUser => {
     status: item.status,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
+    ...(typeof item.deletionRequestId === 'string'
+      ? { deletionRequestId: item.deletionRequestId }
+      : {}),
+    ...(typeof item.deletionRequestedAt === 'string'
+      ? { deletionRequestedAt: item.deletionRequestedAt }
+      : {}),
   };
 };
 
@@ -202,6 +220,9 @@ export class AuthRepository {
   ): Promise<FindOrCreateUserResult> {
     const existing = await this.findUserByIdentity(provider, providerSubject);
     if (existing) {
+      if (existing.user.status !== 'ACTIVE') {
+        throw new AccountDeletionInProgressError();
+      }
       return { ...existing, created: false };
     }
 
@@ -240,6 +261,9 @@ export class AuthRepository {
       if (isAwsErrorNamed(error, 'TransactionCanceledException')) {
         const concurrentWinner = await this.findUserByIdentity(provider, providerSubject);
         if (concurrentWinner) {
+          if (concurrentWinner.user.status !== 'ACTIVE') {
+            throw new AccountDeletionInProgressError();
+          }
           return { ...concurrentWinner, created: false };
         }
       }
@@ -270,31 +294,40 @@ export class AuthRepository {
       expiresAt: Math.floor(nowDate.getTime() / 1_000) + ttlSeconds,
     });
 
-    await this.client.send(
-      new TransactWriteCommand({
-        TransactItems: [
-          {
-            ConditionCheck: {
-              TableName: this.tableName,
-              Key: userProfileKey(userId),
-              ConditionExpression: 'entityType = :userEntityType AND #status = :active',
-              ExpressionAttributeNames: { '#status': 'status' },
-              ExpressionAttributeValues: {
-                ':userEntityType': AUTH_ENTITY_TYPES.userProfile,
-                ':active': 'ACTIVE',
+    try {
+      await this.client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              ConditionCheck: {
+                TableName: this.tableName,
+                Key: userProfileKey(userId),
+                ConditionExpression:
+                  'entityType = :userEntityType AND #status = :active',
+                ExpressionAttributeNames: { '#status': 'status' },
+                ExpressionAttributeValues: {
+                  ':userEntityType': AUTH_ENTITY_TYPES.userProfile,
+                  ':active': 'ACTIVE',
+                },
               },
             },
-          },
-          {
-            Put: {
-              TableName: this.tableName,
-              Item: sessionItem,
-              ConditionExpression: 'attribute_not_exists(pk) AND attribute_not_exists(sk)',
+            {
+              Put: {
+                TableName: this.tableName,
+                Item: sessionItem,
+                ConditionExpression:
+                  'attribute_not_exists(pk) AND attribute_not_exists(sk)',
+              },
             },
-          },
-        ],
-      })
-    );
+          ],
+        })
+      );
+    } catch (error: unknown) {
+      if (isAwsErrorNamed(error, 'TransactionCanceledException')) {
+        throw new AccountDeletionInProgressError();
+      }
+      throw error;
+    }
 
     return { session: toSession(sessionItem), refreshToken };
   }
@@ -311,6 +344,20 @@ export class AuthRepository {
       throw new RefreshTokenRejectedError();
     }
 
+    const currentResponse = await this.client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: sessionKey(sessionId),
+        ConsistentRead: true,
+      })
+    );
+    let currentSession: AuthSession;
+    try {
+      currentSession = toSession(currentResponse.Item);
+    } catch {
+      throw new RefreshTokenRejectedError();
+    }
+
     const nowDate = this.now();
     const now = nowDate.toISOString();
     const expiresAt = Math.floor(nowDate.getTime() / 1_000) + ttlSeconds;
@@ -320,29 +367,59 @@ export class AuthRepository {
     );
 
     try {
-      const response = await this.client.send(
-        new UpdateCommand({
-          TableName: this.tableName,
-          Key: sessionKey(sessionId),
-          UpdateExpression:
-            'SET refreshTokenHash = :nextHash, updatedAt = :now, lastUsedAt = :now, expiresAt = :expiresAt ADD rotationCounter :one',
-          ConditionExpression:
-            'entityType = :sessionEntityType AND refreshTokenHash = :currentHash AND attribute_not_exists(revokedAt) AND expiresAt > :nowEpoch',
-          ExpressionAttributeValues: {
-            ':nextHash': hashRefreshToken(nextRefreshToken),
-            ':currentHash': hashRefreshToken(currentRefreshToken),
-            ':now': now,
-            ':expiresAt': expiresAt,
-            ':nowEpoch': Math.floor(nowDate.getTime() / 1_000),
-            ':one': 1,
-            ':sessionEntityType': AUTH_ENTITY_TYPES.session,
-          },
-          ReturnValues: 'ALL_NEW',
+      await this.client.send(
+        new TransactWriteCommand({
+          TransactItems: [
+            {
+              ConditionCheck: {
+                TableName: this.tableName,
+                Key: userProfileKey(currentSession.userId),
+                ConditionExpression:
+                  'entityType = :userEntityType AND #status = :active',
+                ExpressionAttributeNames: { '#status': 'status' },
+                ExpressionAttributeValues: {
+                  ':userEntityType': AUTH_ENTITY_TYPES.userProfile,
+                  ':active': 'ACTIVE',
+                },
+              },
+            },
+            {
+              Update: {
+                TableName: this.tableName,
+                Key: sessionKey(sessionId),
+                UpdateExpression:
+                  'SET refreshTokenHash = :nextHash, updatedAt = :now, lastUsedAt = :now, expiresAt = :expiresAt ADD rotationCounter :one',
+                ConditionExpression:
+                  'entityType = :sessionEntityType AND refreshTokenHash = :currentHash AND attribute_not_exists(revokedAt) AND expiresAt > :nowEpoch',
+                ExpressionAttributeValues: {
+                  ':nextHash': hashRefreshToken(nextRefreshToken),
+                  ':currentHash': hashRefreshToken(currentRefreshToken),
+                  ':now': now,
+                  ':expiresAt': expiresAt,
+                  ':nowEpoch': Math.floor(nowDate.getTime() / 1_000),
+                  ':one': 1,
+                  ':sessionEntityType': AUTH_ENTITY_TYPES.session,
+                },
+              },
+            },
+          ],
         })
       );
-      return { session: toSession(response.Attributes), refreshToken: nextRefreshToken };
+      return {
+        session: {
+          ...currentSession,
+          rotationCounter: currentSession.rotationCounter + 1,
+          updatedAt: now,
+          lastUsedAt: now,
+          expiresAt,
+        },
+        refreshToken: nextRefreshToken,
+      };
     } catch (error: unknown) {
-      if (isAwsErrorNamed(error, 'ConditionalCheckFailedException')) {
+      if (
+        isAwsErrorNamed(error, 'ConditionalCheckFailedException') ||
+        isAwsErrorNamed(error, 'TransactionCanceledException')
+      ) {
         throw new RefreshTokenRejectedError();
       }
       throw error;
@@ -397,5 +474,91 @@ export class AuthRepository {
       })
     );
     return (response.Items ?? []).map(toSession);
+  }
+
+  async getAccount(userId: string): Promise<AuthAccount | null> {
+    const userResponse = await this.client.send(
+      new GetCommand({
+        TableName: this.tableName,
+        Key: userProfileKey(userId),
+        ConsistentRead: true,
+      })
+    );
+    if (!userResponse.Item) {
+      return null;
+    }
+    const user = toUser(userResponse.Item);
+    const identitiesResponse = await this.client.send(
+      new QueryCommand({
+        TableName: this.tableName,
+        IndexName: this.byUserIndexName,
+        KeyConditionExpression:
+          'gsi1pk = :userKey AND begins_with(gsi1sk, :identityPrefix)',
+        ExpressionAttributeValues: {
+          ':userKey': userPartitionKey(userId),
+          ':identityPrefix': 'IDENTITY#',
+        },
+      })
+    );
+    return {
+      user,
+      identities: (identitiesResponse.Items ?? []).map(toIdentity),
+    };
+  }
+
+  async beginAccountDeletion(userId: string, requestId: string): Promise<void> {
+    const now = this.now().toISOString();
+    try {
+      await this.client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: userProfileKey(userId),
+          UpdateExpression:
+            'SET #status = :deleting, deletionRequestId = :requestId, deletionRequestedAt = :now, updatedAt = :now',
+          ConditionExpression:
+            'entityType = :userEntityType AND #status = :active',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':userEntityType': AUTH_ENTITY_TYPES.userProfile,
+            ':active': 'ACTIVE',
+            ':deleting': 'DELETING',
+            ':requestId': requestId,
+            ':now': now,
+          },
+        })
+      );
+    } catch (error: unknown) {
+      if (isAwsErrorNamed(error, 'ConditionalCheckFailedException')) {
+        throw new AccountDeletionInProgressError();
+      }
+      throw error;
+    }
+  }
+
+  async rollbackAccountDeletion(userId: string, requestId: string): Promise<void> {
+    try {
+      await this.client.send(
+        new UpdateCommand({
+          TableName: this.tableName,
+          Key: userProfileKey(userId),
+          UpdateExpression:
+            'SET #status = :active, updatedAt = :now REMOVE deletionRequestId, deletionRequestedAt',
+          ConditionExpression:
+            'entityType = :userEntityType AND #status = :deleting AND deletionRequestId = :requestId',
+          ExpressionAttributeNames: { '#status': 'status' },
+          ExpressionAttributeValues: {
+            ':userEntityType': AUTH_ENTITY_TYPES.userProfile,
+            ':active': 'ACTIVE',
+            ':deleting': 'DELETING',
+            ':requestId': requestId,
+            ':now': this.now().toISOString(),
+          },
+        })
+      );
+    } catch (error: unknown) {
+      if (!isAwsErrorNamed(error, 'ConditionalCheckFailedException')) {
+        throw error;
+      }
+    }
   }
 }

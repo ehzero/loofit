@@ -43,7 +43,7 @@ export type AppleIdTokenVerificationOptions = {
 export const verifyAppleIdToken = async (
   idToken: string,
   audience: string,
-  expectedNonce: string,
+  expectedNonce?: string,
   options: AppleIdTokenVerificationOptions = {}
 ): Promise<AppleIdentity> => {
   try {
@@ -56,7 +56,12 @@ export const verifyAppleIdToken = async (
         algorithms: ['RS256'],
         issuer: APPLE_ISSUER,
         audience,
-        requiredClaims: ['sub', 'iat', 'exp', 'nonce'],
+        requiredClaims: [
+          'sub',
+          'iat',
+          'exp',
+          ...(expectedNonce === undefined ? [] : ['nonce']),
+        ],
         clockTolerance: 60,
         maxTokenAge: '1d',
         currentDate: options.now?.(),
@@ -67,7 +72,7 @@ export const verifyAppleIdToken = async (
       typeof payload.sub !== 'string' ||
       payload.sub.length === 0 ||
       payload.sub.length > 255 ||
-      !sameNonce(payload.nonce, expectedNonce)
+      (expectedNonce !== undefined && !sameNonce(payload.nonce, expectedNonce))
     ) {
       throw new AppleLoginRejectedError();
     }

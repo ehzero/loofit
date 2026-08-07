@@ -66,6 +66,14 @@ export class LoofitDataStack extends Stack {
         'updatedAt',
       ],
     });
+    this.leaderboardTable.addGlobalSecondaryIndex({
+      indexName: config.dynamodb.leaderboardByUserIndexName,
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'period', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.KEYS_ONLY,
+      maxReadRequestUnits: config.dynamodb.maxReadRequestUnits,
+      maxWriteRequestUnits: config.dynamodb.maxWriteRequestUnits,
+    });
 
     new CfnOutput(this, 'UserDataTableName', {
       value: this.userDataTable.tableName,
@@ -83,6 +91,9 @@ export class LoofitDataStack extends Stack {
     });
     new CfnOutput(this, 'LeaderboardTableArn', {
       value: this.leaderboardTable.tableArn,
+    });
+    new CfnOutput(this, 'LeaderboardByUserIndexName', {
+      value: config.dynamodb.leaderboardByUserIndexName,
     });
   }
 }

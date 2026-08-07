@@ -14,8 +14,10 @@ import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import * as kms from 'aws-cdk-lib/aws-kms';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import * as lambdaNodejs from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as sqs from 'aws-cdk-lib/aws-sqs';
 import type { Construct } from 'constructs';
 
 import type { ProductionConfig } from './config';
@@ -23,6 +25,7 @@ import type { ProductionConfig } from './config';
 export type LoofitServiceStackProps = StackProps & {
   config: ProductionConfig;
   userDataTable: dynamodb.ITable;
+  leaderboardTable: dynamodb.ITable;
 };
 
 export class LoofitServiceStack extends Stack {
@@ -31,7 +34,7 @@ export class LoofitServiceStack extends Stack {
   constructor(scope: Construct, id: string, props: LoofitServiceStackProps) {
     super(scope, id, props);
 
-    const { config, userDataTable } = props;
+    const { config, userDataTable, leaderboardTable } = props;
 
     const healthLogGroup = new logs.LogGroup(this, 'HealthLogGroup', {
       logGroupName: `/aws/lambda/loofit-${config.environmentName}-health`,
@@ -79,6 +82,32 @@ export class LoofitServiceStack extends Stack {
       pendingWindow: Duration.days(30),
       removalPolicy: RemovalPolicy.RETAIN,
     });
+
+    const accountDeletionDeadLetterQueue = new sqs.Queue(
+      this,
+      'AccountDeletionDeadLetterQueue',
+      {
+        queueName: `loofit-${config.environmentName}-account-deletion-dlq`,
+        encryption: sqs.QueueEncryption.SQS_MANAGED,
+        retentionPeriod: Duration.days(14),
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const accountDeletionQueue = new sqs.Queue(
+      this,
+      'AccountDeletionQueue',
+      {
+        queueName: `loofit-${config.environmentName}-account-deletion`,
+        encryption: sqs.QueueEncryption.SQS_MANAGED,
+        retentionPeriod: Duration.days(1),
+        visibilityTimeout: Duration.minutes(2),
+        deadLetterQueue: {
+          queue: accountDeletionDeadLetterQueue,
+          maxReceiveCount: 5,
+        },
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
 
     const issuerLogGroup = new logs.LogGroup(this, 'IssuerLogGroup', {
       logGroupName: `/aws/lambda/loofit-${config.environmentName}-auth-issuer`,
@@ -319,7 +348,12 @@ export class LoofitServiceStack extends Stack {
     );
     refreshFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['dynamodb:UpdateItem'],
+        actions: [
+          'dynamodb:ConditionCheckItem',
+          'dynamodb:GetItem',
+          'dynamodb:TransactWriteItems',
+          'dynamodb:UpdateItem',
+        ],
         resources: [userDataTable.tableArn],
       })
     );
@@ -403,6 +437,9 @@ export class LoofitServiceStack extends Stack {
       tracing: lambda.Tracing.ACTIVE,
       logGroup: meLogGroup,
       environment: {
+        USER_DATA_TABLE_NAME: userDataTable.tableName,
+        USER_DATA_BY_USER_INDEX_NAME:
+          config.dynamodb.userDataByUserIndexName,
         NODE_OPTIONS: '--enable-source-maps',
       },
       bundling: {
@@ -411,8 +448,181 @@ export class LoofitServiceStack extends Stack {
         minify: true,
         sourceMap: true,
         sourcesContent: false,
+        bundleAwsSDK: true,
       },
     });
+    meFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['dynamodb:GetItem', 'dynamodb:Query'],
+        resources: [
+          userDataTable.tableArn,
+          `${userDataTable.tableArn}/index/*`,
+        ],
+      })
+    );
+
+    const accountDeletionLogGroup = new logs.LogGroup(
+      this,
+      'AccountDeletionLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-account-deletion`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const accountDeletionFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'AccountDeletionFunction',
+      {
+        functionName: `loofit-${config.environmentName}-account-deletion`,
+        description:
+          'Reauthenticates social accounts and accepts permanent account deletion',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/account-deletion.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(20),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: accountDeletionLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          USER_DATA_BY_USER_INDEX_NAME:
+            config.dynamodb.userDataByUserIndexName,
+          KAKAO_CONFIG_PARAMETER_NAME:
+            config.auth.kakaoConfigParameterName,
+          APPLE_CONFIG_PARAMETER_NAME:
+            config.auth.appleConfigParameterName,
+          APPLE_NATIVE_CLIENT_ID: config.auth.appleNativeClientId,
+          ACCOUNT_DELETION_QUEUE_URL: accountDeletionQueue.queueUrl,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    accountDeletionFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:GetItem',
+          'dynamodb:Query',
+          'dynamodb:UpdateItem',
+        ],
+        resources: [
+          userDataTable.tableArn,
+          `${userDataTable.tableArn}/index/*`,
+        ],
+      })
+    );
+    accountDeletionFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ['ssm:GetParameter'],
+        resources: [
+          this.formatArn({
+            service: 'ssm',
+            resource: 'parameter',
+            resourceName: config.auth.kakaoConfigParameterName.replace(
+              /^\//,
+              ''
+            ),
+          }),
+          this.formatArn({
+            service: 'ssm',
+            resource: 'parameter',
+            resourceName: config.auth.appleConfigParameterName.replace(
+              /^\//,
+              ''
+            ),
+          }),
+        ],
+      })
+    );
+    accountDeletionQueue.grantSendMessages(accountDeletionFunction);
+
+    const accountDeletionWorkerLogGroup = new logs.LogGroup(
+      this,
+      'AccountDeletionWorkerLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-account-deletion-worker`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const accountDeletionWorkerFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'AccountDeletionWorkerFunction',
+      {
+        functionName: `loofit-${config.environmentName}-account-deletion-worker`,
+        description:
+          'Permanently removes account-owned authentication, backup, and ranking data',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/account-deletion-worker.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(60),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: accountDeletionWorkerLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          USER_DATA_BY_USER_INDEX_NAME:
+            config.dynamodb.userDataByUserIndexName,
+          LEADERBOARD_TABLE_NAME: leaderboardTable.tableName,
+          LEADERBOARD_BY_USER_INDEX_NAME:
+            config.dynamodb.leaderboardByUserIndexName,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    accountDeletionWorkerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:BatchWriteItem',
+          'dynamodb:DeleteItem',
+          'dynamodb:Query',
+        ],
+        resources: [
+          userDataTable.tableArn,
+          `${userDataTable.tableArn}/index/*`,
+          leaderboardTable.tableArn,
+          `${leaderboardTable.tableArn}/index/*`,
+        ],
+      })
+    );
+    accountDeletionWorkerFunction.addEventSource(
+      new lambdaEventSources.SqsEventSource(accountDeletionQueue, {
+        batchSize: 1,
+        reportBatchItemFailures: true,
+      })
+    );
 
     const workoutSyncLogGroup = new logs.LogGroup(
       this,
@@ -461,7 +671,13 @@ export class LoofitServiceStack extends Stack {
     );
     workoutSyncFunction.addToRolePolicy(
       new iam.PolicyStatement({
-        actions: ['dynamodb:GetItem', 'dynamodb:PutItem', 'dynamodb:UpdateItem'],
+        actions: [
+          'dynamodb:ConditionCheckItem',
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:TransactWriteItems',
+          'dynamodb:UpdateItem',
+        ],
         resources: [userDataTable.tableArn],
       })
     );
@@ -666,6 +882,26 @@ export class LoofitServiceStack extends Stack {
       cfnRoute.addResourceDependency(jwtAuthorizer);
     }
 
+    const accountDeletionRoutes = this.api.addRoutes({
+      path: '/v1/account/deletion',
+      methods: [apigwv2.HttpMethod.POST],
+      integration: new integrations.HttpLambdaIntegration(
+        'AccountDeletionIntegration',
+        accountDeletionFunction
+      ),
+    });
+    for (const route of accountDeletionRoutes) {
+      const cfnRoute = route.node.defaultChild;
+      if (!(cfnRoute instanceof apigwv2.CfnRoute)) {
+        throw new Error(
+          'Expected /v1/account/deletion to synthesize an HTTP API route.'
+        );
+      }
+      cfnRoute.authorizationType = 'JWT';
+      cfnRoute.authorizerId = jwtAuthorizer.ref;
+      cfnRoute.addResourceDependency(jwtAuthorizer);
+    }
+
     const workoutSyncRoutes = this.api.addRoutes({
       path: '/v1/workouts/sync',
       methods: [apigwv2.HttpMethod.POST],
@@ -776,6 +1012,40 @@ export class LoofitServiceStack extends Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
+    new cloudwatch.Alarm(this, 'AccountDeletionErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-account-deletion-errors`,
+      alarmDescription:
+        'Account deletion Lambda returned at least one unhandled error in five minutes.',
+      metric: accountDeletionFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    new cloudwatch.Alarm(this, 'AccountDeletionWorkerErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-account-deletion-worker-errors`,
+      alarmDescription:
+        'Account deletion worker returned at least one error in five minutes.',
+      metric: accountDeletionWorkerFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    new cloudwatch.Alarm(this, 'AccountDeletionDeadLettersAlarm', {
+      alarmName: `loofit-${config.environmentName}-account-deletion-dead-letters`,
+      alarmDescription:
+        'At least one account deletion request requires manual recovery.',
+      metric: accountDeletionDeadLetterQueue.metricApproximateNumberOfMessagesVisible({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
     new cloudwatch.Alarm(this, 'WorkoutSyncErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-workout-sync-errors`,
       alarmDescription:
@@ -840,6 +1110,9 @@ export class LoofitServiceStack extends Stack {
     new CfnOutput(this, 'MeUrl', {
       value: `${this.api.apiEndpoint}/v1/me`,
     });
+    new CfnOutput(this, 'AccountDeletionUrl', {
+      value: `${this.api.apiEndpoint}/v1/account/deletion`,
+    });
     new CfnOutput(this, 'WorkoutSyncUrl', {
       value: `${this.api.apiEndpoint}/v1/workouts/sync`,
     });
@@ -850,6 +1123,11 @@ export class LoofitServiceStack extends Stack {
       value: config.auth.kakaoConfigParameterName,
       description:
         'Existing SecureString parameter read by the Kakao exchange Lambda',
+    });
+    new CfnOutput(this, 'AppleConfigParameterName', {
+      value: config.auth.appleConfigParameterName,
+      description:
+        'Existing SecureString parameter read when revoking Sign in with Apple',
     });
     new CfnOutput(this, 'JwtIssuer', {
       value: this.api.apiEndpoint,

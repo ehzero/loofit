@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>루핏 계정 삭제 요청</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f7f7f4;
+        --fg: #171719;
+        --muted: #66666d;
+        --line: #deded8;
+        --card: #ffffff;
+        --accent: #bdf453;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #09090a;
+          --fg: #f4f4f0;
+          --muted: #aaaab2;
+          --line: #2a2a2e;
+          --card: #151517;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR",
+          "Segoe UI", sans-serif;
+        line-height: 1.72;
+        word-break: keep-all;
+      }
+      main { max-width: 760px; margin: 0 auto; padding: 56px 22px 72px; }
+      h1 { margin: 0 0 14px; font-size: clamp(30px, 6vw, 44px); line-height: 1.12; }
+      h2 { margin: 38px 0 12px; font-size: 22px; }
+      p { margin: 0 0 12px; }
+      li { margin: 7px 0; }
+      .card { margin: 22px 0; padding: 20px; border: 1px solid var(--line); border-radius: 16px; background: var(--card); }
+      .button { display: inline-block; margin-top: 10px; padding: 12px 18px; border-radius: 999px; background: var(--accent); color: #111; font-weight: 800; text-decoration: none; }
+      .meta { color: var(--muted); font-size: 14px; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <p class="meta">최종 업데이트: 2026년 8월 7일</p>
+      <h1>루핏 계정 삭제 요청</h1>
+      <p>루핏 계정과 서버에 보관된 데이터를 언제든지 삭제할 수 있습니다.</p>
+
+      <section class="card">
+        <h2>앱을 사용할 수 있는 경우</h2>
+        <ol>
+          <li>루핏의 <strong>설정</strong> 탭을 엽니다.</li>
+          <li><strong>회원 탈퇴</strong>를 누르고 안내를 확인합니다.</li>
+          <li>가입한 카카오 또는 Apple 계정으로 재인증합니다.</li>
+        </ol>
+        <p>요청이 접수되면 새 로그인과 기록 업로드를 즉시 차단하고 삭제 작업을 시작합니다.</p>
+      </section>
+
+      <section class="card">
+        <h2>앱을 사용할 수 없는 경우</h2>
+        <p>아래 이메일로 제목을 <strong>[루핏 계정 삭제 요청]</strong>으로 보내 주세요.</p>
+        <p>가입한 로그인 제공자(카카오 또는 Apple)와 회신받을 이메일을 적어 주세요. 비밀번호나 로그인 토큰은 보내지 마세요.</p>
+        <a class="button" href="mailto:support@physiquehub.kr?subject=%5B%EB%A3%A8%ED%95%8F%20%EA%B3%84%EC%A0%95%20%EC%82%AD%EC%A0%9C%20%EC%9A%94%EC%B2%AD%5D">이메일로 삭제 요청</a>
+        <p class="meta">본인 확인에 필요한 추가 절차를 안내하며 확인 완료 후 지체 없이 처리합니다.</p>
+      </section>
+
+      <h2>삭제되는 데이터</h2>
+      <ul>
+        <li>루핏 내부 계정과 인증 세션</li>
+        <li>서버에 백업된 완료·취소 운동 기록과 삭제 이력</li>
+        <li>랭킹 데이터</li>
+        <li>루핏과 카카오 또는 Apple 계정의 연결</li>
+      </ul>
+
+      <h2>기기에 남는 데이터</h2>
+      <p>
+        현재 기기의 운동 기록과 루틴은 회원 탈퇴만으로 삭제되지 않습니다. 로컬 데이터도
+        삭제하려면 설정의 <strong>데이터 초기화</strong>를 실행하거나 앱을 삭제해 주세요.
+      </p>
+      <p class="meta">재해복구용 암호화 백업 사본은 삭제 반영 후 최대 35일 내 자동 만료됩니다.</p>
+    </main>
+  </body>
+</html>
