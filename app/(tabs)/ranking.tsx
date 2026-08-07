@@ -6,6 +6,7 @@ import {
   Image,
   Pressable,
   RefreshControl,
+  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -17,7 +18,6 @@ import { Card } from '@/src/components/Card';
 import { EmptyState } from '@/src/components/EmptyState';
 import { Icon, type IconName } from '@/src/components/Icon';
 import { Screen } from '@/src/components/Screen';
-import { StatTiles } from '@/src/components/StatTiles';
 import { BRAND } from '@/src/config/brand';
 import {
   rankingLoginErrorMessage,
@@ -56,7 +56,7 @@ const formatDuration = (seconds: number): string => {
 
 const formatPeriod = (leaderboard: WeeklyLeaderboard): string => {
   const formatter = new Intl.DateTimeFormat('ko-KR', {
-    month: 'numeric',
+    month: 'long',
     day: 'numeric',
     timeZone: leaderboard.period.timeZone,
   });
@@ -64,7 +64,7 @@ const formatPeriod = (leaderboard: WeeklyLeaderboard): string => {
   const endsAt = formatter.format(
     new Date(Date.parse(leaderboard.period.endsAt) - 1)
   );
-  return `${startsAt}–${endsAt}`;
+  return `${startsAt} ~ ${endsAt}`;
 };
 
 export default function RankingScreen() {
@@ -305,91 +305,101 @@ export default function RankingScreen() {
   }
 
   const me = leaderboard.me;
-  const meIsInTopEntries = leaderboard.entries.some((entry) => entry.isMe);
+  const hasLeaderboardNotice =
+    Boolean(authState.warning) || leaderboardLoadState === 'error';
   return (
-    <Screen
-      title="랭킹"
-      refreshControl={
-        <RefreshControl
-          refreshing={leaderboardLoadState === 'refreshing'}
-          tintColor={colors.accent}
-          onRefresh={() => void loadLeaderboard(true)}
-        />
-      }>
-      {authState.warning ? (
-        <Callout icon="info">{authState.warning}</Callout>
-      ) : null}
-      {leaderboardLoadState === 'error' ? (
-        <Callout icon="info">최신 랭킹을 불러오지 못해 이전 결과를 표시해요.</Callout>
-      ) : null}
-
-      <Card variant="hero">
-        <View style={styles.readyHeader}>
-          <View style={[styles.readyIcon, { backgroundColor: colors.accent }]}>
-            <Icon name="ranking" size={22} color={colors.accentText} />
-          </View>
-          <AppText variant="label" tone="accent">
+    <Screen scroll={false}>
+      <ScrollView
+        style={styles.rankingScroll}
+        contentContainerStyle={styles.rankingContent}
+        stickyHeaderIndices={[hasLeaderboardNotice ? 2 : 1]}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={leaderboardLoadState === 'refreshing'}
+            tintColor={colors.accent}
+            onRefresh={() => void loadLeaderboard(true)}
+          />
+        }>
+        <View style={styles.rankingTitleBlock}>
+          <AppText variant="footnote" tone="muted">
             {formatPeriod(leaderboard)}
           </AppText>
+          <AppText variant="heading">랭킹</AppText>
         </View>
-        <View style={styles.heroCopy}>
-          <AppText variant="heading" wordBreak>
-            {me ? `이번 주 ${me.rank}위예요` : '첫 집계를 기다리고 있어요'}
-          </AppText>
-          <AppText variant="body" tone="tertiary" wordBreak>
-            {me
-              ? `${me.activeDays}일 · ${formatDuration(me.totalDurationSeconds)} · ${me.workoutCount}회`
-              : '하루 완료 운동 합계가 5분 이상이면 자동으로 랭킹에 반영돼요.'}
-          </AppText>
+
+        {hasLeaderboardNotice ? (
+          <View style={styles.rankingNotices}>
+            {authState.warning ? (
+              <Callout icon="info">{authState.warning}</Callout>
+            ) : null}
+            {leaderboardLoadState === 'error' ? (
+              <Callout icon="info">
+                최신 랭킹을 불러오지 못해 이전 결과를 표시해요.
+              </Callout>
+            ) : null}
+          </View>
+        ) : null}
+
+        <View
+          collapsable={false}
+          style={[styles.stickyMyRanking, { backgroundColor: colors.bg }]}>
+          <Card padding={0} gap={0}>
+            <View style={styles.rankingSectionHeader}>
+              <AppText variant="label" tone="muted">
+                내 랭킹
+              </AppText>
+            </View>
+            {me ? (
+              <LeaderboardRow entry={me} isLast />
+            ) : (
+              <View style={styles.emptyContainer}>
+                <EmptyState
+                  title="아직 집계 전이에요"
+                  description="하루 완료 운동 합계가 5분 이상이면 자동으로 반영돼요."
+                  compact
+                />
+              </View>
+            )}
+          </Card>
         </View>
-      </Card>
 
-      <StatTiles
-        tiles={[
-          { label: '내 순위', value: me ? `${me.rank}위` : '—' },
-          { label: '운동한 날', value: me ? `${me.activeDays}일` : '0일' },
-        ]}
-      />
-
-      {me && !meIsInTopEntries ? (
         <Card padding={0} gap={0}>
           <View style={styles.rankingSectionHeader}>
             <AppText variant="label" tone="muted">
-              내 랭킹
+              전체 랭킹
             </AppText>
           </View>
-          <LeaderboardRow entry={me} isLast />
+          {leaderboard.entries.length > 0 ? (
+            leaderboard.entries.map((entry, index) => (
+              <LeaderboardRow
+                key={`${entry.rank}-${entry.displayName}-${index}`}
+                entry={entry}
+                isLast={index === leaderboard.entries.length - 1}
+              />
+            ))
+          ) : (
+            <View style={styles.emptyContainer}>
+              <EmptyState
+                title="아직 집계된 랭킹이 없어요"
+                description="이번 주 첫 운동을 완료하고 랭킹을 시작해 보세요."
+              />
+            </View>
+          )}
         </Card>
-      ) : null}
 
-      <Card padding={0} gap={0}>
-        <View style={styles.rankingSectionHeader}>
-          <AppText variant="label" tone="muted">
-            전체 랭킹
+        <View style={styles.footer}>
+          <AppText
+            variant="caption"
+            weight="500"
+            tone="hint"
+            wordBreak
+            style={styles.footerText}>
+            완료 운동을 기준으로 매주 월요일 새로 시작해요. 하루 5분 이상을 1일로
+            인정하고, 같은 일수에서는 하루 최대 2시간의 운동 시간으로 순위를 정해요.
           </AppText>
         </View>
-        {leaderboard.entries.length > 0 ? (
-          leaderboard.entries.map((entry, index) => (
-            <LeaderboardRow
-              key={`${entry.rank}-${entry.displayName}-${index}`}
-              entry={entry}
-              isLast={index === leaderboard.entries.length - 1}
-            />
-          ))
-        ) : (
-          <View style={styles.emptyContainer}>
-            <EmptyState
-              title="아직 집계된 랭킹이 없어요"
-              description="이번 주 첫 운동을 완료하고 랭킹을 시작해 보세요."
-            />
-          </View>
-        )}
-      </Card>
-
-      <AppText variant="caption" tone="hint" style={styles.policyNote}>
-        완료 운동을 기준으로 매주 월요일 새로 시작해요. 하루 5분 이상을 1일로
-        인정하고, 같은 일수에서는 하루 최대 2시간의 운동 시간으로 순위를 정해요.
-      </AppText>
+      </ScrollView>
     </Screen>
   );
 }
@@ -633,17 +643,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
-  readyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
+  rankingScroll: {
+    flex: 1,
   },
-  readyIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: radius.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
+  rankingContent: {
+    paddingBottom: spacing.xxl,
+    gap: spacing.lg,
+  },
+  rankingTitleBlock: {
+    gap: spacing.xxs,
+  },
+  rankingNotices: {
+    gap: spacing.sm,
+  },
+  stickyMyRanking: {
+    zIndex: 1,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.sm,
   },
   rankingSectionHeader: {
     paddingHorizontal: spacing.md,
@@ -672,7 +688,12 @@ const styles = StyleSheet.create({
   emptyContainer: {
     padding: spacing.md,
   },
-  policyNote: {
+  footer: {
+    alignItems: 'center',
+    gap: spacing.xxs,
+    paddingVertical: spacing.sm,
+  },
+  footerText: {
     textAlign: 'center',
     paddingHorizontal: spacing.sm,
   },

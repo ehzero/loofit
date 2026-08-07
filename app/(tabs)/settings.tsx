@@ -493,10 +493,20 @@ export default function SettingsScreen() {
         </Card>
 
         <View style={styles.footer}>
-          <AppText variant="label" weight="500" tone="hint">
+          <AppText
+            variant="label"
+            weight="500"
+            tone="hint"
+            wordBreak
+            style={styles.footerText}>
             {BRAND.tagline}
           </AppText>
-          <AppText variant="caption" weight="500" tone="hint">
+          <AppText
+            variant="caption"
+            weight="500"
+            tone="hint"
+            wordBreak
+            style={styles.footerText}>
             © {new Date().getFullYear()} {BRAND.displayName}. All rights reserved.
           </AppText>
         </View>
@@ -574,5 +584,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xxs,
     paddingVertical: spacing.sm,
+  },
+  footerText: {
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
   },
 });
