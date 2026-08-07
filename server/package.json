@@ -1,0 +1,23 @@
+{
+  "name": "@loofit/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run typecheck && npm test"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "8.10.162",
+    "@types/node": "22.20.1",
+    "esbuild": "0.28.1",
+    "typescript": "~6.0.3",
+    "vitest": "4.1.10"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "3.1105.0",
+    "@aws-sdk/client-kms": "3.1105.0",
+    "@aws-sdk/lib-dynamodb": "3.1105.0"
+  }
+}

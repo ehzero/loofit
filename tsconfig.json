@@ -16,6 +16,8 @@
     "expo-env.d.ts"
   ],
   "exclude": [
+    "infra",
+    "server",
     "tools/showcase",
     "website"
   ]

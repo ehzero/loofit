@@ -1,0 +1,10 @@
+{
+  "app": "node --import tsx bin/loofit.ts",
+  "context": {
+    "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
+    "@aws-cdk/core:checkSecretUsage": true,
+    "@aws-cdk/core:validateAgainstDefaultRules": true,
+    "@aws-cdk/core:target-partitions": ["aws"],
+    "@aws-cdk/aws-ec2:restrictDefaultSecurityGroup": true
+  }
+}

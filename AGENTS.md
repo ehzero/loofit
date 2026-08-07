@@ -159,6 +159,28 @@
 - 설치된 iOS 바이너리는 `LoofitWidgetsEnabled` 값을 build mode의 기준으로 사용한다. 위젯 활성 빌드에서 App Group DB 디렉터리에 접근할 수 없거나 JS가 다른 build mode를 요청하면 기본 DB로 대체하지 않고 즉시 오류로 처리한다. 앱 전용 빌드만 기본 앱 DB를 정상 사용한다.
 - 운동 명령 정책을 변경하면 `contracts/workout-command-scenarios.json`을 갱신한다. Node 22 `node:sqlite` 기반 TS repository fallback 테스트와 Swift·Kotlin Core 테스트가 같은 시나리오를 실행해 `applied`·`noop`·`stale`·`rejected`, 중복 종료, 운동 부위 수정 범위, 취소 정책의 parity를 검증한다.
 
+## 서버와 AWS 인프라
+
+- 모바일 앱과 네이티브 Core는 저장소 루트와 `modules`에 유지하고, 서버 런타임 코드는 `server`, AWS CDK 코드는 `infra`에 둔다.
+- `server`는 API handler와 이후 도메인·worker 구현을 소유하며 AWS 리소스를 직접 선언하지 않는다. `infra`는 배포·권한·네트워크·데이터 저장소를 소유하며 제품 도메인 로직을 포함하지 않는다.
+- 현재 AWS 환경은 `ap-northeast-2`의 `production` 하나만 운영한다. 추가 환경을 만들기 전까지 모든 스택과 리소스 이름에는 `production`을 명시한다.
+- 프로덕션 영속 데이터 리소스는 삭제 방지와 `RETAIN` 정책을 기본으로 사용한다. CDK stack 제거가 사용자 데이터 삭제를 의미해서는 안 된다.
+- 서버 영속 저장소는 DynamoDB 온디맨드를 사용한다. 사용자 원본 데이터는 `loofit-production-user-data`에 저장하고 35일 PITR을 유지하며, 재생성 가능한 랭킹은 `loofit-production-leaderboard`와 `byScore` GSI에 저장하고 TTL로 정리한다.
+- DynamoDB는 AWS 소유 키 기반 기본 서버 측 암호화를 사용하며, 현재 서버 데이터 계층을 위해 VPC·NAT Gateway·고객 관리 KMS 키·Secrets Manager 비밀값을 추가하지 않는다. 자체 인증 토큰 서명을 위한 비대칭 KMS 키는 데이터 암호화 키와 분리한다.
+- Cognito를 포함한 관리형 인증 제공자나 사용자 디렉터리는 배포하지 않는다. 자체 인증 기반은 `RSA_2048`·`SIGN_VERIFY` KMS 키와 `RS256`, 공개 issuer metadata·JWKS, API Gateway JWT Authorizer로 구성한다. 서명 키는 `RETAIN`하며 비대칭 키는 자동 회전할 수 없으므로 교체 시 신·구 공개키 병행 기간을 둔다.
+- 공개 issuer Lambda에는 `kms:GetPublicKey`만 허용한다. 회원가입·로그인·세션 발급 handler를 구현하기 전까지 어떤 서버 런타임에도 `kms:Sign`을 부여하지 않으며 JWT Authorizer도 보호 API route에 연결하지 않는다.
+- API Gateway는 JWT Authorizer 생성 시 issuer discovery endpoint에 접속해 검증한다. CloudFormation에서 authorizer가 `/.well-known/*` route와 default stage 이후 생성되도록 둔 명시적 의존성을 제거하지 않는다.
+- 현재 JWT issuer는 프로덕션 API Gateway execute-api URL이고 audience는 `loofit-api`다. 커스텀 도메인 없이 이 issuer로 토큰을 발급할 수 있다. 향후 issuer를 바꾸면 기존 Access Token이 새 Authorizer에서 거절되므로 Refresh Token 재발급 또는 구·신 issuer 병행 기간을 둔다.
+- 자체 인증 계정은 `(provider, provider subject)`로 유일하게 식별한다. 같은 카카오 또는 Apple identity의 중복 가입은 금지하지만 서로 다른 provider 간 자동 연결·자동 병합·이메일 기반 중복 제거는 하지 않아 동일 사용자의 provider별 별도 계정을 허용한다.
+- provider subject 원문과 provider token은 저장하지 않는다. identity key에는 `SHA-256(provider + NUL + subject)`의 base64url 값을 사용하며 provider token은 검증 직후 폐기하고 로그에도 남기지 않는다.
+- 인증 사용자·identity·세션은 `loofit-production-user-data` 단일 테이블에 저장한다. `byUser` GSI의 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회하고, 세션 `expiresAt`은 DynamoDB TTL로 정리한다.
+- Refresh Token은 `lrt1.<sessionId>.<32-byte secret>` 형식으로 발급하되 전체 토큰의 SHA-256 해시만 저장한다. 갱신은 기존 해시·미폐기 상태·만료 시각을 조건으로 한 원자적 update로 한 요청만 성공시킨다.
+- 인증 저장 계약과 향후 API 경계는 `docs/auth-contract.md`를 단일 기준으로 사용하고 서버 구현은 `server/src/auth`에 둔다.
+- `/health`와 `/.well-known/*` 이외의 API를 추가하기 전에 카카오·Apple 등 소셜 제공자 토큰 검증, 내부 사용자 식별자, 세션 발급·회전·폐기, 계정 연결·삭제 계약을 먼저 문서화한다.
+- AWS 배포는 현재 선택된 AWS CLI 자격의 계정을 사용하고 계정 ID를 소스에 고정하지 않는다. 리전은 `ap-northeast-2`로 고정한다.
+- 앱은 서버 기능이 연결되기 전까지 기존 Local-first 동작을 유지한다. 인프라 존재만으로 로컬 운동 기록을 전송하거나 개인정보를 수집하지 않는다.
+- `npm run server:check`, `npm run infra:check`, `npm run infra:synth`, `npm run infra:diff`, `npm run infra:deploy`를 서버·인프라 검증과 배포 명령으로 사용한다.
+
 ### 위젯 검증
 
 - 위젯, Live Activity, Android 고정 알림은 Expo Go가 아니라 각 플랫폼 Development Build에서 검증한다.

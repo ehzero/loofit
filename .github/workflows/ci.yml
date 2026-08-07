@@ -80,6 +80,43 @@ jobs:
         working-directory: website
         run: npm run check && npm run build
 
+  server-infrastructure:
+    name: Server and AWS infrastructure
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            server/package-lock.json
+            infra/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Check server boundary
+        working-directory: server
+        run: npm run check
+
+      - name: Install infrastructure dependencies
+        working-directory: infra
+        run: npm ci
+
+      - name: Check and synthesize infrastructure
+        working-directory: infra
+        env:
+          CDK_DEFAULT_ACCOUNT: "000000000000"
+          CDK_DEFAULT_REGION: ap-northeast-2
+        run: npm run check && npm run synth
+
   ios:
     name: iOS full-widget and app-only
     runs-on: macos-26

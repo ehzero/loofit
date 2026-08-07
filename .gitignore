@@ -52,3 +52,7 @@ yarn-error.*
 /android
 /modules/*/android/build/
 /build/
+
+# AWS CDK output
+/infra/cdk.out/
+/infra/.cdk.staging/
