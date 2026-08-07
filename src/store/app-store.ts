@@ -16,7 +16,6 @@ import {
   getOverview,
   moveRoutineDay,
   renameRoutineDay,
-  resetAllData,
   setNextRoutineDay,
   setRoutineDayParts,
   startWorkout,
@@ -102,7 +101,6 @@ type AppState = {
     }
   ) => Promise<AppActionResult>;
   deleteRecord: (id: number) => Promise<AppActionResult>;
-  resetDevData: () => Promise<AppActionResult>;
 };
 
 export function isActionSuccessful(result: AppActionResult): boolean {
@@ -215,7 +213,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     requestWorkoutSyncAfterApplied(result);
     return result;
   },
-  resetDevData: async () => runMutationAction(set, resetAllData),
 }));
 
 function requestWorkoutSyncAfterApplied(result: AppActionResult): void {

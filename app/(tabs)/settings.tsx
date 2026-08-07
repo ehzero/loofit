@@ -32,11 +32,7 @@ import {
 } from '@/src/services/workout-sync/native-workout-backup';
 import { requestWorkoutSync } from '@/src/services/workout-sync/workout-sync-events';
 import { WorkoutRestoreActiveSessionError } from '@/src/db/repository';
-import {
-  isActionSuccessful,
-  shouldDismissAfterAction,
-  useAppStore,
-} from '@/src/store/app-store';
+import { useAppStore } from '@/src/store/app-store';
 import { useTheme } from '@/src/theme/ThemeProvider';
 import { useToast } from '@/src/theme/ToastProvider';
 import {
@@ -99,7 +95,6 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { colors, mode, setMode, accent, setAccent } = useTheme();
   const { showToast } = useToast();
-  const resetDevData = useAppStore((state) => state.resetDevData);
   const refreshApp = useAppStore((state) => state.refresh);
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null);
   const [availableUpdate, setAvailableUpdate] = useState<AppUpdateInfo | null>(null);
@@ -294,7 +289,7 @@ export default function SettingsScreen() {
           <Card gap={spacing.md} style={styles.backupCard}>
             <View style={styles.updateInfo}>
               <View style={[styles.updateIcon, { backgroundColor: colors.surface2 }]}>
-                <Icon name="download" size={18} color={colors.accent} />
+                <Icon name="cloud" size={18} color={colors.accent} />
               </View>
               <View style={styles.updateCopy}>
                 <AppText variant="item">클라우드 백업</AppText>
@@ -321,8 +316,7 @@ export default function SettingsScreen() {
                   다시 확인
                 </AppText>
               </Pressable>
-            ) : backupStatus?.kind === 'connected' ||
-            backupStatus?.kind === 'restoreAvailable' ? (
+            ) : backupStatus?.kind === 'restoreAvailable' ? (
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="백업에서 운동 기록 가져오기"
@@ -382,7 +376,7 @@ export default function SettingsScreen() {
         <Card padding={0} gap={0} style={styles.group}>
           <ListRow
             title="앱 정보"
-            divider
+            divider={isSignedIn}
             right={
               <AppText variant="body" tone="muted">
                 {BRAND.displayName}
@@ -467,13 +461,7 @@ export default function SettingsScreen() {
                     },
                   })
                 }
-                style={[
-                  styles.actionRow,
-                  {
-                    borderBottomColor: colors.line,
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                  },
-                ]}>
+                style={styles.actionRow}>
                 <AppText variant="item" tone="danger">
                   회원 탈퇴
                 </AppText>
@@ -481,31 +469,6 @@ export default function SettingsScreen() {
               </Pressable>
             </>
           ) : null}
-          <Pressable
-            onPress={() =>
-              setConfirm({
-                title: '로컬 데이터를 초기화할까요?',
-                description: '모든 운동 기록과 루틴이 삭제되고 첫 사용 화면으로 돌아가요.',
-                confirmLabel: '초기화',
-                danger: true,
-                onConfirm: async () => {
-                  const result = await resetDevData();
-                  if (isActionSuccessful(result)) {
-                    showToast('데이터를 초기화했어요');
-                    if (isSignedIn) {
-                      void loadBackupStatus();
-                    }
-                  }
-                  return shouldDismissAfterAction(result);
-                },
-              })
-            }
-            style={styles.actionRow}>
-            <AppText variant="item" tone="danger">
-              로컬 데이터 초기화
-            </AppText>
-            <Icon name="trash" size={18} color={colors.danger} />
-          </Pressable>
         </Card>
 
         <Card padding={0} gap={0} style={styles.group}>

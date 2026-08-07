@@ -30,6 +30,7 @@ const ICONS = {
   plus: feather('plus'),
   minus: feather('minus'),
   download: feather('download'),
+  cloud: feather('cloud'),
   checkCircle: feather('check-circle'),
   lock: feather('lock'),
   logOut: feather('log-out'),

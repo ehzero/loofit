@@ -15,7 +15,6 @@ vi.mock('@/src/db/database', () => ({
     }
     return mockedDatabase.current;
   },
-  resetDatabaseForDevelopment: async () => undefined,
   withDatabaseReadTransaction: async <T>(
     task: (database: NodeSQLiteAdapter) => Promise<T>
   ) => {

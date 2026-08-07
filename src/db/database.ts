@@ -159,26 +159,3 @@ export async function seedDefaultBodyParts(db: SQLite.SQLiteDatabase): Promise<v
     }
   });
 }
-
-export async function resetDatabaseForDevelopment(): Promise<void> {
-  const db = await getDatabase();
-  await db.withExclusiveTransactionAsync(async (tx) => {
-    await tx.execAsync(`
-      DELETE FROM workout_session_parts_snapshot;
-      DELETE FROM workout_sessions;
-      DELETE FROM routine_day_parts;
-      DELETE FROM routine_days;
-      DELETE FROM routines;
-      DELETE FROM routine_progress;
-      DELETE FROM app_settings;
-      DELETE FROM body_parts;
-      DELETE FROM workout_sync_outbox;
-      DELETE FROM cloud_backup_state;
-      INSERT INTO cloud_backup_state
-        (id, dataset_id, owner_user_id, last_successful_sync_at, last_error, updated_at)
-      VALUES
-        (1, lower(hex(randomblob(16))), NULL, NULL, NULL, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'));
-    `);
-  });
-  await seedDefaultBodyParts(db);
-}

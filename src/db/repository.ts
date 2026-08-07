@@ -56,10 +56,3 @@ export type {
 } from './repositories/workout-sync-repository';
 export { getAppSetting, setAppSetting } from './repositories/settings-repository';
 export { getOverview } from './queries/overview-query';
-
-import { resetDatabaseForDevelopment } from './database';
-
-export async function resetAllData(): Promise<boolean> {
-  await resetDatabaseForDevelopment();
-  return true;
-}

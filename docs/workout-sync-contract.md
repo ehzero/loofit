@@ -33,7 +33,6 @@ SQLite trigger가 모든 TypeScript·Swift·Kotlin 쓰기 경로에 동일한 �
 - 완료·취소 기록 편집: version을 증가시키고 기존 outbox를 최신 `UPSERT`로 교체한다.
 - 완료·취소 기록을 active로 다시 열기: version을 증가시키고 `DELETE`를 기록한다.
 - 기록 삭제: 로컬 행을 제거하면서 더 높은 version의 `DELETE`를 남긴다.
-- 로컬 데이터 초기화: 생성된 delete outbox를 제거하고 새 `datasetId`를 만든다. 기존 서버 백업을 자동으로 빈 데이터로 덮어쓰지 않는다.
 
 같은 기록을 오프라인에서 여러 번 편집하면 중간 version을 보낼 필요 없이 최신 outbox 하나만 유지한다.
 
@@ -44,6 +43,7 @@ SQLite trigger가 모든 TypeScript·Swift·Kotlin 쓰기 경로에 동일한 �
 - 같은 사용자 재로그인: pending outbox 동기화 재개
 - 다른 사용자 로그인: 로컬에서 차단하고 기록을 전송하지 않음
 - 서버에 다른 `datasetId`가 이미 연결된 사용자: 업로드 전에 백업 metadata를 확인해 자동 업로드를 중단하고 설정에 복원 진입점을 표시
+- 로컬·서버 `datasetId`가 같은 사용자: 설정에 마지막 백업 시각만 표시하고 복원 액션은 노출하지 않음
 - 같은 사용자의 다른 dataset 복원: 명시적 병합이 완료되면 로컬 dataset을 서버 dataset으로 변경하고 로컬에만 있는 기록을 outbox로 업로드
 - 다른 사용자 계정: 로컬에서 차단하고 자동 이전·병합하지 않음
 - 회원 탈퇴: 서버 backup·기록·tombstone을 모두 삭제하지만 로컬 dataset의 기존 사용자 바인딩은 유지

@@ -37,7 +37,6 @@ vi.mock('@/src/db/repository', () => ({
   getOverview: repositoryMocks.getOverview,
   moveRoutineDay: vi.fn(),
   renameRoutineDay: vi.fn(),
-  resetAllData: vi.fn(),
   setNextRoutineDay: vi.fn(),
   setRoutineDayParts: vi.fn(),
   startWorkout: repositoryMocks.startWorkout,

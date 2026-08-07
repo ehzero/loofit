@@ -44,6 +44,7 @@
 - 홈은 앱의 중심 화면이며 운동 전, 운동 중, 운동 후 상태를 한 화면 흐름 안에서 처리한다.
 - 활성 루틴이 있는 일반 홈 피드에는 핵심 운동 카드 아래에 위젯 안내 카드를 표시한다. 닫기 버튼을 제외한 카드 전체는 `위젯 둘러보기` 화면으로 연결하며 사용자가 닫으면 앱 재실행 후에도 다시 표시하지 않는다. 설정의 `위젯 둘러보기` 진입점은 항상 유지한다.
 - 설정은 iOS에서 한국 App Store의 공개 버전, Android에서 Google Play 인앱 업데이트 가용성을 조회해 새 버전이 있을 때만 업데이트 카드를 표시한다. 카드 자체는 누를 수 없고 카드 안의 버튼만 해당 스토어 제품 페이지로 연결한다. 조회 실패는 설정 사용을 방해하지 않으며 강제 업데이트는 하지 않는다.
+- 설정은 로컬 데이터 전체 초기화 기능을 제공하지 않는다. 운동 기록은 기록 화면에서 개별 삭제할 수 있으며, 기기의 전체 로컬 데이터 삭제는 앱 삭제로 수행한다.
 - 운동 전에는 다음 운동과 시작 액션, 운동 중에는 현재 운동과 경과 시간 및 종료 액션, 운동 후에는 완료 기록과 다음 운동을 우선한다.
 - 홈 최상단의 오늘 운동 완료 카드를 누르면 당일 가장 최근에 완료한 운동의 기록 편집 화면으로 이동한다.
 - 사용자는 첫 실행에서 루틴이 없음을 이해하고, 루틴을 만든 뒤 첫 운동 시작까지 막힘없이 도달할 수 있어야 한다.
@@ -197,7 +198,7 @@
 - 회원 탈퇴 비동기 작업은 `loofit-production-account-deletion` SQS에서 batch 1로 처리하며 5회 실패 시 14일 보관 DLQ로 이동한다. worker는 운동 백업·tombstone, 랭킹, identity·세션을 먼저 삭제하고 `PROFILE`을 마지막에 삭제한다.
 - 탈퇴 처리 중인 사용자는 새 세션 발급·Refresh Token 회전·운동 기록 업로드를 허용하지 않는다. 이미 발급된 Access Token이 남아 있어도 모든 서버 쓰기는 `ACTIVE` 사용자 조건을 함께 검사해 삭제된 데이터를 다시 만들지 못하게 한다.
 - 탈퇴 후 같은 소셜 계정으로 다시 로그인하면 새로운 루핏 사용자로 가입한다. 기존 로컬 백업 dataset의 사용자 연결은 자동으로 이전하거나 초기화하지 않으며, 명시적인 새 계정 백업 전환 기능을 추가하기 전까지 자동 업로드를 차단한다.
-- 완료·취소 운동 기록은 로컬 SQLite가 SSOT이고 서버는 계정별 단방향 백업이다. DB v2 trigger가 모든 TS·Swift·Kotlin 운동 쓰기 경로에서 `sync_id`와 단조 revision, `workout_sync_outbox`를 원자적으로 관리한다. `cloud_backup_state`의 dataset은 최초 동기화 사용자에게 바인딩하며 다른 사용자에게는 이전하지 않는다. 같은 사용자의 다른 서버 dataset은 자동 업로드를 중단하고 설정의 명시적 복원에서만 로컬 기록과 병합한 뒤 서버 dataset으로 다시 연결한다.
+- 완료·취소 운동 기록은 로컬 SQLite가 SSOT이고 서버는 계정별 단방향 백업이다. DB v2 trigger가 모든 TS·Swift·Kotlin 운동 쓰기 경로에서 `sync_id`와 단조 revision, `workout_sync_outbox`를 원자적으로 관리한다. `cloud_backup_state`의 dataset은 최초 동기화 사용자에게 바인딩하며 다른 사용자에게는 이전하지 않는다. 같은 사용자의 다른 서버 dataset은 자동 업로드를 중단하고 설정의 명시적 복원에서만 로컬 기록과 병합한 뒤 서버 dataset으로 다시 연결한다. 설정의 `백업에서 기록 가져오기` 액션은 다른 서버 dataset이 발견된 경우에만 표시하고, 현재 dataset과 정상 연결된 상태에서는 마지막 백업 시각만 표시한다.
 - 운동 기록 동기화는 로그인 성공 직후, 운동 완료·취소, 기록 편집·삭제의 1.5초 debounce, 앱 시작·foreground, 외부 운동 명령 확인 후와 foreground backoff 재시도에서 실행한다. 랭킹 탭 진입과 로그아웃 직전에는 별도 실행하지 않으며 background timer에 의존하지 않는다. 상세 계약은 `docs/workout-sync-contract.md`를 따른다.
 - `POST /v1/workouts/sync`는 JWT Authorizer로 보호하고 최대 50개 operation을 받는다. DynamoDB에는 `USER#<userId>`·`WORKOUT#<syncId>`로 전체 기록 또는 삭제 tombstone을 저장한다. 높은 revision만 적용하고 server revision이 더 높으면 앱이 로컬 payload를 유지한 채 더 높은 revision으로 재전송한다.
 - `GET /v1/workouts/backup`과 `GET /v1/workouts/backup/records`는 JWT Authorizer로 보호하며 dataset·backup revision과 최대 100개씩의 기록·tombstone page를 반환한다. 복원은 모든 page와 전후 revision을 검증한 뒤 진행 중 운동이 없을 때 SQLite 단일 transaction으로 실행한다. 서버에만 있는 기록은 추가하고 같은 `sync_id`는 높은 revision을 적용하며 로컬에만 있는 기록은 outbox에 유지한다. 복원 기록은 과거 snapshot으로 표시하고 루틴 설정과 다음 운동 위치를 변경하지 않는다.
