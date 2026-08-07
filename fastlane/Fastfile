@@ -108,7 +108,7 @@ def testflight_delivery_options
   UI.user_error!("APP_STORE_BUILD_NUMBER is required") if build_number.to_s.empty?
   UI.user_error!("APP_STORE_VERSION is required") if version.to_s.empty?
 
-  what_to_test_path = File.expand_path("metadata/testflight/what_to_test.txt", __dir__)
+  what_to_test_path = File.expand_path("testflight/what_to_test.txt", __dir__)
   UI.user_error!("Missing TestFlight What to Test at #{what_to_test_path}") unless File.file?(what_to_test_path)
 
   {
