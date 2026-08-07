@@ -13,10 +13,10 @@
 - AWS Region: `ap-northeast-2`
 - CDK stacks:
   - `LoofitProductionData`: DynamoDB 사용자 데이터·랭킹 테이블
-  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 운동 기록 업로드·백업 조회, 회원 탈퇴 API·삭제 queue/worker, 자체 인증, API/Lambda 로그와 경보
+  - `LoofitProductionService`: HTTP API, `/health`, Kakao·Apple 로그인·토큰 갱신, `/v1/me`, 운동 기록 업로드·백업 조회, 주간 랭킹 조회·집계, 회원 탈퇴 API·삭제 queue/worker, 자체 인증, API/Lambda 로그와 경보
 - DynamoDB는 삭제 방지 및 `RETAIN` 정책을 사용한다.
 - DynamoDB는 `PAY_PER_REQUEST`로 운영하며 테이블별 최대 처리량을 읽기 1,000, 쓰기 500 request unit/초로 제한한다.
-- 사용자 데이터 테이블 `loofit-production-user-data`는 `pk`·`sk` 복합 키, 35일 시점 복구(PITR), 세션 정리용 `expiresAt` TTL을 사용한다. `byUser` GSI는 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회한다.
+- 사용자 데이터 테이블 `loofit-production-user-data`는 `pk`·`sk` 복합 키, 35일 시점 복구(PITR), 세션 정리용 `expiresAt` TTL과 `KEYS_ONLY` DynamoDB Stream을 사용한다. `byUser` GSI는 `gsi1pk`·`gsi1sk`로 사용자에 귀속된 identity와 세션을 역조회한다.
 - 랭킹 테이블 `loofit-production-leaderboard`는 `period`·`userId` 복합 키, `byScore` GSI, 계정 삭제 역조회용 `byUser` GSI, `expiresAt` TTL을 사용한다. 랭킹은 원본 기록에서 다시 만들 수 있는 파생 데이터이므로 PITR은 사용하지 않는다.
 - 두 테이블은 DynamoDB 기본 서버 측 암호화(AWS 소유 키)를 사용한다. 전용 VPC, NAT Gateway, 데이터 암호화용 고객 관리 KMS 키, DB 비밀값은 만들지 않는다.
 
@@ -35,7 +35,7 @@
 - API Gateway JWT Authorizer
   - issuer: 프로덕션 API Gateway URL
   - audience: `loofit-api`
-  - `Authorization: Bearer <JWT>`에서 토큰을 읽고 `GET /v1/me`, `POST /v1/account/deletion`, `POST /v1/workouts/sync`, `GET /v1/workouts/backup`, `GET /v1/workouts/backup/records`를 보호한다.
+  - `Authorization: Bearer <JWT>`에서 토큰을 읽고 `GET /v1/me`, `POST /v1/account/deletion`, `POST /v1/workouts/sync`, `GET /v1/workouts/backup`, `GET /v1/workouts/backup/records`, `GET /v1/leaderboards/weekly`를 보호한다.
 
 ## 운동 기록 단방향 백업
 
@@ -48,6 +48,15 @@
 - 업로드가 완료된 batch마다 dataset 상태의 `backupRevision`과 `updatedAt`을 갱신한다. 앱은 업로드 전에 서버 dataset을 확인하고 다른 dataset이면 자동 업로드를 중단한다.
 - `GET /v1/workouts/backup`은 dataset·revision·마지막 백업 시각을 반환하고 `GET /v1/workouts/backup/records`는 DynamoDB의 기록·tombstone을 최대 100개씩 일관 읽기로 반환한다.
 - 앱은 설정의 명시적 확인 후 모든 page와 전후 revision을 검증하고 SQLite 단일 transaction으로 병합한다. 로컬 기록 전체 교체, 자동 다중 기기 동기화, 다른 계정 dataset 병합은 수행하지 않는다.
+
+## 주간 익명 랭킹
+
+- 로그인한 회원은 별도 참여 절차 없이 한국시간 월요일 시작 주간 랭킹에 자동 참여한다.
+- 점수는 서버 백업의 완료 기록만 사용해 운동한 날을 우선하고 하루 최대 2시간의 인정 운동 시간을 동점 기준으로 계산한다. 상세 기준은 [`ranking-contract.md`](./ranking-contract.md)를 따른다.
+- 사용자 데이터 Stream은 `KEYS_ONLY`로 운동 payload를 복제하지 않고 `BACKUP#WORKOUTS` revision 변경만 집계 trigger로 사용한다.
+- `loofit-production-leaderboard-worker`는 현재 주 기록을 재계산하고 `sourceRevision` 조건으로 최신 결과를 보호한다. 인정 기록이 없으면 score 없는 marker를 저장해 같은 revision을 반복 집계하지 않는다.
+- `GET /v1/leaderboards/weekly`는 JWT 사용자에게 상위 50명과 자신의 순위를 반환한다. 표시명은 매주 바뀌는 `루핏 XXXX`이며 실제 이름·소셜 프로필·운동 부위·시각·메모는 반환하지 않는다.
+- 랭킹 item과 marker는 주 종료 90일 후 TTL로 정리하고 회원 탈퇴 worker는 TTL을 기다리지 않고 모두 삭제한다.
 
 - 카카오 로그인
   - `POST /v1/auth/kakao/exchange`는 네이티브 Kakao SDK의 ID Token을 우선 지원하고 웹에서는 Authorization Code를 카카오 토큰 endpoint로 교환한다.
@@ -92,7 +101,7 @@ API Gateway는 JWT Authorizer를 생성할 때 issuer discovery endpoint를 실�
 - 자동 다중 기기 동기화와 서버 백업으로 로컬 전체 교체
 - 계정 전환 시 로컬 dataset 이전
 - 분석 이벤트 저장소
-- 랭킹 집계·동점 처리·부정 기록 방지
+- 친구·지역·운동 부위별 랭킹과 고도화된 부정 이용 탐지
 - 광고와 인앱 결제
 - 사용자 도메인과 TLS 인증서
 - 경보 수신 SNS 구독
@@ -124,7 +133,7 @@ npm run infra:deploy
 
 `infra:deploy`는 IAM 권한 확대가 있으면 CDK 승인을 요구한다. 배포 계정 ID는 저장소에 고정하지 않으며 CDK가 현재 AWS CLI 자격에서 해석한다.
 
-배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `AccountDeletionUrl`, `WorkoutSyncUrl`, `WorkoutBackupUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
+배포 후 `LoofitProductionService` stack의 `HealthUrl`, `KakaoExchangeUrl`, `AppleExchangeUrl`, `RefreshUrl`, `LogoutUrl`, `MeUrl`, `AccountDeletionUrl`, `WorkoutSyncUrl`, `WorkoutBackupUrl`, `WeeklyLeaderboardUrl`, `JwtIssuer`, `JwksUrl`, `JwtAudience` output을 확인한다. JWKS 응답에는 `kid`, `kty=RSA`, `alg=RS256`, `use=sig`가 있어야 한다.
 
 ## 운영 주의사항
 

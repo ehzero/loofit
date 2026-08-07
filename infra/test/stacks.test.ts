@@ -44,6 +44,9 @@ describe('Loofit production infrastructure', () => {
           PointInTimeRecoveryEnabled: true,
           RecoveryPeriodInDays: 35,
         },
+        StreamSpecification: {
+          StreamViewType: 'KEYS_ONLY',
+        },
         TableName: 'loofit-production-user-data',
         TimeToLiveSpecification: {
           AttributeName: 'expiresAt',
@@ -222,6 +225,33 @@ describe('Loofit production infrastructure', () => {
     });
     template.hasResourceProperties('AWS::Lambda::Function', {
       Architectures: ['arm64'],
+      FunctionName: 'loofit-production-leaderboard-worker',
+      Runtime: 'nodejs22.x',
+      Timeout: 30,
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          LEADERBOARD_SCORE_INDEX_NAME: 'byScore',
+          LEADERBOARD_TABLE_NAME: Match.anyValue(),
+          USER_DATA_TABLE_NAME: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
+      FunctionName: 'loofit-production-leaderboard',
+      Runtime: 'nodejs22.x',
+      TracingConfig: { Mode: 'Active' },
+      Environment: {
+        Variables: Match.objectLike({
+          LEADERBOARD_SCORE_INDEX_NAME: 'byScore',
+          LEADERBOARD_TABLE_NAME: Match.anyValue(),
+          USER_DATA_TABLE_NAME: Match.anyValue(),
+        }),
+      },
+    });
+    template.hasResourceProperties('AWS::Lambda::Function', {
+      Architectures: ['arm64'],
       FunctionName: 'loofit-production-auth-refresh',
       Runtime: 'nodejs22.x',
       TracingConfig: { Mode: 'Active' },
@@ -335,6 +365,11 @@ describe('Loofit production infrastructure', () => {
       AuthorizerId: Match.anyValue(),
       RouteKey: 'GET /v1/workouts/backup/records',
     });
+    template.hasResourceProperties('AWS::ApiGatewayV2::Route', {
+      AuthorizationType: 'JWT',
+      AuthorizerId: Match.anyValue(),
+      RouteKey: 'GET /v1/leaderboards/weekly',
+    });
     template.hasResourceProperties('AWS::ApiGatewayV2::Authorizer', {
       AuthorizerType: 'JWT',
       IdentitySource: ['$request.header.Authorization'],
@@ -432,6 +467,7 @@ describe('Loofit production infrastructure', () => {
         'SigningKeyArn',
         'WorkoutBackupUrl',
         'WorkoutSyncUrl',
+        'WeeklyLeaderboardUrl',
       ])
     );
     expect(Object.keys(outputs)).not.toEqual(

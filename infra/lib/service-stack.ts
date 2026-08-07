@@ -734,6 +734,160 @@ export class LoofitServiceStack extends Stack {
       })
     );
 
+    const leaderboardWorkerLogGroup = new logs.LogGroup(
+      this,
+      'LeaderboardWorkerLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-leaderboard-worker`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const leaderboardWorkerFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'LeaderboardWorkerFunction',
+      {
+        functionName: `loofit-${config.environmentName}-leaderboard-worker`,
+        description:
+          'Recomputes the anonymous weekly leaderboard from workout backup revisions',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/leaderboard-worker.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(30),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: leaderboardWorkerLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          LEADERBOARD_TABLE_NAME: leaderboardTable.tableName,
+          LEADERBOARD_SCORE_INDEX_NAME:
+            config.dynamodb.leaderboardIndexName,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    leaderboardWorkerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:ConditionCheckItem',
+          'dynamodb:GetItem',
+          'dynamodb:Query',
+          'dynamodb:TransactWriteItems',
+        ],
+        resources: [userDataTable.tableArn],
+      })
+    );
+    leaderboardWorkerFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:DeleteItem',
+          'dynamodb:PutItem',
+          'dynamodb:TransactWriteItems',
+        ],
+        resources: [leaderboardTable.tableArn],
+      })
+    );
+    leaderboardWorkerFunction.addEventSource(
+      new lambdaEventSources.DynamoEventSource(userDataTable, {
+        startingPosition: lambda.StartingPosition.LATEST,
+        batchSize: 100,
+        maxBatchingWindow: Duration.seconds(5),
+        bisectBatchOnError: true,
+        retryAttempts: 3,
+      })
+    );
+
+    const leaderboardLogGroup = new logs.LogGroup(
+      this,
+      'LeaderboardLogGroup',
+      {
+        logGroupName: `/aws/lambda/loofit-${config.environmentName}-leaderboard`,
+        retention: logs.RetentionDays.ONE_MONTH,
+        removalPolicy: RemovalPolicy.DESTROY,
+      }
+    );
+    const leaderboardFunction = new lambdaNodejs.NodejsFunction(
+      this,
+      'LeaderboardFunction',
+      {
+        functionName: `loofit-${config.environmentName}-leaderboard`,
+        description:
+          'Returns the authenticated user weekly anonymous leaderboard',
+        entry: path.join(
+          __dirname,
+          '../../server/src/handlers/leaderboard.ts'
+        ),
+        handler: 'handler',
+        depsLockFilePath: path.join(
+          __dirname,
+          '../../server/package-lock.json'
+        ),
+        runtime: lambda.Runtime.NODEJS_22_X,
+        architecture: lambda.Architecture.ARM_64,
+        memorySize: 256,
+        timeout: Duration.seconds(10),
+        tracing: lambda.Tracing.ACTIVE,
+        logGroup: leaderboardLogGroup,
+        environment: {
+          USER_DATA_TABLE_NAME: userDataTable.tableName,
+          LEADERBOARD_TABLE_NAME: leaderboardTable.tableName,
+          LEADERBOARD_SCORE_INDEX_NAME:
+            config.dynamodb.leaderboardIndexName,
+          NODE_OPTIONS: '--enable-source-maps',
+        },
+        bundling: {
+          target: 'node22',
+          format: lambdaNodejs.OutputFormat.CJS,
+          minify: true,
+          sourceMap: true,
+          sourcesContent: false,
+          bundleAwsSDK: true,
+        },
+      }
+    );
+    leaderboardFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:ConditionCheckItem',
+          'dynamodb:GetItem',
+          'dynamodb:Query',
+          'dynamodb:TransactWriteItems',
+        ],
+        resources: [userDataTable.tableArn],
+      })
+    );
+    leaderboardFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: [
+          'dynamodb:DeleteItem',
+          'dynamodb:GetItem',
+          'dynamodb:PutItem',
+          'dynamodb:Query',
+          'dynamodb:TransactWriteItems',
+        ],
+        resources: [
+          leaderboardTable.tableArn,
+          `${leaderboardTable.tableArn}/index/*`,
+        ],
+      })
+    );
+
     this.api.addRoutes({
       path: '/health',
       methods: [apigwv2.HttpMethod.GET],
@@ -950,6 +1104,26 @@ export class LoofitServiceStack extends Stack {
       cfnRoute.addResourceDependency(jwtAuthorizer);
     }
 
+    const leaderboardRoutes = this.api.addRoutes({
+      path: '/v1/leaderboards/weekly',
+      methods: [apigwv2.HttpMethod.GET],
+      integration: new integrations.HttpLambdaIntegration(
+        'LeaderboardIntegration',
+        leaderboardFunction
+      ),
+    });
+    for (const route of leaderboardRoutes) {
+      const cfnRoute = route.node.defaultChild;
+      if (!(cfnRoute instanceof apigwv2.CfnRoute)) {
+        throw new Error(
+          'Expected /v1/leaderboards/weekly to synthesize an HTTP API route.'
+        );
+      }
+      cfnRoute.authorizationType = 'JWT';
+      cfnRoute.authorizerId = jwtAuthorizer.ref;
+      cfnRoute.addResourceDependency(jwtAuthorizer);
+    }
+
     new cloudwatch.Alarm(this, 'HealthErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-health-errors`,
       alarmDescription: 'Health Lambda returned at least one error in five minutes.',
@@ -1070,6 +1244,29 @@ export class LoofitServiceStack extends Stack {
       treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
     });
 
+    new cloudwatch.Alarm(this, 'LeaderboardWorkerErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-leaderboard-worker-errors`,
+      alarmDescription:
+        'Leaderboard aggregation Lambda returned at least one error in five minutes.',
+      metric: leaderboardWorkerFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+    new cloudwatch.Alarm(this, 'LeaderboardErrorsAlarm', {
+      alarmName: `loofit-${config.environmentName}-leaderboard-errors`,
+      alarmDescription:
+        'Leaderboard API Lambda returned at least one error in five minutes.',
+      metric: leaderboardFunction.metricErrors({
+        period: Duration.minutes(5),
+      }),
+      threshold: 1,
+      evaluationPeriods: 1,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
     new cloudwatch.Alarm(this, 'ApiServerErrorsAlarm', {
       alarmName: `loofit-${config.environmentName}-api-5xx`,
       alarmDescription: 'Loofit HTTP API returned at least one 5xx response in five minutes.',
@@ -1118,6 +1315,9 @@ export class LoofitServiceStack extends Stack {
     });
     new CfnOutput(this, 'WorkoutBackupUrl', {
       value: `${this.api.apiEndpoint}/v1/workouts/backup`,
+    });
+    new CfnOutput(this, 'WeeklyLeaderboardUrl', {
+      value: `${this.api.apiEndpoint}/v1/leaderboards/weekly`,
     });
     new CfnOutput(this, 'KakaoConfigParameterName', {
       value: config.auth.kakaoConfigParameterName,

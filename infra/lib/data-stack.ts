@@ -36,6 +36,7 @@ export class LoofitDataStack extends Stack {
         pointInTimeRecoveryEnabled: true,
         recoveryPeriodInDays: config.dynamodb.pointInTimeRecoveryDays,
       },
+      stream: dynamodb.StreamViewType.KEYS_ONLY,
       timeToLiveAttribute: 'expiresAt',
     });
     this.userDataTable.addGlobalSecondaryIndex({
